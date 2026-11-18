@@ -1409,7 +1409,15 @@ function ecraVersoes(alvo) {
       { nome: 'apk', etiqueta: 'Ligação para descarregar o APK', tipo: 'url', dica: 'https://...' },
       { nome: 'notas', etiqueta: 'O que mudou', tipo: 'textarea' },
       { nome: 'obrigatoria', etiqueta: 'Importante', tipo: 'checkbox', ajuda: 'Mostrar como atualização importante' }
-    ], v);
+    ], v, {
+      textoGuardar: 'Publicar',
+      previsualizar: prevVersao,
+      confirmar: x => ({
+        titulo: 'Publicar a versão ' + (x.versao || '') + '?',
+        html: '<p>Os telemóveis com uma versão mais antiga passam a ver este aviso para atualizar.</p><p class="suave">Confirma na imagem abaixo se está tudo bem.</p>',
+        sim: 'Sim, publicar'
+      })
+    });
     if (!novo) return;
     if (novo.apk && !urlSegura(novo.apk)) { aviso('A ligação tem de começar por https://', true); return; }
     if (await alterarFicheiro('versao', x => { Object.assign(x, novo, { atualizado: agoraISO(), por: CFG.login }); }, `Plataforma (${CFG.login}): versão ${novo.versao}`)) { aviso('Versão gravada.'); redesenhar(); }
@@ -1467,7 +1475,10 @@ async function rpc(fn, args) {
   try { j = t ? JSON.parse(t) : null; } catch (e) { /* ignora */ }
   if (!r.ok) {
     const m = (j && j.message) || ('Supabase ' + r.status);
-    throw new Error(m === 'sem acesso' ? 'A tua conta GitHub não está na lista de administradores.' : m);
+    if (m === 'sem acesso') throw new Error(CFG.modo === 'local' || !CFG.token
+      ? 'Estás no modo de teste: nada é enviado para a app. Para publicar a sério, sai (Definições › Sair) e entra com a conta GitHub.'
+      : 'A tua conta GitHub não está na lista de administradores.');
+    throw new Error(m);
   }
   return j;
 }
@@ -1624,6 +1635,11 @@ function ecraGestores(alvo) {
              <button class="botao pequeno perigo" data-apagar="${esc(g.login)}">Apagar</button></td></tr>`).join('')}
          </table>`,
         '<button class="botao pequeno principal" data-novo>+ Novo gestor</button>');
+      const opcoesGestor = login => ({
+        textoGuardar: 'Publicar',
+        previsualizar: x => prevGestor(Object.assign({ login }, x), lista),
+        confirmar: () => ({ titulo: 'Gravar este gestor?', html: '<p>A lista muda logo no chat e no formulário de contacto da app.</p>', sim: 'Sim, gravar' })
+      });
       const guardar = async (login, v) => {
         try {
           carregar(true);
@@ -1632,14 +1648,14 @@ function ecraGestores(alvo) {
         } catch (e) { aviso(e.message, true); } finally { carregar(false); }
       };
       $('[data-novo]', alvo).addEventListener('click', async () => {
-        const v = await formulario('Novo gestor', CAMPOS, { ordem: lista.length + 1, ativo: true });
+        const v = await formulario('Novo gestor', CAMPOS, { ordem: lista.length + 1, ativo: true }, opcoesGestor());
         if (!v || !v.nome) return;
         const login = v.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36).slice(-4);
         guardar(login, v);
       });
       $$('[data-editar]', alvo).forEach(b => b.addEventListener('click', async () => {
         const g = lista.find(x => x.login === b.dataset.editar);
-        const v = await formulario('Editar ' + g.nome, CAMPOS, g);
+        const v = await formulario('Editar ' + g.nome, CAMPOS, g, opcoesGestor(g.login));
         if (v && v.nome) guardar(g.login, v);
       }));
       $$('[data-apagar]', alvo).forEach(b => b.addEventListener('click', async () => {
@@ -1790,6 +1806,65 @@ function barrasVotos(opcoes, votos) {
   }).join('') + `<div class="mini">${numero(total)} ${total === 1 ? 'voto' : 'votos'}</div>`;
 }
 
+/** Data como a app a mostra: "18 nov às 21h30". */
+function fimTexto(d) {
+  const x = new Date(d);
+  if (isNaN(x)) return '';
+  const mes = x.toLocaleString('pt-PT', { month: 'short' }).replace('.', '');
+  return `${x.getDate()} ${mes} às ${String(x.getHours()).padStart(2, '0')}h${String(x.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Como a sondagem aparece no Início da app: aberta (para votar) e depois com o resultado. */
+function prevSondagem(pergunta, opcoes, fecha, votos) {
+  opcoes = opcoes.length ? opcoes : ['Resposta 1', 'Resposta 2'];
+  votos = votos || opcoes.map(() => 0);
+  const total = votos.reduce((a, b) => a + b, 0);
+  const venc = total ? votos.indexOf(Math.max(...votos)) : -1;
+  const fim = fecha ? fimTexto(fecha) : '';
+  const cartaoTopo = `<div class="tm-cartao tm-p"><div class="tm-etiqueta">SONDAGEM DO BI · VOTA</div>
+      <b class="tm-grande">${esc(pergunta || 'A tua pergunta')}</b>
+      ${opcoes.map(o => `<span class="tm-opcao">${esc(o)}</span>`).join('')}
+      <div class="tm-mini">Vê os resultados depois de votares.${fim ? ` Termina a ${esc(fim)}.` : ''}</div></div>`;
+  const cartaoRes = `<div class="tm-cartao tm-p"><div class="tm-etiqueta">RESULTADO DA SONDAGEM</div>
+      <b class="tm-grande">${esc(pergunta || 'A tua pergunta')}</b>
+      ${opcoes.map((o, i) => { const pc = total ? Math.round((votos[i] || 0) / total * 100) : 0;
+        return `<div class="tm-res"><i style="width:${pc}%"></i><span>${i === venc ? '🏆 ' : ''}${esc(o)}</span><b>${pc}%</b></div>`; }).join('')}
+      <div class="tm-mini">${numero(total)} ${total === 1 ? 'voto' : 'votos'} · votação terminada</div></div>`;
+  return telemovel(`<div class="tm-seccao">Início — enquanto está aberta</div>${cartaoTopo}
+      <div class="tm-mini" style="text-align:center">(a foto do BI e o "Feito por benfiquistas" ficam escondidos)</div>`,
+      'No topo do Início, no lugar da foto do BI' + (fim ? ` — até ${esc(fim)}` : ''))
+    + telemovel(`<div class="tm-cartao tm-p tm-suave" style="text-align:center">Feito por benfiquistas</div>
+      <div class="tm-seccao">Depois de terminar (48 horas)</div>${cartaoRes}`,
+      'Resultado por baixo do "Feito por benfiquistas"; depois vai para o Histórico de sondagens (menu ⋮)');
+}
+
+/** Lê as respostas escritas no formulário (uma por linha, no máximo 80 letras cada). */
+function opcoesSondagem(texto) {
+  return String(texto || '').split('\n').map(t => t.trim()).filter(Boolean).map(t => t.slice(0, 80));
+}
+
+/** Janela "Aprovar e publicar?" da versão da app, com o aviso que aparece nos telemóveis. */
+function prevVersao(v) {
+  return telemovel(`<div style="flex:1"></div>
+    <div class="tm-dialogo"><div class="tm-etiqueta">${v.obrigatoria ? 'ATUALIZAÇÃO IMPORTANTE' : 'HÁ UMA VERSÃO NOVA DA APP'}</div>
+      <div class="tm-suave-claro">${tmTexto(v.notas || '(sem texto do que mudou)')}</div>
+      ${tmBotao('Descarregar versão ' + (v.versao || '?'))}</div><div style="flex:1"></div>`,
+    'Aparece nos telemóveis Android com uma versão mais antiga do que ' + esc(v.versao || '?'));
+}
+
+/** Como a lista de gestores aparece no chat e no formulário de contacto da app. */
+function prevGestor(v, lista) {
+  const outros = (lista || []).filter(g => g.ativo && g.nome !== v.nome && g.login !== v.login);
+  const todos = (v.ativo ? [{ nome: v.nome, funcao: v.funcao, ordem: v.ordem, novo: true }] : []).concat(outros)
+    .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  return telemovel(`<div class="tm-seccao">Chat da app</div>
+    <div class="tm-notif">Tem algum em especial com quem gostava de falar?</div>
+    ${todos.map(g => `<div class="tm-cartao tm-p" style="${g.novo ? 'outline:2px solid #d40000' : ''}"><b>${esc(g.nome || 'Nome')}</b>
+      <div class="tm-mini" style="margin-top:2px">${esc(g.funcao || '')}</div></div>`).join('')}
+    <span class="tm-opcao">Qualquer um</span>`,
+    v.ativo ? 'O contorno encarnado é o que estás a gravar. O email nunca aparece na app.' : 'Desligado: não aparece na app.');
+}
+
 async function novaSondagem() {
   const v = await formulario('Nova sondagem', [
     { nome: 'pergunta', etiqueta: 'Pergunta', tipo: 'text', dica: 'Ex.: Quem deve ser o titular na baliza?' },
@@ -1797,7 +1872,14 @@ async function novaSondagem() {
     { nome: 'fecha', etiqueta: 'Termina no dia e hora', tipo: 'datetime-local' }
   ], {}, {
     textoGuardar: 'Enviar para aprovação',
-    nota: 'Só aparece na app depois de outro administrador aprovar. Enquanto está aberta fica no topo do Início, no lugar da foto do BI; quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois vai para o "Histórico de sondagens" no menu ⋮. Cada telemóvel vota uma vez.',
+    previsualizar: x => prevSondagem(x.pergunta, opcoesSondagem(x.opcoes), x.fecha),
+    confirmar: () => ({
+      titulo: 'Enviar a sondagem para aprovação?',
+      html: `<p>A sondagem vai para <b>aprovação</b>: só aparece na app depois de <b>outro administrador</b> aprovar.</p>
+             <p class="suave">Confirma nas imagens abaixo se está tudo bem.${CFG.modo === 'local' ? ' <b>Modo de teste:</b> nada vai ser enviado.' : ''}</p>`,
+      sim: 'Sim, enviar'
+    }),
+    nota: (CFG.modo === 'local' ? '<b>Modo de teste:</b> podes experimentar e pré-visualizar, mas a sondagem não é enviada. Para publicar a sério entra com a conta GitHub.<br><br>' : '') + 'Só aparece na app depois de outro administrador aprovar. Enquanto está aberta fica no topo do Início, no lugar da foto do BI; quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois vai para o "Histórico de sondagens" no menu ⋮. Cada telemóvel vota uma vez.',
     validar: x => {
       const o = String(x.opcoes || '').split('\n').map(t => t.trim()).filter(Boolean);
       if (!x.pergunta || x.pergunta.trim().length < 3) return 'Escreve a pergunta.';
@@ -1807,7 +1889,11 @@ async function novaSondagem() {
     }
   });
   if (!v) return;
-  const opcoes = String(v.opcoes).split('\n').map(t => t.trim()).filter(Boolean).map(t => t.slice(0, 80));
+  const opcoes = opcoesSondagem(v.opcoes);
+  if (CFG.modo === 'local' || !CFG.token) {
+    aviso('Modo de teste: a sondagem NÃO foi enviada. Para a publicar, sai e entra com a conta GitHub.', true);
+    return;
+  }
   try {
     carregar(true);
     await rpcAdmin('bi_admin_sondagem_criar', { p_pergunta: v.pergunta, p_opcoes: opcoes, p_fecha: v.fecha ? new Date(v.fecha).toISOString() : null });
@@ -1818,7 +1904,11 @@ async function novaSondagem() {
 
 function ecraVotacoes(alvo) {
   if (CFG.modo === 'local') {
-    alvo.innerHTML = cartao('Sondagens e Homem do jogo', '<p class="suave">Só funciona ao entrar com a conta GitHub (não no modo de teste).</p>');
+    alvo.innerHTML = cartao('Sondagens e Homem do jogo', `<p class="aviso mau">Estás no <b>modo de teste</b>: as sondagens não são enviadas para a app.
+      Para publicar a sério, sai (Definições › Sair) e entra com a conta GitHub.</p>
+      <p class="suave">Podes na mesma experimentar o formulário e ver como a sondagem fica na app.</p>`,
+      '<button class="botao pequeno principal" data-nova>＋ Experimentar uma sondagem</button>');
+    $('[data-nova]', alvo).addEventListener('click', novaSondagem);
     return;
   }
   alvo.innerHTML = cartao('Sondagens', '<p class="suave">A carregar…</p>');
@@ -1847,6 +1937,7 @@ function ecraVotacoes(alvo) {
         <div class="mini">Criada por ${esc(s.criada_por)} · ${esc(dataCurta(s.criada))}${s.aprovada_por ? ` · aprovada por ${esc(s.aprovada_por)}` : ''}${s.fecha ? ` · fecha ${esc(dataCurta(s.fecha))}` : ''}</div>
         ${barrasVotos(s.opcoes, s.votos)}
         <div class="linha-acoes">
+          <button class="botao pequeno" data-ver-s="${s.id}">👁 Ver como fica na app</button>
           ${!s.aprovada_por && s.criada_por !== CFG.login ? `<button class="botao pequeno principal" data-aprovar-s="${s.id}">Aprovar</button>` : ''}
           ${!s.aprovada_por && s.criada_por === CFG.login ? '<span class="mini">Espera por outro administrador</span>' : ''}
           ${s.aprovada_por && !s.fechada ? `<button class="botao pequeno" data-fechar-s="${s.id}">Fechar votação</button>` : ''}
@@ -1865,8 +1956,17 @@ function ecraVotacoes(alvo) {
       try { carregar(true); await rpcAdmin(fn, { p_id: Number(id) }); aviso(ok); } catch (e) { aviso(e.message, true); } finally { carregar(false); }
       redesenhar();
     };
-    $$('[data-aprovar-s]', alvo).forEach(b => b.addEventListener('click', () => {
-      if (confirm('Aprovar? A sondagem passa a aparecer na app.')) acao('bi_admin_sondagem_aprovar', b.dataset.aprovarS, 'Aprovada: já está na app.');
+    const sondPorId = id => sond.find(x => String(x.id) === String(id));
+    $$('[data-ver-s]', alvo).forEach(b => b.addEventListener('click', () => {
+      const x = sondPorId(b.dataset.verS);
+      mostrarPrevisualizacao(prevSondagem(x.pergunta, x.opcoes || [], x.fecha, x.votos));
+    }));
+    $$('[data-aprovar-s]', alvo).forEach(b => b.addEventListener('click', async () => {
+      const x = sondPorId(b.dataset.aprovarS);
+      const ok = await perguntar('Aprovar e publicar?',
+        `<p>Com a tua aprovação a sondagem <b>aparece logo no topo do Início</b> da app${x.fecha ? ` e fica aberta até <b>${esc(fimTexto(x.fecha))}</b>` : ''}.</p>
+         <div class="prev-pequena">${prevSondagem(x.pergunta, x.opcoes || [], x.fecha, x.votos)}</div>`, 'Sim, publicar', 'Cancelar');
+      if (ok) acao('bi_admin_sondagem_aprovar', b.dataset.aprovarS, 'Aprovada: já está na app.');
     }));
     $$('[data-fechar-s]', alvo).forEach(b => b.addEventListener('click', () => {
       if (confirm('Fechar a votação? Os resultados continuam visíveis na app durante uns dias.')) acao('bi_admin_sondagem_fechar', b.dataset.fecharS, 'Votação fechada.');

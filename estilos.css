@@ -480,3 +480,11 @@ a { color: var(--vermelho-claro); }
 /* Janelas (formulários) com cabeçalho branco */
 .modal > header { background: var(--claro); color: var(--escuro-texto); border-bottom-color: var(--claro-linha); border-radius: var(--raio) var(--raio) 0 0; }
 .modal > header h3 { color: var(--escuro-texto); }
+
+/* Pré-visualização das sondagens, da versão da app e dos gestores */
+.tm-opcao { display: block; text-align: center; border: 1px solid #4a515c; border-radius: 99px; padding: 7px 10px; margin-top: 6px; font-weight: 600; }
+.tm-res { position: relative; display: flex; justify-content: space-between; gap: 8px; background: #262b33; border-radius: 8px; padding: 7px 10px; margin-top: 6px; overflow: hidden; }
+.tm-res i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(212, 0, 0, .45); }
+.tm-res span, .tm-res b { position: relative; }
+.tm-dialogo { background: #1d2128; border-radius: 18px; padding: 16px; margin: 0 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+.modal-corpo > .telemovel + p + .telemovel, .prev-pequena .telemovel + p + .telemovel { margin-top: 18px; }
