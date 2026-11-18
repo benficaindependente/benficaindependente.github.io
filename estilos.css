@@ -246,7 +246,7 @@ a { color: var(--vermelho-claro); }
 .cartao-corpo { padding: 16px; }
 .cartao-corpo > :last-child { margin-bottom: 0; }
 
-.grelha { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.grelha { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .azulejo {
   background: var(--fundo-3);
   border: 1px solid var(--linha);
@@ -362,4 +362,46 @@ a { color: var(--vermelho-claro); }
   .aviso { margin: 12px 14px 0; }
   .topo { padding: 12px 14px; }
   .linha-dupla { grid-template-columns: 1fr; }
+}
+
+/* ---------- Fotos no formulário ---------- */
+.campo-imagem .imagem-linha { display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; }
+.miniatura.grande { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--linha); }
+.separador { margin: 18px 0 4px; padding-top: 12px; border-top: 1px solid var(--linha); font-size: .95rem; }
+.atalhos { display: flex; flex-wrap: wrap; gap: 8px; }
+.tabela-numeros td, .tabela-numeros th { white-space: nowrap; }
+.glossario th { width: 150px; text-transform: none; letter-spacing: 0; font-size: .9rem; color: var(--texto); }
+
+/* ---------- Pré-visualização (telemóvel) ---------- */
+.telemovel { width: 280px; border: 10px solid #000; border-radius: 34px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,.5); margin: 0 auto; }
+.tm-ecra { background: #121418; border-radius: 24px; overflow: hidden; min-height: 500px; display: flex; flex-direction: column; color: #eee; font-size: 13px; line-height: 1.35; }
+.tm-barra { display: flex; justify-content: space-between; padding: 6px 16px 2px; font-size: 11px; color: #ccc; }
+.tm-topo { padding: 8px 14px; border-bottom: 1px solid #262a31; }
+.tm-conteudo { flex: 1; display: flex; flex-direction: column; padding: 10px; gap: 10px; }
+.tm-seccao { font-weight: 700; font-size: 14px; }
+.tm-cartao { background: #1d2128; border-radius: 14px; overflow: hidden; }
+.tm-p { padding: 10px 12px; }
+.tm-foto { width: 100%; display: block; max-height: 220px; object-fit: cover; }
+.tm-foto169 { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: flex; align-items: center; justify-content: center; }
+.tm-estadio { background: linear-gradient(135deg, #3a0a12, #7a0f1d); color: #fff8; font-size: 12px; }
+.tm-destaque { background: #5c0a14; border-radius: 16px; overflow: hidden; }
+.tm-grande { font-size: 16px; display: block; margin-bottom: 4px; }
+.tm-suave { color: #b8bec8; margin-top: 4px; }
+.tm-suave-claro { color: #ddd3d5; margin-top: 4px; }
+.tm-mini { color: #9aa3af; font-size: 11px; margin-top: 6px; }
+.tm-etiqueta { color: #ff5a5a; font-size: 10px; font-weight: 800; letter-spacing: .08em; margin-bottom: 4px; }
+.tm-botao { display: inline-block; margin-top: 10px; background: #d40000; color: #fff; border-radius: 99px; padding: 6px 14px; font-weight: 700; font-size: 12px; }
+.tm-patreon { background: linear-gradient(90deg, #5c0a14, #d40000); font-weight: 700; font-size: 12px; }
+.tm-anuncio { display: flex; align-items: center; gap: 8px; background: #1d2128; border-radius: 10px; padding: 8px 10px; margin: 0 -4px; }
+.tm-anuncio span { flex: 1; font-weight: 600; }
+.tm-anuncio em { font-style: normal; font-size: 9px; color: #9aa3af; letter-spacing: .06em; }
+.tm-logo { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; background: #fff; }
+.tm-menu { display: flex; justify-content: space-around; padding: 10px 0 4px; margin: 0 -10px -10px; border-top: 1px solid #262a31; color: #9aa3af; font-size: 10px; }
+.tm-notif { background: #2a2f38; border-radius: 14px; padding: 10px 12px; box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+.prev-pequena { display: flex; flex-direction: column; align-items: center; transform: scale(.82); transform-origin: top center; margin-bottom: -90px; }
+
+@media (max-width: 520px) {
+  .azulejo { padding: 10px 12px; }
+  .azulejo .num { font-size: 1.25rem; }
+  .azulejo .rot { font-size: .78rem; }
 }
