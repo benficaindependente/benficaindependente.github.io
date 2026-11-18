@@ -127,8 +127,9 @@ async function contextoDoDia(): Promise<string> {
   const fmt = new Intl.DateTimeFormat("pt-PT", { timeZone: "Europe/Lisbon", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
   // Equipa principal de futebol: competições seniores, sem formação, equipa B nem femininas.
   const principal = (sport: string, texto: string) =>
-    sport === "Futebol" && /liga portugal|ta[çc]a|champions|campe[õo]es|liga europa|confer[êe]ncia|superta[çc]a|uefa|mundial de clubes/i.test(texto) &&
-    !/sub[\s-]?\d|juniores|juvenis|iniciados|\bB\b|-B\b|feminin|futsal|youth|revelação/i.test(texto);
+    sport === "Futebol" &&
+    /liga portugal(?!\s*2\b)|ta[çc]a de portugal(?!.*feminin)|ta[çc]a da liga|liga dos campe[õo]es|champions|liga europa|confer[êe]ncia|superta[çc]a|mundial de clubes/i.test(texto) &&
+    !/sub[\s-]?\d|jovem|youth|next gen|juniores|juvenis|iniciados|feminin|segunda liga|revela[çc][ãa]o|\bB\b|confer[êe]ncia de imprensa/i.test(texto);
   const etiqueta = (sport: string, texto: string) => principal(sport, texto) ? "Futebol (EQUIPA PRINCIPAL)" : sport;
   const vistos = (Array.isArray(agenda) ? agenda : [])
     .filter((j: any) => j.t > agora - 3 * 3600_000 && !falaDeRivais(`${j.title} ${j.detail} ${j.loc}`))
