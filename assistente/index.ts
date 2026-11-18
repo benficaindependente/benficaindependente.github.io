@@ -128,7 +128,7 @@ async function contextoDoDia(): Promise<string> {
   // Equipa principal de futebol: competições seniores, sem formação, equipa B nem femininas.
   const principal = (sport: string, texto: string) =>
     sport === "Futebol" &&
-    /liga portugal(?!\s*2\b)|ta[çc]a de portugal(?!.*feminin)|ta[çc]a da liga|liga dos campe[õo]es|champions|liga europa|confer[êe]ncia|superta[çc]a|mundial de clubes/i.test(texto) &&
+    /liga portugal(?!\s*2\b)|ta[çc]a de portugal(?!.*feminin)|ta[çc]a da liga|liga dos campe[õo]es|champions|liga europa|confer[êe]ncia|superta[çc]a|mundial de clubes|intercontinental|eus[ée]bio cup/i.test(texto) &&
     !/sub[\s-]?\d|jovem|youth|next gen|juniores|juvenis|iniciados|feminin|segunda liga|revela[çc][ãa]o|\bB\b|confer[êe]ncia de imprensa/i.test(texto);
   const etiqueta = (sport: string, texto: string) => principal(sport, texto) ? "Futebol (EQUIPA PRINCIPAL)" : sport;
   const vistos = (Array.isArray(agenda) ? agenda : [])
