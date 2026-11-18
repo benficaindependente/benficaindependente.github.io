@@ -157,47 +157,56 @@ let modelos: string[] | null = null;
 /** O que aconteceu na última pergunta (para os registos; nunca inclui a chave). */
 let tentativas: string[] = [];
 
-/** Escolhe sozinho os modelos "flash" mais recentes (os nomes mudam com o tempo). */
+/**
+ * Escolhe sozinho os modelos (os nomes mudam com o tempo). Primeiro os "flash-lite":
+ * no plano grátis respondem em 1 a 5 segundos, enquanto os "flash" normais chegam a
+ * demorar quase um minuto. Os "flash" ficam só de reserva.
+ */
 async function escolherModelos(): Promise<string[]> {
   if (modelos) return modelos;
   try {
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": GEMINI } });
-    const lista = ((await r.json()).models ?? []) as any[];
-    const nomes = lista
+    const nomes = (((await r.json()).models ?? []) as any[])
       .filter((m) => (m.supportedGenerationMethods ?? []).includes("generateContent"))
       .map((m) => String(m.name).split("/").pop()!)
-      .filter((n) => n.includes("flash") && !/lite|image|tts|audio|live|exp|thinking/.test(n))
-      .map((n) => ({ n, v: parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) ?? [])[1] ?? "0"), estavel: !n.includes("preview") }))
-      .sort((a, b) => b.v - a.v || Number(b.estavel) - Number(a.estavel));
-    if (nomes.length) modelos = nomes.slice(0, 4).map((x) => x.n);
-  } catch { /* usa o de reserva */ }
-  return modelos ?? ["gemini-2.5-flash"];
+      .filter((n) => n.startsWith("gemini") && n.includes("flash") && !/image|tts|audio|live|exp|thinking|transcribe|omni/.test(n));
+    const versao = (n: string) => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) ?? [])[1] ?? "0");
+    const ordem = (lista: string[]) => lista.sort((a, b) => versao(b) - versao(a) || Number(a.includes("preview")) - Number(b.includes("preview")));
+    const lite = ordem(nomes.filter((n) => n.includes("lite") && !n.includes("latest")));
+    const flash = ordem(nomes.filter((n) => !n.includes("lite") && !n.includes("latest")));
+    const lista = [
+      ...(nomes.includes("gemini-flash-lite-latest") ? ["gemini-flash-lite-latest"] : []),
+      ...lite.slice(0, 2), ...flash.slice(0, 1),
+    ];
+    if (lista.length) modelos = lista;
+  } catch { /* usa os de reserva */ }
+  return modelos ?? ["gemini-flash-lite-latest", "gemini-3.5-flash-lite"];
 }
 
 type Turno = { role: "user" | "model"; parts: { text: string }[] };
 
 async function perguntar(sistema: string, turnos: Turno[]): Promise<string | null> {
   tentativas = [];
+  const fim = Date.now() + 60_000;   // nunca mais de um minuto no total
   for (const modelo of await escolherModelos()) {
-    for (const rapido of [true, false]) {
-      const config: Record<string, unknown> = { temperature: 0.4, maxOutputTokens: 700 };
-      if (rapido) config.thinkingConfig = { thinkingLevel: "low" };
-      try {
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI },
-          body: JSON.stringify({ system_instruction: { parts: [{ text: sistema }] }, contents: turnos, generationConfig: config }),
-          signal: AbortSignal.timeout(20_000),
-        });
-        tentativas.push(`${modelo}${rapido ? "" : "/normal"}: ${r.status}${r.ok ? "" : " " + (await r.clone().text()).slice(0, 160)}`);
-        if (r.status === 400 && rapido) continue;           // modelo sem a opção "pensar pouco"
-        if (!r.ok) break;                                    // 429 sem pedidos grátis / 503 ocupado: modelo seguinte
-        const d = await r.json();
-        const texto = (d.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? "").join("").trim();
-        if (texto) return texto;
-        break;
-      } catch (e) { tentativas.push(`${modelo}: ${e instanceof Error ? e.name : "erro"}`); break; }
-    }
+    const resta = fim - Date.now();
+    if (resta < 5_000) break;
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: sistema }] }, contents: turnos,
+          generationConfig: { temperature: 0.4, maxOutputTokens: 700 },
+        }),
+        signal: AbortSignal.timeout(Math.min(modelo.includes("lite") ? 20_000 : 55_000, resta)),
+      });
+      tentativas.push(`${modelo}: ${r.status}`);
+      if (!r.ok) continue;                                   // 429 sem pedidos grátis / 503 ocupado: modelo seguinte
+      const d = await r.json();
+      const texto = (d.candidates?.[0]?.content?.parts ?? []).filter((p: any) => !p.thought).map((p: any) => p.text ?? "").join("").trim();
+      if (texto) return texto;
+    } catch (e) { tentativas.push(`${modelo}: ${e instanceof Error ? e.name : "erro"}`); }
   }
   return null;
 }
@@ -239,7 +248,7 @@ async function adepto(id: string, token: string) {
     texto = await perguntar(regrasAdepto(c.gestores ?? [], await contextoDoDia()), turnos);
     if (texto && falaDeRivais(texto)) { texto = SEM_RIVAIS; rival = true; }
   }
-  if (!texto) { console.log("sem resposta:", tentativas.join(" | ")); return resposta({ erro: "sem resposta", tentativas }, 503); }
+  if (!texto) { console.log("sem resposta:", tentativas.join(" | ")); return resposta({ erro: "sem resposta" }, 503); }
   await rpc("bi_enviar", { p_id: id, p_token: token, p_texto: texto, p_autor: "assistente" });
   return resposta({ texto, rival });
 }
@@ -253,7 +262,7 @@ async function gestor(gh: string, mensagens: { eu: boolean; texto: string }[]) {
   const turnos = arrumar(lista.filter((m) => !falaDeRivais(m.texto))
     .map((m) => ({ role: m.eu ? "user" : "model", parts: [{ text: m.texto }] } as Turno)));
   let texto = await perguntar(REGRAS_GESTOR, turnos);
-  if (!texto) { console.log("sem resposta:", tentativas.join(" | ")); return resposta({ erro: "sem resposta", tentativas }, 503); }
+  if (!texto) { console.log("sem resposta:", tentativas.join(" | ")); return resposta({ erro: "sem resposta" }, 503); }
   if (falaDeRivais(texto)) texto = SEM_RIVAIS;
   return resposta({ texto });
 }
@@ -266,35 +275,6 @@ Deno.serve(async (req) => {
     const b = await req.json();
     if (b.modo === "adepto" && b.id && b.token) return await adepto(String(b.id), String(b.token));
     if (b.modo === "gestor" && b.gh) return await gestor(String(b.gh), b.mensagens);
-    if (b.modo === "diag2") {
-      // Experimenta várias formas de pedir, ao mesmo tempo, e diz quanto demora cada uma.
-      const variantes: [string, Record<string, unknown> | null][] = Array.isArray(b.variantes) ? b.variantes : [];
-      if (b.listar) {
-        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": GEMINI } });
-        return resposta({ nomes: ((await r.json()).models ?? []).map((m: any) => String(m.name).split("/").pop()) });
-      }
-      const out = await Promise.all(variantes.map(async ([m, th]) => {
-        const t = Date.now();
-        try {
-          const cfg: Record<string, unknown> = { maxOutputTokens: 50 };
-          if (th) cfg.thinkingConfig = th;
-          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
-            method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI },
-            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Diz só: ok" }] }], generationConfig: cfg }),
-            signal: AbortSignal.timeout(70_000),
-          });
-          return `${m} ${JSON.stringify(th)}: ${r.status} ${(Date.now() - t) / 1000}s ${(await r.text()).slice(0, 140)}`;
-        } catch (e) { return `${m} ${JSON.stringify(th)}: ${e instanceof Error ? e.name : "erro"} ${(Date.now() - t) / 1000}s`; }
-      }));
-      return resposta({ out });
-    }
-    if (b.modo === "diag") {
-      // Diagnóstico (sem dados de ninguém): que modelos há e quanto demora uma pergunta mínima.
-      const ms = await escolherModelos();
-      const t = Date.now();
-      const r = await perguntar("Responde só: ok", [{ role: "user", parts: [{ text: "Teste" }] }]);
-      return resposta({ modelos: ms, resposta: r, segundos: (Date.now() - t) / 1000, tentativas });
-    }
     return resposta({ erro: "pedido inválido" }, 400);
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
