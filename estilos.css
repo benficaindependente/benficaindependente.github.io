@@ -419,3 +419,64 @@ a { color: var(--vermelho-claro); }
 .voto-barra { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(227, 6, 19, .35); }
 .botao.grande > span:last-child { min-width: 0; }
 .grande-icone { flex: 0 0 auto; }
+
+/* =====================================================================
+   Toque claro: continua escuro, mas com brancos (barra lateral, topo,
+   números, botões grandes e caixa de entrada) para ficar mais leve.
+   ===================================================================== */
+:root {
+  --fundo: #11141a;
+  --fundo-2: #1a1f27;
+  --fundo-3: #242b36;
+  --linha: #303844;
+  --suave: #b3bcc8;
+  --claro: #ffffff;
+  --claro-2: #f3f4f6;
+  --claro-linha: #e3e6ea;
+  --escuro-texto: #1a1f27;
+  --escuro-suave: #5d6673;
+}
+/* Barra lateral branca */
+.barra { background: var(--claro); border-right-color: var(--claro-linha); color: var(--escuro-texto); }
+.barra-topo { border-bottom-color: var(--claro-linha); }
+.barra-logo { border-radius: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, .15); }
+.barra-topo strong { color: var(--escuro-texto); font-size: .95rem; line-height: 1.2; }
+.menu a { color: var(--escuro-texto); }
+.menu a:hover { background: var(--claro-2); }
+.menu a.ativo { background: var(--vermelho); color: #fff; box-shadow: 0 4px 12px rgba(212, 0, 0, .25); }
+.barra-fundo { border-top-color: var(--claro-linha); }
+.barra .botao { background: var(--claro-2); border-color: var(--claro-linha); color: var(--escuro-texto); }
+.barra .botao:hover { background: #e7e9ec; }
+/* Topo branco */
+.topo { background: var(--claro); border-bottom-color: var(--claro-linha); color: var(--escuro-texto); }
+.topo h2 { color: var(--escuro-texto); }
+.topo .suave { color: var(--escuro-suave); }
+.topo .botao { background: var(--claro-2); border-color: var(--claro-linha); color: var(--escuro-texto); }
+/* Botões normais claros (o principal continua encarnado) */
+.botao { background: var(--claro-2); border-color: var(--claro-2); color: var(--escuro-texto); }
+.botao:hover { background: #ffffff; border-color: #ffffff; }
+.botao.principal { color: #fff; }
+.botao.perigo { background: transparent; border-color: #7a2a2a; color: #ff9b9b; }
+.botao.perigo:hover { background: #3a1414; }
+/* Números (azulejos) em cartões brancos */
+.azulejo { background: var(--claro); border-color: var(--claro); color: var(--escuro-texto); }
+.azulejo .num { color: var(--vermelho); }
+.azulejo .rot { color: var(--escuro-suave); }
+/* Botões grandes do "O que queres fazer?" em branco */
+.botao.grande { background: var(--claro); border-color: var(--claro); color: var(--escuro-texto); box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+.botao.grande:hover { background: #ffffff; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0, 0, 0, .3); }
+.botao.grande.principal { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
+.botao.grande .grande-sub { opacity: .7; }
+/* Títulos dos cartões com uma linha encarnada */
+.cartao > header { background: linear-gradient(90deg, rgba(255, 255, 255, .06), transparent); }
+.cartao > header h3 { color: #fff; border-left: 3px solid var(--vermelho); padding-left: 9px; }
+/* Caixa de entrada branca */
+.entrar-caixa { background: var(--claro); border-color: var(--claro); color: var(--escuro-texto); }
+.entrar-logo { border-radius: 18px; box-shadow: 0 6px 18px rgba(0, 0, 0, .25); }
+.entrar-caixa > .suave, .entrar label, .ajuda summary, .ajuda ol { color: var(--escuro-suave); }
+.entrar input { background: var(--claro-2); border-color: var(--claro-linha); color: var(--escuro-texto); }
+.entrar .ajuda { border-color: var(--claro-linha); }
+#entrar-local { background: transparent; border-color: var(--claro-linha); color: var(--escuro-texto); }
+/* Janelas (formulários) com cabeçalho branco */
+.modal > header { background: var(--claro); color: var(--escuro-texto); border-bottom-color: var(--claro-linha); border-radius: var(--raio) var(--raio) 0 0; }
+.modal > header h3 { color: var(--escuro-texto); }
