@@ -154,6 +154,8 @@ async function rpc(fn: string, args: unknown) {
 // ------------------------------------------------------------ Gemini
 
 let modelos: string[] | null = null;
+/** O que aconteceu na última pergunta (para os registos; nunca inclui a chave). */
+let tentativas: string[] = [];
 
 /** Escolhe sozinho os modelos "flash" mais recentes (os nomes mudam com o tempo). */
 async function escolherModelos(): Promise<string[]> {
@@ -175,6 +177,7 @@ async function escolherModelos(): Promise<string[]> {
 type Turno = { role: "user" | "model"; parts: { text: string }[] };
 
 async function perguntar(sistema: string, turnos: Turno[]): Promise<string | null> {
+  tentativas = [];
   for (const modelo of await escolherModelos()) {
     for (const rapido of [true, false]) {
       const config: Record<string, unknown> = { temperature: 0.4, maxOutputTokens: 700 };
@@ -186,13 +189,14 @@ async function perguntar(sistema: string, turnos: Turno[]): Promise<string | nul
           body: JSON.stringify({ system_instruction: { parts: [{ text: sistema }] }, contents: turnos, generationConfig: config }),
           signal: AbortSignal.timeout(25_000),
         });
+        tentativas.push(`${modelo}${rapido ? "" : "/normal"}: ${r.status}`);
         if (r.status === 400 && rapido) continue;           // modelo sem a opção "pensar pouco"
         if (!r.ok) break;                                    // 429 sem pedidos grátis / 503 ocupado: modelo seguinte
         const d = await r.json();
         const texto = (d.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? "").join("").trim();
         if (texto) return texto;
         break;
-      } catch { break; }
+      } catch (e) { tentativas.push(`${modelo}: ${e instanceof Error ? e.name : "erro"}`); break; }
     }
   }
   return null;
@@ -235,7 +239,7 @@ async function adepto(id: string, token: string) {
     texto = await perguntar(regrasAdepto(c.gestores ?? [], await contextoDoDia()), turnos);
     if (texto && falaDeRivais(texto)) { texto = SEM_RIVAIS; rival = true; }
   }
-  if (!texto) return resposta({ erro: "sem resposta" }, 503);
+  if (!texto) { console.log("sem resposta:", tentativas.join(" | ")); return resposta({ erro: "sem resposta", tentativas }, 503); }
   await rpc("bi_enviar", { p_id: id, p_token: token, p_texto: texto, p_autor: "assistente" });
   return resposta({ texto, rival });
 }
@@ -249,7 +253,7 @@ async function gestor(gh: string, mensagens: { eu: boolean; texto: string }[]) {
   const turnos = arrumar(lista.filter((m) => !falaDeRivais(m.texto))
     .map((m) => ({ role: m.eu ? "user" : "model", parts: [{ text: m.texto }] } as Turno)));
   let texto = await perguntar(REGRAS_GESTOR, turnos);
-  if (!texto) return resposta({ erro: "sem resposta" }, 503);
+  if (!texto) { console.log("sem resposta:", tentativas.join(" | ")); return resposta({ erro: "sem resposta", tentativas }, 503); }
   if (falaDeRivais(texto)) texto = SEM_RIVAIS;
   return resposta({ texto });
 }
