@@ -187,9 +187,9 @@ async function perguntar(sistema: string, turnos: Turno[]): Promise<string | nul
           method: "POST",
           headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI },
           body: JSON.stringify({ system_instruction: { parts: [{ text: sistema }] }, contents: turnos, generationConfig: config }),
-          signal: AbortSignal.timeout(25_000),
+          signal: AbortSignal.timeout(20_000),
         });
-        tentativas.push(`${modelo}${rapido ? "" : "/normal"}: ${r.status}`);
+        tentativas.push(`${modelo}${rapido ? "" : "/normal"}: ${r.status}${r.ok ? "" : " " + (await r.clone().text()).slice(0, 160)}`);
         if (r.status === 400 && rapido) continue;           // modelo sem a opção "pensar pouco"
         if (!r.ok) break;                                    // 429 sem pedidos grátis / 503 ocupado: modelo seguinte
         const d = await r.json();
@@ -266,6 +266,13 @@ Deno.serve(async (req) => {
     const b = await req.json();
     if (b.modo === "adepto" && b.id && b.token) return await adepto(String(b.id), String(b.token));
     if (b.modo === "gestor" && b.gh) return await gestor(String(b.gh), b.mensagens);
+    if (b.modo === "diag") {
+      // Diagnóstico (sem dados de ninguém): que modelos há e quanto demora uma pergunta mínima.
+      const ms = await escolherModelos();
+      const t = Date.now();
+      const r = await perguntar("Responde só: ok", [{ role: "user", parts: [{ text: "Teste" }] }]);
+      return resposta({ modelos: ms, resposta: r, segundos: (Date.now() - t) / 1000, tentativas });
+    }
     return resposta({ erro: "pedido inválido" }, 400);
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
