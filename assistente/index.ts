@@ -266,6 +266,30 @@ Deno.serve(async (req) => {
     const b = await req.json();
     if (b.modo === "adepto" && b.id && b.token) return await adepto(String(b.id), String(b.token));
     if (b.modo === "gestor" && b.gh) return await gestor(String(b.gh), b.mensagens);
+    if (b.modo === "diag2") {
+      // Experimenta várias formas de pedir, ao mesmo tempo, e diz quanto demora cada uma.
+      const variantes: [string, Record<string, unknown> | null][] = [
+        ["gemini-3.5-flash", null],
+        ["gemini-3.5-flash", { thinkingLevel: "low" }],
+        ["gemini-3.5-flash", { thinkingLevel: "minimal" }],
+        ["gemini-2.5-flash", { thinkingBudget: 0 }],
+        ["gemini-flash-latest", null],
+      ];
+      const out = await Promise.all(variantes.map(async ([m, th]) => {
+        const t = Date.now();
+        try {
+          const cfg: Record<string, unknown> = { maxOutputTokens: 50 };
+          if (th) cfg.thinkingConfig = th;
+          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
+            method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI },
+            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Diz só: ok" }] }], generationConfig: cfg }),
+            signal: AbortSignal.timeout(70_000),
+          });
+          return `${m} ${JSON.stringify(th)}: ${r.status} ${(Date.now() - t) / 1000}s ${(await r.text()).slice(0, 140)}`;
+        } catch (e) { return `${m} ${JSON.stringify(th)}: ${e instanceof Error ? e.name : "erro"} ${(Date.now() - t) / 1000}s`; }
+      }));
+      return resposta({ out });
+    }
     if (b.modo === "diag") {
       // Diagnóstico (sem dados de ninguém): que modelos há e quanto demora uma pergunta mínima.
       const ms = await escolherModelos();
