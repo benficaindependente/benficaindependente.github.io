@@ -126,30 +126,33 @@ async function contextoDoDia(): Promise<string> {
   const agora = Date.now();
   const fmt = new Intl.DateTimeFormat("pt-PT", { timeZone: "Europe/Lisbon", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
   // Equipa principal de futebol: competições seniores, sem formação, equipa B nem femininas.
-  const principal = (sport: string, texto: string) =>
-    sport === "Futebol" &&
-    /liga portugal(?!\s*2\b)|ta[çc]a de portugal(?!.*feminin)|ta[çc]a da liga|liga dos campe[õo]es|champions|liga europa|confer[êe]ncia|superta[çc]a|mundial de clubes|intercontinental|eus[ée]bio cup/i.test(texto) &&
-    !/sub[\s-]?\d|jovem|youth|next gen|juniores|juvenis|iniciados|feminin|segunda liga|revela[çc][ãa]o|\bB\b|confer[êe]ncia de imprensa/i.test(texto);
-  const etiqueta = (sport: string, texto: string) => principal(sport, texto) ? "Futebol (EQUIPA PRINCIPAL)" : sport;
+  // Equipa principal de futebol (a mesma regra da app: ClubRepository.equipaPrincipal).
+  const principal = (sport: string, titulo: string, detalhe: string) => {
+    const t = `${titulo} ${detalhe}`;
+    if (sport !== "Futebol" || /sub[\s-]?\d|\bu-?\d{2}\b|under[\s-]?\d|jovem|youth|next gen|juniores|juvenis|iniciados|infantis|benjamins|traquinas|feminin|segunda liga|liga 3|revela[çc][ãa]o|international cup|premier league|futsal|\bB\b|confer[êe]ncia de imprensa|treino|apresenta[çc][ãa]o/i.test(t)) return false;
+    if (/liga portugal(?!\s*2\b)|ta[çc]a de portugal|ta[çc]a da liga|liga dos campe[õo]es|champions|liga europa|liga confer[êe]ncia|conference league|superta[çc]a|mundial de clubes|club world cup|intercontinental|eus[ée]bio cup/i.test(t)) return true;
+    return /particular|amig[áa]vel|friendly|pr[ée][\s-]?[ée]poca|torneio|trof[ée]u|\bcup\b|\btaça\b(?!\s+(?:de\s+portugal|da\s+liga))/i.test(t) && /\bvs\b/i.test(titulo) && /Benfica(?!\s+B\b)/.test(titulo);
+  };
+  const etiqueta = (sport: string, titulo: string, detalhe: string) => principal(sport, titulo, detalhe) ? "Futebol (EQUIPA PRINCIPAL)" : sport;
   const vistos = (Array.isArray(agenda) ? agenda : [])
     .filter((j: any) => j.t > agora - 3 * 3600_000 && !falaDeRivais(`${j.title} ${j.detail} ${j.loc}`))
     .sort((a: any, b: any) => a.t - b.t);
   // Os próximos jogos da equipa principal e, de cada modalidade, os 3 seguintes.
   const porMod = new Map<string, number>();
   const prox = vistos.filter((j: any) => {
-    const k = etiqueta(j.sport, `${j.title} ${j.detail}`);
+    const k = etiqueta(j.sport, j.title, j.detail);
     const n = porMod.get(k) ?? 0;
     porMod.set(k, n + 1);
     return n < (k.includes("PRINCIPAL") ? 5 : 3);
   }).slice(0, 40)
-    .map((j: any) => `- ${etiqueta(j.sport, `${j.title} ${j.detail}`)}: ${j.title} — ${fmt.format(new Date(j.t))}${j.detail ? " — " + j.detail : ""}${j.loc ? " — " + j.loc : ""}`);
+    .map((j: any) => `- ${etiqueta(j.sport, j.title, j.detail)}: ${j.title} — ${fmt.format(new Date(j.t))}${j.detail ? " — " + j.detail : ""}${j.loc ? " — " + j.loc : ""}`);
   // Últimos resultados: até 4 por modalidade (a lista vem do mais recente para o mais antigo).
   const porModRes = new Map<string, number>();
   const res = (Array.isArray(resultados) ? resultados : [])
     .filter((r: any) => !falaDeRivais(`${r.h} ${r.a} ${r.v}`))
-    .filter((r: any) => { const k = etiqueta(r.s, r.c); const n = porModRes.get(k) ?? 0; porModRes.set(k, n + 1); return n < 4; })
+    .filter((r: any) => { const k = etiqueta(r.s, `${r.h} vs ${r.a}`, r.c); const n = porModRes.get(k) ?? 0; porModRes.set(k, n + 1); return n < 4; })
     .slice(0, 50)
-    .map((r: any) => `- ${etiqueta(r.s, r.c)}: ${r.h} ${r.hg}–${r.ag} ${r.a} (${r.c}, ${r.d})`);
+    .map((r: any) => `- ${etiqueta(r.s, `${r.h} vs ${r.a}`, r.c)}: ${r.h} ${r.hg}–${r.ag} ${r.a} (${r.c}, ${r.d})`);
   return `Hoje é ${fmt.format(new Date())}.
 Quando perguntarem pelo "próximo jogo" ou "último jogo" do Benfica sem dizer a modalidade, responde com a EQUIPA PRINCIPAL de futebol. Os jogos de formação (Sub-15, Sub-17, Sub-19, Sub-23), equipa B, femininas e outras modalidades só quando os pedirem.
 Próximos jogos:
