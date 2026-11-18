@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="42" fill="#d40000"/>
+  <circle cx="96" cy="96" r="66" fill="#ffffff" opacity="0.10"/>
+  <path d="M96 30 L104 62 L138 62 L111 82 L121 114 L96 94 L71 114 L81 82 L54 62 L88 62 Z"
+        fill="#ffffff" opacity="0.92"/>
+  <text x="96" y="150" font-family="Segoe UI, Arial, sans-serif" font-size="52"
+        font-weight="700" fill="#ffffff" text-anchor="middle">BI</text>
+</svg>

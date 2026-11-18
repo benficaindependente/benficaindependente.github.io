@@ -1,0 +1,16 @@
+{
+  "name": "Plataforma · Benfica Independente",
+  "short_name": "BI Plataforma",
+  "description": "Gestão de conteúdos, anúncios, publicações e administradores da app Benfica Independente.",
+  "lang": "pt-PT",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#111111",
+  "theme_color": "#d40000",
+  "icons": [
+    { "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
