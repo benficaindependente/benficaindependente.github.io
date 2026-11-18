@@ -1638,10 +1638,77 @@ function ecraGestores(alvo) {
 }
 
 /* =============================== Arranque =============================== */
+/* ============================ Ajuda com IA (assistente) ============================ */
+
+const URL_ASSISTENTE = `${SUPABASE_URL}/functions/v1/bi-assistente`;
+const AJUDA = [];   // conversa desta sessão: { eu: true|false, texto }
+let AJUDA_OCUPADO = false;
+const AJUDA_SUGESTOES = [
+  'Como publico um destaque para um evento?',
+  'Como funcionam as duas aprovações?',
+  'Como ponho um anúncio pago e vejo quanto rendeu?',
+  'Escreve-me um aviso para um jantar de adeptos'
+];
+
+function ecraAjuda(alvo) {
+  if (CFG.modo === 'local' || !CFG.token) {
+    alvo.innerHTML = cartao('Ajuda (IA)', '<p class="suave">O assistente só funciona quando se entra com a conta GitHub (não no modo de teste).</p>');
+    return;
+  }
+  const bolhas = AJUDA.map(m => `
+    <div class="mensagem" style="${m.eu ? '' : 'border-left:3px solid var(--vermelho)'}">
+      <div class="mensagem-topo"><strong>${m.eu ? 'Eu' : 'Assistente'}</strong></div>
+      <div>${esc(m.texto).replace(/\n/g, '<br>')}</div>
+    </div>`).join('');
+  alvo.innerHTML = cartao('Ajuda (IA)',
+    `<p class="suave">Pergunta como se faz alguma coisa na plataforma ou na app, ou pede ajuda para escrever um texto. As respostas são geradas por IA (Gemini, grátis): confirma antes de publicar.</p>
+     ${AJUDA.length ? '' : `<div style="margin:10px 0">${AJUDA_SUGESTOES.map(s => `<button class="botao pequeno" data-sugestao="${esc(s)}" style="margin:0 6px 6px 0">${esc(s)}</button>`).join('')}</div>`}
+     <div class="lista" id="ajuda-lista">${bolhas}${AJUDA_OCUPADO ? '<p class="suave">O assistente está a escrever…</p>' : ''}</div>
+     <div class="formulario" style="margin-top:14px">
+       <label>A tua pergunta<textarea id="ajuda-texto" placeholder="Escreve aqui…" ${AJUDA_OCUPADO ? 'disabled' : ''}></textarea></label>
+       <button class="botao principal" data-perguntar ${AJUDA_OCUPADO ? 'disabled' : ''}>Perguntar</button>
+       ${AJUDA.length ? '<button class="botao" data-limpar>Nova conversa</button>' : ''}
+     </div>`);
+  const caixa = $('#ajuda-texto', alvo);
+  const enviar = t => perguntarAjuda(alvo, t);
+  $('[data-perguntar]', alvo).addEventListener('click', () => enviar(caixa.value));
+  caixa.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) enviar(caixa.value); });
+  $$('[data-sugestao]', alvo).forEach(b => b.addEventListener('click', () => enviar(b.dataset.sugestao)));
+  const limpar = $('[data-limpar]', alvo);
+  if (limpar) limpar.addEventListener('click', () => { AJUDA.length = 0; ecraAjuda(alvo); });
+  if (!AJUDA_OCUPADO) caixa.focus();
+}
+
+async function perguntarAjuda(alvo, texto) {
+  texto = (texto || '').trim();
+  if (!texto || AJUDA_OCUPADO) return;
+  AJUDA.push({ eu: true, texto });
+  AJUDA_OCUPADO = true;
+  ecraAjuda(alvo);
+  try {
+    const r = await fetch(URL_ASSISTENTE, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_CHAVE, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modo: 'gestor', gh: CFG.token, mensagens: AJUDA })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (j.limite) AJUDA.push({ eu: false, texto: 'Hoje já se fizeram muitas perguntas (o limite grátis do dia acabou). Tenta amanhã.' });
+    else if (j.texto) AJUDA.push({ eu: false, texto: j.texto });
+    else if (r.status === 403) AJUDA.push({ eu: false, texto: 'A tua conta GitHub não está na lista de administradores.' });
+    else AJUDA.push({ eu: false, texto: 'O assistente não está disponível agora. Tenta daqui a pouco.' + (j.erro ? ` (${j.erro})` : '') });
+  } catch (e) {
+    AJUDA.push({ eu: false, texto: 'Sem ligação ao assistente. Confirma a internet e tenta outra vez.' });
+  } finally {
+    AJUDA_OCUPADO = false;
+  }
+  if (ECRAS_ATIVO === 'ajuda') ecraAjuda(alvo);
+}
+
 ECRAS = [
   { chave: 'painel', nome: 'Painel e alertas', icone: '▦', desenhar: ecraPainel },
   ...Object.keys(TIPOS).map(t => ({ chave: t, nome: TIPOS[t].nome, icone: TIPOS[t].icone, desenhar: ecraConteudo(t) })),
   { chave: 'mensagens', nome: 'Mensagens', icone: '✉', desenhar: ecraMensagens },
+  { chave: 'ajuda', nome: 'Ajuda (IA)', icone: '✦', desenhar: ecraAjuda },
   { chave: 'gestores', nome: 'Gestores (contacto)', icone: '☎', desenhar: ecraGestores },
   { chave: 'videos', nome: 'Programas dos vídeos', icone: '▶', desenhar: ecraVideos },
   { chave: 'monetizacao', nome: 'Monetização', icone: '📊', desenhar: ecraMonetizacao },
