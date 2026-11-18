@@ -87,7 +87,8 @@ function dataCurta(iso) {
 function dataDia(txt) {
   if (!txt) return '';
   const [a, m, d] = String(txt).slice(0, 10).split('-');
-  return d && m && a ? `${d}/${m}/${a}` : String(txt);
+  const hora = String(txt).length >= 16 && String(txt)[10] === 'T' ? ' às ' + String(txt).slice(11, 16) : '';
+  return d && m && a ? `${d}/${m}/${a}${hora}` : String(txt);
 }
 function idNovo() { return 'bi-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7); }
 function urlSegura(u) { return /^https:\/\//i.test(String(u || '').trim()); }
@@ -266,6 +267,7 @@ function porAprovarPorMim(tipo) {
 function marcaDoMenu(chave) {
   if (TIPOS[chave]) return porAprovarPorMim(chave) || '';
   if (chave === 'painel') return alertas().filter(a => a.mau).length || '';
+  if (chave === 'votacoes') return SOND_POR_APROVAR || '';
   if (chave === 'mensagens') return MSG_NOVAS || '';
   return '';
 }
@@ -656,7 +658,10 @@ const TIPOS = {
       { nome: 'link', etiqueta: 'Ligação (site, inscrição, compra)', tipo: 'url', dica: 'https://...', so: 'tipo:publicidade,evento' },
       { nome: 'botao', etiqueta: 'Texto do botão', tipo: 'text', dica: 'Saber mais · Inscrever-me · Comprar', so: 'tipo:publicidade,evento' },
       { nome: 'notificar', etiqueta: 'Notificação', tipo: 'checkbox', ajuda: 'Enviar notificação para os telemóveis', valor: true },
-      ...DATAS, ATIVO
+      { nome: 'de', etiqueta: 'Enviar no dia e hora (opcional)', tipo: 'datetime-local',
+        dica: 'Vazio = sai logo que for aprovado. Com dia e hora, a notificação chega nessa altura (com a app atualizada).' },
+      { nome: 'ate', etiqueta: 'Termina em (opcional)', tipo: 'date' },
+      ATIVO
     ],
     privados: PAGO,
     valido: v => !v.titulo ? 'O aviso precisa de um título.'
@@ -763,11 +768,11 @@ function soCampos(tipo, v) {
   return o;
 }
 
-async function editarConteudo(tipo, id) {
+async function editarConteudo(tipo, id, modelo) {
   const T = TIPOS[tipo];
   const atual = id ? (ler(tipo) || []).find(x => x.id === id) : null;
-  // Se já há uma alteração pendente, parte dela.
-  const base = atual ? Object.assign({}, atual, atual.proposta && atual.proposta.campos ? atual.proposta.campos : {}) : { ativo: true };
+  // Se já há uma alteração pendente, parte dela. Um modelo pronto preenche o formulário.
+  const base = atual ? Object.assign({}, atual, atual.proposta && atual.proposta.campos ? atual.proposta.campos : {}) : Object.assign({ ativo: true }, modelo || {});
   const privAtuais = atual ? (PRIV[atual.id] || {}) : {};
   const campos = T.campos.concat(T.privados || []);
   const publicado = atual && atual.estado === 'publicado';
@@ -798,7 +803,7 @@ async function editarConteudo(tipo, id) {
     } else {
       x.proposta = { campos: novos, autor: CFG.login, criado: agoraISO(), aprovacoes: [CFG.login] };
     }
-  }, `Plataforma (${CFG.login}): ${atual ? 'altera' : 'cria'} ${T.singular}`);
+  }, `Plataforma (${CFG.login}): ${atual ? 'altera' : 'cria'} ${T.singular}${tituloCommit(T.titulo(novos))}`);
   if (ok && T.privados) {
     const priv = {};
     T.privados.filter(c => c.tipo !== 'titulo').forEach(c => { priv[c.nome] = v[c.nome]; });
@@ -825,6 +830,9 @@ async function confirmarAprovacao(tipo, id) {
   return perguntar('Aprovar e publicar?', `<p>${html}</p>${prev}`, 'Sim, publicar', 'Cancelar');
 }
 
+/** Título curto para a mensagem do registo (aparece no Registo de atividade). */
+function tituloCommit(t) { return t ? ` «${String(t).replace(/\s+/g, ' ').slice(0, 60)}»` : ''; }
+
 async function apagarConteudo(tipo, id) {
   const T = TIPOS[tipo];
   const x = (ler(tipo) || []).find(i => i.id === id);
@@ -837,12 +845,13 @@ async function apagarConteudo(tipo, id) {
     if (i < 0) return false;
     if (lista[i].estado !== 'publicado') lista.splice(i, 1);
     else lista[i].proposta = { apagar: true, autor: CFG.login, criado: agoraISO(), aprovacoes: [CFG.login] };
-  }, `Plataforma (${CFG.login}): ${publicado ? 'pede para apagar' : 'apaga'} ${T.singular}`);
+  }, `Plataforma (${CFG.login}): ${publicado ? 'pede para apagar' : 'apaga'} ${T.singular}${tituloCommit(T.titulo(x))}`);
   if (ok) { aviso(publicado ? 'Pedido enviado. Falta a aprovação de outro administrador.' : 'Apagado.'); redesenhar(); }
 }
 
 async function aprovarConteudo(tipo, id) {
   const T = TIPOS[tipo];
+  const antes = (ler(tipo) || []).find(i => i.id === id);
   if (!await confirmarAprovacao(tipo, id)) return;
   let resultado = '';
   const ok = await alterarFicheiro(tipo, lista => {
@@ -863,19 +872,20 @@ async function aprovarConteudo(tipo, id) {
       Object.assign(x, p.campos); delete x.proposta; x.alterado = agoraISO();
       resultado = 'Alteração aprovada: a app já mostra a nova versão.';
     }
-  }, `Plataforma (${CFG.login}): aprova ${T.singular}`);
+  }, `Plataforma (${CFG.login}): aprova ${T.singular}${tituloCommit(antes && T.titulo(antes))}`);
   if (ok) { aviso(resultado); redesenhar(); }
 }
 
 async function rejeitarConteudo(tipo, id) {
   const T = TIPOS[tipo];
+  const antes = (ler(tipo) || []).find(i => i.id === id);
   if (!confirm('Rejeitar? O pedido é retirado (o que já está na app fica igual).')) return;
   const ok = await alterarFicheiro(tipo, lista => {
     const i = lista.findIndex(e => e.id === id);
     if (i < 0) return false;
     if (lista[i].estado !== 'publicado') lista.splice(i, 1);
     else delete lista[i].proposta;
-  }, `Plataforma (${CFG.login}): rejeita ${T.singular}`);
+  }, `Plataforma (${CFG.login}): rejeita ${T.singular}${tituloCommit(antes && T.titulo(antes))}`);
   if (ok) { aviso('Rejeitado.'); redesenhar(); }
 }
 
@@ -930,11 +940,19 @@ function exemploEstatisticas(dias) {
 }
 
 const EST = {};   // dias → linhas
+/** Contagens do uso da app (aberturas, separadores, programas) — não são publicidade. */
+const USO_APP = /^(app|sep|prog):/;
+const EST_TODAS = {};
+async function lerTodasEstatisticas(dias) {
+  if (EST_TODAS[dias]) return EST_TODAS[dias];
+  const linhas = await rpcAdmin('bi_admin_estatisticas', { p_de: dias ? diasAtras(dias - 1) : null });
+  return (EST_TODAS[dias] = linhas || []);
+}
 async function lerEstatisticas(dias) {
   if (EST[dias]) return EST[dias];
   if (CFG.modo === 'local') return exemploEstatisticas(dias);
-  const linhas = await rpcAdmin('bi_admin_estatisticas', { p_de: dias ? diasAtras(dias - 1) : null });
-  return (EST[dias] = linhas || []);
+  const linhas = await lerTodasEstatisticas(dias);
+  return (EST[dias] = linhas.filter(l => !USO_APP.test(l.peca)));
 }
 
 function somar(linhas, id) {
@@ -1081,7 +1099,7 @@ function ecraPainel(alvo) {
     <tr><th>Sessão</th><td>${esc(CFG.nome)} (${esc(CFG.login)}) · ${souDono() ? 'Dono' : 'Administrador'}${CFG.modo === 'local' ? ' · <span class="pilula espera">modo de teste</span>' : ''}</td></tr>
   </table>`);
   alvo.innerHTML = html;
-  $('[data-atualizar]', alvo).addEventListener('click', async () => { Object.keys(EST).forEach(k => delete EST[k]); await contarMensagensNovas(); recarregar(Object.keys(FICHEIROS)); });
+  $('[data-atualizar]', alvo).addEventListener('click', async () => { Object.keys(EST).forEach(k => delete EST[k]); Object.keys(EST_TODAS).forEach(k => delete EST_TODAS[k]); await contarMensagensNovas(); recarregar(Object.keys(FICHEIROS)); });
   $$('[data-ir]', alvo).forEach(b => b.addEventListener('click', e => { e.preventDefault(); irPara(b.dataset.ir); }));
   $$('[data-criar]', alvo).forEach(b => b.addEventListener('click', () => { irPara(b.dataset.criar); editarConteudo(b.dataset.criar, null); }));
 
@@ -1704,11 +1722,238 @@ async function perguntarAjuda(alvo, texto) {
   if (ECRAS_ATIVO === 'ajuda') ecraAjuda(alvo);
 }
 
+
+/* --------------------------- Entrada simples: "O que queres fazer?" --------------------------- */
+const PATREON_LINK = 'https://www.patreon.com/c/slbindependente/home';
+const MODELOS_PRONTOS = [
+  { nome: '🍽 Jantar de adeptos', tipo: 'notificacoes', v: { tipo: 'evento', titulo: 'Jantar de adeptos do Benfica Independente',
+      texto: 'Junta-te a nós! Lugares limitados — inscreve-te já.', legenda: 'Um jantar entre benfiquistas, com os autores do BI. Traz amigos!\n\nPreço: … € por pessoa.',
+      botao: 'Inscrever-me', local: '', notificar: true } },
+  { nome: '🎙 Novo episódio', tipo: 'notificacoes', v: { tipo: 'mensagem', titulo: 'Novo episódio no ar! 🎙️',
+      texto: 'Já podes ouvir o episódio desta semana na app — até com o ecrã desligado.', notificar: true } },
+  { nome: '🔴 Hoje há direto', tipo: 'notificacoes', v: { tipo: 'mensagem', titulo: 'Hoje há direto 🔴',
+      texto: 'Logo à noite estamos em direto. Ouve na app, nos phones ou no carro.', notificar: true } },
+  { nome: '🤝 Parceiro novo', tipo: 'publicacoes', v: { titulo: 'Novo parceiro do BI',
+      texto: 'Damos as boas-vindas a … Obrigado por apoiarem a voz independente do universo encarnado.', botao: 'Saber mais', posicoes: ['inicio'] } },
+  { nome: '❤ Apoia no Patreon', tipo: 'destaques', v: { titulo: 'Apoia o Benfica Independente',
+      texto: 'Com o teu apoio no Patreon continuamos livres e independentes.', botao: 'Apoiar', link: PATREON_LINK } },
+  { nome: '📰 Comunicado do BI', tipo: 'noticias', v: { titulo: 'Comunicado do Benfica Independente', resumo: '', texto: '' } }
+];
+
+function ecraInicio(alvo) {
+  const pendMim = Object.keys(TIPOS).reduce((n, t) => n + porAprovarPorMim(t), 0) + (SOND_POR_APROVAR || 0);
+  const botao = (acao, icone, texto, sub, classe) => `<button class="botao grande ${classe || ''}" ${acao}>
+      <span class="grande-icone">${icone}</span><span><b>${esc(texto)}</b>${sub ? `<span class="grande-sub">${sub}</span>` : ''}</span></button>`;
+  let html = cartao('O que queres fazer?', `<div class="grandes">
+    ${botao('data-criar="notificacoes"', '🔔', 'Enviar um aviso', 'Notificação para os telemóveis — já ou num dia e hora', 'principal')}
+    ${botao('data-ir="aprovar"', '✅', 'Aprovar o que está pendente', pendMim ? `<b>${pendMim}</b> à tua espera` : 'Nada à tua espera')}
+    ${botao('data-ir="mensagens"', '✉', 'Responder a mensagens', MSG_NOVAS ? `<b>${MSG_NOVAS}</b> por responder` : 'Sem mensagens novas')}
+    ${botao('data-criar="noticias"', '📰', 'Escrever uma notícia', 'Aparece em Artigos › Notícias do BI')}
+    ${botao('data-criar="publicacoes"', '🖼', 'Pôr uma foto e texto na app', 'Escolhes em que ecrãs aparece')}
+    ${botao('data-criar="destaques"', '★', 'Mudar o destaque do Início', 'O cartão grande do topo')}
+    ${botao('data-criar="anuncios"', '💰', 'Novo anúncio pago', 'Na barra por cima do menu')}
+    ${botao('data-ir="votacoes" data-nova-sondagem', '🗳', 'Criar uma sondagem', 'Os adeptos votam na app')}
+    ${botao('data-ir="estatisticas"', '📈', 'Ver como a app está a ser usada', 'Aberturas, separadores e programas')}
+    ${botao('data-ir="ajuda"', '✦', 'Pedir ajuda à IA', 'Explica como fazer qualquer coisa')}
+  </div>`);
+  html += cartao('Modelos prontos', `<p class="suave">Começa a partir de um texto já escrito — só tens de mudar o que quiseres antes de enviar.</p>
+    <div class="atalhos">${MODELOS_PRONTOS.map((m, i) => `<button class="botao" data-modelo="${i}">${esc(m.nome)}</button>`).join('')}</div>`);
+  alvo.innerHTML = html;
+  $$('[data-criar]', alvo).forEach(b => b.addEventListener('click', () => { irPara(b.dataset.criar); editarConteudo(b.dataset.criar, null); }));
+  $$('[data-modelo]', alvo).forEach(b => b.addEventListener('click', () => {
+    const m = MODELOS_PRONTOS[Number(b.dataset.modelo)];
+    irPara(m.tipo); editarConteudo(m.tipo, null, JSON.parse(JSON.stringify(m.v)));
+  }));
+  $$('[data-ir]', alvo).forEach(b => b.addEventListener('click', () => {
+    const destino = b.dataset.ir === 'aprovar' ? 'painel' : b.dataset.ir;
+    irPara(destino);
+    if (b.hasAttribute('data-nova-sondagem')) novaSondagem();
+  }));
+}
+
+/* --------------------------- Sondagens e Homem do jogo --------------------------- */
+let SOND_POR_APROVAR = 0;
+
+async function contarSondagensPorAprovar() {
+  if (CFG.modo === 'local' || !CFG.token) { SOND_POR_APROVAR = 0; return; }
+  try {
+    const l = await rpcAdmin('bi_admin_sondagens');
+    SOND_POR_APROVAR = l.filter(s => !s.aprovada_por && s.criada_por !== CFG.login && !s.fechada).length;
+  } catch (e) { SOND_POR_APROVAR = 0; }
+}
+
+function barrasVotos(opcoes, votos) {
+  const total = votos.reduce((a, b) => a + b, 0);
+  return opcoes.map((o, i) => {
+    const n = votos[i] || 0, p = total ? Math.round(n / total * 100) : 0;
+    return `<div class="voto-linha"><div class="voto-barra" style="width:${p}%"></div><span>${esc(o)}</span><b>${p}% <span class="mini">(${numero(n)})</span></b></div>`;
+  }).join('') + `<div class="mini">${numero(total)} ${total === 1 ? 'voto' : 'votos'}</div>`;
+}
+
+async function novaSondagem() {
+  const v = await formulario('Nova sondagem', [
+    { nome: 'pergunta', etiqueta: 'Pergunta', tipo: 'text', dica: 'Ex.: Quem deve ser o titular na baliza?' },
+    { nome: 'opcoes', etiqueta: 'Respostas (uma por linha, de 2 a 6)', tipo: 'textarea', dica: 'Sim\nNão' },
+    { nome: 'fecha', etiqueta: 'Termina no dia e hora', tipo: 'datetime-local' }
+  ], {}, {
+    textoGuardar: 'Enviar para aprovação',
+    nota: 'Só aparece na app depois de outro administrador aprovar. Enquanto está aberta fica no topo do Início, no lugar da foto do BI; quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois vai para o "Histórico de sondagens" no menu ⋮. Cada telemóvel vota uma vez.',
+    validar: x => {
+      const o = String(x.opcoes || '').split('\n').map(t => t.trim()).filter(Boolean);
+      if (!x.pergunta || x.pergunta.trim().length < 3) return 'Escreve a pergunta.';
+      if (o.length < 2 || o.length > 6) return 'Põe entre 2 e 6 respostas, uma por linha.';
+      if (!x.fecha || new Date(x.fecha) <= new Date()) return 'Escolhe o dia e a hora em que termina (no futuro).';
+      return '';
+    }
+  });
+  if (!v) return;
+  const opcoes = String(v.opcoes).split('\n').map(t => t.trim()).filter(Boolean).map(t => t.slice(0, 80));
+  try {
+    carregar(true);
+    await rpcAdmin('bi_admin_sondagem_criar', { p_pergunta: v.pergunta, p_opcoes: opcoes, p_fecha: v.fecha ? new Date(v.fecha).toISOString() : null });
+    aviso('Sondagem enviada. Falta a aprovação de outro administrador.');
+  } catch (e) { aviso(e.message, true); } finally { carregar(false); }
+  if (ECRAS_ATIVO === 'votacoes') redesenhar();
+}
+
+function ecraVotacoes(alvo) {
+  if (CFG.modo === 'local') {
+    alvo.innerHTML = cartao('Sondagens e Homem do jogo', '<p class="suave">Só funciona ao entrar com a conta GitHub (não no modo de teste).</p>');
+    return;
+  }
+  alvo.innerHTML = cartao('Sondagens', '<p class="suave">A carregar…</p>');
+  (async () => {
+    let sond, hdj;
+    try {
+      carregar(true);
+      [sond, hdj] = await Promise.all([rpcAdmin('bi_admin_sondagens'), rpcAdmin('bi_admin_hdj')]);
+    } catch (e) {
+      alvo.innerHTML = cartao('Sondagens', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-sondagens.sql no Supabase.</p>`);
+      return;
+    } finally { carregar(false); }
+    SOND_POR_APROVAR = sond.filter(s => !s.aprovada_por && s.criada_por !== CFG.login && !s.fechada).length;
+    montaMenu();
+    const estado = s => s.fechada || (s.fecha && new Date(s.fecha) <= new Date()) ? '<span class="pilula">Fechada</span>'
+      : s.aprovada_por ? '<span class="pilula ok">Na app</span>' : '<span class="pilula espera">À espera de aprovação</span>';
+    let html = cartao('Sondagens', `<p class="suave">Enquanto está aberta, a sondagem aparece no topo do Início da app, no lugar da foto do BI (várias ficam empilhadas). Quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois passa para o "Histórico de sondagens" (menu ⋮ da app). Um voto por telemóvel.</p>
+      ${sond.length ? sond.map(s => `<div class="sondagem">
+        <div class="linha-acoes" style="justify-content:space-between"><b>${esc(s.pergunta)}</b> ${estado(s)}</div>
+        <div class="mini">Criada por ${esc(s.criada_por)} · ${esc(dataCurta(s.criada))}${s.aprovada_por ? ` · aprovada por ${esc(s.aprovada_por)}` : ''}${s.fecha ? ` · fecha ${esc(dataCurta(s.fecha))}` : ''}</div>
+        ${barrasVotos(s.opcoes, s.votos)}
+        <div class="linha-acoes">
+          ${!s.aprovada_por && s.criada_por !== CFG.login ? `<button class="botao pequeno principal" data-aprovar-s="${s.id}">Aprovar</button>` : ''}
+          ${!s.aprovada_por && s.criada_por === CFG.login ? '<span class="mini">Espera por outro administrador</span>' : ''}
+          ${s.aprovada_por && !s.fechada ? `<button class="botao pequeno" data-fechar-s="${s.id}">Fechar votação</button>` : ''}
+          <button class="botao pequeno perigo" data-apagar-s="${s.id}">Apagar</button>
+        </div></div>`).join('') : '<p class="suave">Ainda não há sondagens.</p>'}`,
+      '<button class="botao pequeno principal" data-nova>＋ Nova sondagem</button>');
+    html += cartao('Homem do jogo', `<p class="suave">Automático: no fim de cada jogo da equipa principal aparece no topo do Início com os jogadores que jogaram; a votação abre logo que o jogo acaba e fica 24 horas aberta, com os resultados provisórios e o número de votantes à vista; o vencedor fica 48 horas no Início e depois fica na ficha do jogo. Não é preciso fazer nada.</p>
+      ${hdj.length ? `<table class="tabela">${hdj.map(j => `<tr><td><b>${esc(j.titulo || j.jogo)}</b><div class="mini">${esc(dataCurta(j.ultimo))} · ${numero(j.total)} votos</div></td>
+        <td>${(j.top || []).map((t, i) => `${['🥇', '🥈', '🥉'][i] || ''} ${esc(t.jogador)} <span class="mini">(${Math.round(t.n / j.total * 100)}%)</span>`).join('<br>')}</td></tr>`).join('')}</table>`
+        : '<p class="suave">Ainda não houve votações.</p>'}`);
+    alvo.innerHTML = html;
+    $('[data-nova]', alvo).addEventListener('click', novaSondagem);
+    const acao = async (fn, id, ok) => {
+      try { carregar(true); await rpcAdmin(fn, { p_id: Number(id) }); aviso(ok); } catch (e) { aviso(e.message, true); } finally { carregar(false); }
+      redesenhar();
+    };
+    $$('[data-aprovar-s]', alvo).forEach(b => b.addEventListener('click', () => {
+      if (confirm('Aprovar? A sondagem passa a aparecer na app.')) acao('bi_admin_sondagem_aprovar', b.dataset.aprovarS, 'Aprovada: já está na app.');
+    }));
+    $$('[data-fechar-s]', alvo).forEach(b => b.addEventListener('click', () => {
+      if (confirm('Fechar a votação? Os resultados continuam visíveis na app durante uns dias.')) acao('bi_admin_sondagem_fechar', b.dataset.fecharS, 'Votação fechada.');
+    }));
+    $$('[data-apagar-s]', alvo).forEach(b => b.addEventListener('click', () => {
+      if (confirm('Apagar esta sondagem e os votos? Não dá para desfazer.')) acao('bi_admin_sondagem_apagar', b.dataset.apagarS, 'Apagada.');
+    }));
+  })();
+}
+
+/* --------------------------- Estatísticas da app (anónimas) --------------------------- */
+let USO_DIAS = 30;
+function ecraEstatisticasApp(alvo) {
+  if (CFG.modo === 'local') {
+    alvo.innerHTML = cartao('Estatísticas da app', '<p class="suave">Só funciona ao entrar com a conta GitHub (não no modo de teste).</p>');
+    return;
+  }
+  alvo.innerHTML = cartao('Estatísticas da app', '<p class="suave">A carregar…</p>');
+  (async () => {
+    let linhas;
+    try { carregar(true); linhas = (await lerTodasEstatisticas(USO_DIAS)).filter(l => USO_APP.test(l.peca)); }
+    catch (e) { alvo.innerHTML = cartao('Estatísticas da app', `<p class="erro">${esc(e.message)}</p>`); return; }
+    finally { carregar(false); }
+    const grupo = pref => {
+      const m = {};
+      linhas.filter(l => l.peca.startsWith(pref)).forEach(l => {
+        const k = l.peca.slice(pref.length);
+        m[k] = m[k] || { n: 0, pessoas: 0 };
+        m[k].n += l.impressoes; m[k].pessoas += l.alcance || 0;
+      });
+      return Object.entries(m).sort((a, b) => b[1].n - a[1].n);
+    };
+    const abrir = linhas.filter(l => l.peca === 'app:abrir');
+    const totalAberturas = abrir.reduce((n, l) => n + l.impressoes, 0);
+    const pessoasDia = abrir.length ? Math.round(abrir.reduce((n, l) => n + (l.alcance || 0), 0) / USO_DIAS) : 0;
+    const maxDia = abrir.reduce((m, l) => Math.max(m, l.alcance || 0), 0);
+    const tabela = (lista, rot) => lista.length ? `<table class="tabela tabela-numeros"><tr><th>${rot}</th><th class="direita">Vezes</th><th class="direita">Pessoas (soma diária)</th></tr>
+      ${lista.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="direita">${numero(v.n)}</td><td class="direita">${numero(v.pessoas)}</td></tr>`).join('')}</table>`
+      : '<p class="suave">Ainda sem dados (só conta a partir da versão nova da app).</p>';
+    let html = cartao('Resumo', `<div style="margin-bottom:12px">${[7, 30, 90].map(d => `<button class="botao pequeno ${d === USO_DIAS ? 'principal' : ''}" data-uso="${d}">${d} dias</button>`).join(' ')}</div>
+      <div class="grelha">
+        ${azulejo(numero(totalAberturas), 'Vezes que a app foi aberta')}
+        ${azulejo(numero(pessoasDia), 'Pessoas por dia (média)')}
+        ${azulejo(numero(maxDia), 'Melhor dia (pessoas)')}
+      </div>
+      <p class="suave" style="margin-top:10px">Anónimo: cada telemóvel tem um número aleatório só para contar pessoas diferentes. Não se sabe quem é.</p>`);
+    html += cartao('Aberturas por dia', grafico(abrir, USO_DIAS));
+    html += cartao('Separadores mais vistos', tabela(grupo('sep:'), 'Separador'));
+    html += cartao('Programas mais ouvidos', tabela(grupo('prog:').slice(0, 20), 'Programa'));
+    alvo.innerHTML = html;
+    $$('[data-uso]', alvo).forEach(b => b.addEventListener('click', () => { USO_DIAS = Number(b.dataset.uso); redesenhar(); }));
+  })();
+}
+
+/* --------------------------- Registo de atividade --------------------------- */
+function ecraAtividade(alvo) {
+  if (CFG.modo === 'local') {
+    alvo.innerHTML = cartao('Registo de atividade', '<p class="suave">Só funciona ao entrar com a conta GitHub (não no modo de teste).</p>');
+    return;
+  }
+  alvo.innerHTML = cartao('Registo de atividade', '<p class="suave">A carregar…</p>');
+  (async () => {
+    const itens = [];
+    let falhas = [];
+    try {
+      carregar(true);
+      const [commits, sb] = await Promise.all([
+        fetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/commits?per_page=100`, { headers: cabecalhos() })
+          .then(r => r.ok ? r.json() : Promise.reject(new Error('GitHub ' + r.status))).catch(e => { falhas.push(e.message); return []; }),
+        rpcAdmin('bi_admin_atividade').catch(e => { falhas.push(e.message); return []; })
+      ]);
+      commits.filter(c => /^Plataforma/.test(c.commit.message)).forEach(c => {
+        const m = c.commit.message.split('\n')[0];
+        const quem = (m.match(/^Plataforma \(([^)]+)\)/) || [])[1] || (c.author && c.author.login) || c.commit.author.name;
+        itens.push({ quando: c.commit.author.date, quem, texto: m.replace(/^Plataforma( \([^)]+\))?:\s*/, '') });
+      });
+      sb.forEach(a => itens.push({ quando: a.quando, quem: a.quem, texto: a.acao + (a.detalhe ? ` «${a.detalhe}»` : '') }));
+    } finally { carregar(false); }
+    itens.sort((a, b) => String(b.quando).localeCompare(String(a.quando)));
+    alvo.innerHTML = cartao('Registo de atividade', `<p class="suave">Quem criou, aprovou, alterou ou apagou o quê, e quando (avisos, notícias, publicações, anúncios, destaques, sondagens, administradores e versões).</p>
+      ${falhas.length ? `<p class="erro">Parte do registo não carregou: ${esc(falhas.join(' · '))}</p>` : ''}
+      ${itens.length ? `<table class="tabela">${itens.slice(0, 150).map(i => `<tr><td class="mini" style="white-space:nowrap">${esc(dataCurta(i.quando))}</td>
+        <td><b>${esc(i.quem)}</b></td><td>${esc(i.texto)}</td></tr>`).join('')}</table>` : '<p class="suave">Ainda sem registos.</p>'}`);
+  })();
+}
+
 ECRAS = [
+  { chave: 'inicio', nome: 'O que queres fazer?', icone: '⌂', desenhar: ecraInicio },
   { chave: 'painel', nome: 'Painel e alertas', icone: '▦', desenhar: ecraPainel },
   ...Object.keys(TIPOS).map(t => ({ chave: t, nome: TIPOS[t].nome, icone: TIPOS[t].icone, desenhar: ecraConteudo(t) })),
   { chave: 'mensagens', nome: 'Mensagens', icone: '✉', desenhar: ecraMensagens },
   { chave: 'ajuda', nome: 'Ajuda (IA)', icone: '✦', desenhar: ecraAjuda },
+  { chave: 'votacoes', nome: 'Sondagens e Homem do jogo', icone: '🗳', desenhar: ecraVotacoes },
+  { chave: 'estatisticas', nome: 'Estatísticas da app', icone: '📈', desenhar: ecraEstatisticasApp },
+  { chave: 'atividade', nome: 'Registo de atividade', icone: '🕘', desenhar: ecraAtividade },
   { chave: 'gestores', nome: 'Gestores (contacto)', icone: '☎', desenhar: ecraGestores },
   { chave: 'videos', nome: 'Programas dos vídeos', icone: '▶', desenhar: ecraVideos },
   { chave: 'monetizacao', nome: 'Monetização', icone: '📊', desenhar: ecraMonetizacao },
@@ -1749,7 +1994,7 @@ async function carregarDados() {
   try {
     PRIVADO_OK = true;   // os dados privados passaram para o Supabase
     const nomes = Object.keys(FICHEIROS);
-    await Promise.all(nomes.map(lerSeguro).concat([lerRuns(), contarMensagensNovas(), carregarPrivados()]));
+    await Promise.all(nomes.map(lerSeguro).concat([lerRuns(), contarMensagensNovas(), carregarPrivados(), contarSondagensPorAprovar()]));
     await calcularAlertasDinheiro();
     // Primeira vez: se ainda não há administradores, o dono do repositório fica como dono da plataforma.
     const a = admins();
@@ -1778,7 +2023,7 @@ async function abrirApp() {
   $('#barra-modo').textContent = CFG.modo === 'local' ? 'teste' : 'github';
   $('#barra-modo').classList.toggle('local', CFG.modo === 'local');
   $('#quem').textContent = CFG.nome || CFG.login;
-  ECRAS_ATIVO = 'painel';
+  ECRAS_ATIVO = 'inicio';
   redesenhar();
 }
 

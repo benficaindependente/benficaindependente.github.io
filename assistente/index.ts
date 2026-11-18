@@ -56,6 +56,7 @@ A APP BENFICA INDEPENDENTE (Android, grátis):
 - Android Auto: no carro aparece a pasta "Vídeos" com o Direto em primeiro lugar, e os programas.
 - Barra por cima do menu: alterna entre o Patreon e anúncios de parceiros.
 - Problemas comuns: se o som parar com o ecrã desligado, tirar a app da poupança de bateria nas definições do Android; para notificações, ver "Alertas e toques" e permitir notificações à app. Atualizações: quando há versão nova aparece um cartão "Há uma versão nova" no Início.
+- Novidades: lupa no topo para pesquisar tudo de uma vez (episódios, vídeos, programas, artigos); carregar sem largar num episódio para o partilhar (WhatsApp, etc.); no ecrã do vídeo/episódio há "Velocidade" e "Temporizador" para adormecer; sondagens do BI e "Homem do jogo" aparecem no topo do Início enquanto estão abertas (um voto por telemóvel); o resultado fica 48 horas por baixo do "Feito por benfiquistas"; depois as sondagens vão para "Histórico de sondagens" no menu ⋮ e o Homem do jogo fica na ficha do jogo (o Homem do jogo abre no fim do jogo e fica 24 horas a votação, com percentagens e número de votantes à vista); puxar para baixo em qualquer separador atualiza; festejo no ecrã quando o Benfica marca com a app aberta.
 - Apoiar o BI: Patreon ${"https://www.patreon.com/c/slbindependente/home"}. Site: https://www.benficaindependente.com. YouTube: https://www.youtube.com/@slbindependente. Email: info@benficaindependente.com.
 `;
 
@@ -78,6 +79,11 @@ A PLATAFORMA DE GESTÃO (https://benficaindependente.github.io) — para os gest
 - Administradores: donos e administradores (nomes de utilizador do GitHub). Cada novo administrador também tem de ser convidado como colaborador do repositório "benfica-independente-dados" no GitHub (Settings → Collaborators).
 - Versões da app: número da versão, notas, ligação para descarregar o APK e se é obrigatória. A app mostra "Há uma versão nova".
 - Definições: repositório, ramo, modo de teste. Não mexer sem certeza.
+- "O que queres fazer?": ecrã de entrada com botões grandes para as tarefas habituais e "Modelos prontos" (jantar de adeptos, novo episódio, hoje há direto, parceiro novo, Patreon, comunicado).
+- Avisos agendados: no aviso, preencher "Enviar no dia e hora" para a notificação sair nessa altura.
+- Sondagens e Homem do jogo: criar sondagem (pergunta, 2 a 6 respostas, data e hora de fim obrigatória); precisa da aprovação de outro administrador; aparece no topo do Início da app até à data de fim; o resultado fica 48 horas e depois vai para o histórico (menu ⋮ da app). O Homem do jogo é automático: abre no fim de cada jogo da equipa principal, 24 horas de votação, e fica na ficha do jogo.
+- Estatísticas da app: aberturas, pessoas por dia, separadores e programas mais ouvidos (anónimo).
+- Registo de atividade: quem criou, aprovou, alterou ou apagou o quê e quando.
 - O "robô" corre no GitHub de 30 em 30 minutos e atualiza agenda, resultados e vídeos sozinho. As alterações demoram uns minutos a aparecer na app.
 - Fotos: a plataforma reduz e comprime automaticamente; preferir fotos na horizontal.
 `;
