@@ -268,13 +268,11 @@ Deno.serve(async (req) => {
     if (b.modo === "gestor" && b.gh) return await gestor(String(b.gh), b.mensagens);
     if (b.modo === "diag2") {
       // Experimenta várias formas de pedir, ao mesmo tempo, e diz quanto demora cada uma.
-      const variantes: [string, Record<string, unknown> | null][] = [
-        ["gemini-3.5-flash", null],
-        ["gemini-3.5-flash", { thinkingLevel: "low" }],
-        ["gemini-3.5-flash", { thinkingLevel: "minimal" }],
-        ["gemini-2.5-flash", { thinkingBudget: 0 }],
-        ["gemini-flash-latest", null],
-      ];
+      const variantes: [string, Record<string, unknown> | null][] = Array.isArray(b.variantes) ? b.variantes : [];
+      if (b.listar) {
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": GEMINI } });
+        return resposta({ nomes: ((await r.json()).models ?? []).map((m: any) => String(m.name).split("/").pop()) });
+      }
       const out = await Promise.all(variantes.map(async ([m, th]) => {
         const t = Date.now();
         try {
