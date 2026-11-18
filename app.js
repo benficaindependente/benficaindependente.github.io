@@ -1833,8 +1833,14 @@ function ecraVotacoes(alvo) {
     } finally { carregar(false); }
     SOND_POR_APROVAR = sond.filter(s => !s.aprovada_por && s.criada_por !== CFG.login && !s.fechada).length;
     montaMenu();
-    const estado = s => s.fechada || (s.fecha && new Date(s.fecha) <= new Date()) ? '<span class="pilula">Fechada</span>'
-      : s.aprovada_por ? '<span class="pilula ok">Na app</span>' : '<span class="pilula espera">À espera de aprovação</span>';
+    // Onde está cada sondagem na app.
+    const estado = s => {
+      if (!s.aprovada_por) return '<span class="pilula espera">À espera de aprovação</span>';
+      const fim = s.fecha ? new Date(s.fecha).getTime() : 0, agora = Date.now();
+      if (!s.fechada && fim > agora) return '<span class="pilula ok">Aberta · no topo do Início</span>';
+      if (fim && agora < fim + 48 * 3600e3) return `<span class="pilula ok">Terminada · resultado no Início até ${esc(dataCurta(new Date(fim + 48 * 3600e3).toISOString()))}</span>`;
+      return '<span class="pilula">No histórico (menu ⋮ da app)</span>';
+    };
     let html = cartao('Sondagens', `<p class="suave">Enquanto está aberta, a sondagem aparece no topo do Início da app, no lugar da foto do BI (várias ficam empilhadas). Quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois passa para o "Histórico de sondagens" (menu ⋮ da app). Um voto por telemóvel.</p>
       ${sond.length ? sond.map(s => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(s.pergunta)}</b> ${estado(s)}</div>
@@ -1848,8 +1854,10 @@ function ecraVotacoes(alvo) {
         </div></div>`).join('') : '<p class="suave">Ainda não há sondagens.</p>'}`,
       '<button class="botao pequeno principal" data-nova>＋ Nova sondagem</button>');
     html += cartao('Homem do jogo', `<p class="suave">Automático: no fim de cada jogo da equipa principal aparece no topo do Início com os jogadores que jogaram; a votação abre logo que o jogo acaba e fica 24 horas aberta, com os resultados provisórios e o número de votantes à vista; o vencedor fica 48 horas no Início e depois fica na ficha do jogo. Não é preciso fazer nada.</p>
-      ${hdj.length ? `<table class="tabela">${hdj.map(j => `<tr><td><b>${esc(j.titulo || j.jogo)}</b><div class="mini">${esc(dataCurta(j.ultimo))} · ${numero(j.total)} votos</div></td>
-        <td>${(j.top || []).map((t, i) => `${['🥇', '🥈', '🥉'][i] || ''} ${esc(t.jogador)} <span class="mini">(${Math.round(t.n / j.total * 100)}%)</span>`).join('<br>')}</td></tr>`).join('')}</table>`
+      ${hdj.length ? hdj.map(j => `<div class="sondagem">
+          <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b>
+          <span class="mini">último voto ${esc(dataCurta(j.ultimo))} · ${numero(j.total)} ${j.total == 1 ? 'votante' : 'votantes'}</span></div>
+          ${barrasVotos((j.votos || []).map((t, i) => (['🥇 ', '🥈 ', '🥉 '][i] || '') + t.jogador), (j.votos || []).map(t => t.n))}</div>`).join('')
         : '<p class="suave">Ainda não houve votações.</p>'}`);
     alvo.innerHTML = html;
     $('[data-nova]', alvo).addEventListener('click', novaSondagem);

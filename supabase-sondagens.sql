@@ -184,15 +184,15 @@ begin
   return json_build_object('ok', true);
 end $$;
 
--- Homem do jogo dos últimos jogos (os 3 mais votados de cada um).
+-- Homem do jogo dos últimos jogos (todos os jogadores votados, do mais para o menos votado).
 create or replace function public.bi_admin_hdj(p_gh text) returns json
 language plpgsql security definer set search_path = public as $$
 declare l text := bi_quem(p_gh);
 begin
   return (select coalesce(json_agg(j order by j.ultimo desc), '[]'::json) from (
     select jogo, max(titulo) titulo, max(quando) ultimo, count(*) total,
-      (select json_agg(json_build_object('jogador', jogador, 'n', n) order by n desc) from (
-         select jogador, count(*) n from hdj_votos h2 where h2.jogo = h.jogo group by jogador order by n desc limit 3) t) top
+      (select json_agg(json_build_object('jogador', jogador, 'n', n) order by n desc, jogador) from (
+         select jogador, count(*) n from hdj_votos h2 where h2.jogo = h.jogo group by jogador) t) votos
     from hdj_votos h group by jogo order by max(quando) desc limit 15) j);
 end $$;
 
