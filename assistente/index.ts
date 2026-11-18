@@ -84,7 +84,7 @@ A PLATAFORMA DE GESTÃO (https://benficaindependente.github.io) — para os gest
 
 const REGRAS_COMUNS = `
 REGRAS OBRIGATÓRIAS:
-- Escreve sempre em português de Portugal, de forma simples, simpática e curta (normalmente 1 a 4 frases).
+- Escreve sempre em português de Portugal, de forma simples, simpática e curta (normalmente 1 a 4 frases). Usa emojis raramente (no máximo um, e nem sempre).
 - NUNCA fales do Sporting Clube de Portugal nem do Futebol Clube do Porto, nem de nada associado (nomes, alcunhas, abreviaturas, estádios, presidentes, jogadores, jogos contra eles). Se perguntarem, responde só: "${SEM_RIVAIS}" — sem mais nada e sem dizer que passas a mensagem a alguém.
 - Não inventes. Se não souberes, diz que não sabes.
 - Não dês opiniões polémicas, não insultes ninguém, não fales de política nem de apostas.
@@ -125,16 +125,36 @@ async function contextoDoDia(): Promise<string> {
   const [agenda, resultados] = await Promise.all([ler("agenda.json"), ler("results.json")]);
   const agora = Date.now();
   const fmt = new Intl.DateTimeFormat("pt-PT", { timeZone: "Europe/Lisbon", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-  const prox = (Array.isArray(agenda) ? agenda : [])
+  // Equipa principal de futebol: competições seniores, sem formação, equipa B nem femininas.
+  const principal = (sport: string, texto: string) =>
+    sport === "Futebol" && /liga portugal|ta[çc]a|champions|campe[õo]es|liga europa|confer[êe]ncia|superta[çc]a|uefa|mundial de clubes/i.test(texto) &&
+    !/sub[\s-]?\d|juniores|juvenis|iniciados|\bB\b|-B\b|feminin|futsal|youth|revelação/i.test(texto);
+  const etiqueta = (sport: string, texto: string) => principal(sport, texto) ? "Futebol (EQUIPA PRINCIPAL)" : sport;
+  const vistos = (Array.isArray(agenda) ? agenda : [])
     .filter((j: any) => j.t > agora - 3 * 3600_000 && !falaDeRivais(`${j.title} ${j.detail} ${j.loc}`))
-    .sort((a: any, b: any) => (a.sport === "Futebol" ? 0 : 1) - (b.sport === "Futebol" ? 0 : 1) || a.t - b.t)
-    .slice(0, 15)
-    .map((j: any) => `- ${j.sport}: ${j.title} — ${fmt.format(new Date(j.t))}${j.detail ? " — " + j.detail : ""}${j.loc ? " — " + j.loc : ""}`);
+    .sort((a: any, b: any) => a.t - b.t);
+  // Os próximos jogos da equipa principal e, de cada modalidade, os 3 seguintes.
+  const porMod = new Map<string, number>();
+  const prox = vistos.filter((j: any) => {
+    const k = etiqueta(j.sport, `${j.title} ${j.detail}`);
+    const n = porMod.get(k) ?? 0;
+    porMod.set(k, n + 1);
+    return n < (k.includes("PRINCIPAL") ? 5 : 3);
+  }).slice(0, 40)
+    .map((j: any) => `- ${etiqueta(j.sport, `${j.title} ${j.detail}`)}: ${j.title} — ${fmt.format(new Date(j.t))}${j.detail ? " — " + j.detail : ""}${j.loc ? " — " + j.loc : ""}`);
+  // Últimos resultados: até 4 por modalidade (a lista vem do mais recente para o mais antigo).
+  const porModRes = new Map<string, number>();
   const res = (Array.isArray(resultados) ? resultados : [])
     .filter((r: any) => !falaDeRivais(`${r.h} ${r.a} ${r.v}`))
-    .slice(0, 15)
-    .map((r: any) => `- ${r.s}: ${r.h} ${r.hg}–${r.ag} ${r.a} (${r.c}, ${r.d})`);
-  return `Hoje é ${fmt.format(new Date())}.\nPróximos jogos:\n${prox.join("\n") || "- (sem dados)"}\nÚltimos resultados:\n${res.join("\n") || "- (sem dados)"}`;
+    .filter((r: any) => { const k = etiqueta(r.s, r.c); const n = porModRes.get(k) ?? 0; porModRes.set(k, n + 1); return n < 4; })
+    .slice(0, 50)
+    .map((r: any) => `- ${etiqueta(r.s, r.c)}: ${r.h} ${r.hg}–${r.ag} ${r.a} (${r.c}, ${r.d})`);
+  return `Hoje é ${fmt.format(new Date())}.
+Quando perguntarem pelo "próximo jogo" ou "último jogo" do Benfica sem dizer a modalidade, responde com a EQUIPA PRINCIPAL de futebol. Os jogos de formação (Sub-15, Sub-17, Sub-19, Sub-23), equipa B, femininas e outras modalidades só quando os pedirem.
+Próximos jogos:
+${prox.join("\n") || "- (sem dados)"}
+Últimos resultados (do mais recente para o mais antigo):
+${res.join("\n") || "- (sem dados)"}`;
 }
 
 // ------------------------------------------------------------ Supabase
