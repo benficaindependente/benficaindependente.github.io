@@ -166,7 +166,12 @@ function aplicarTempo(estado, min) {
 /** Botões do tempo: um bloco por equipa, por ordem de minuto. */
 function htmlTempo(estado) {
   const evs = (estado.eventos || []).slice().sort((a, b) => Number(a.min) - Number(b.min));
-  if (!evs.length) return '';
+  if (!evs.length) {
+    return `<div class="q-tempo"><div class="q-tempo-vazio">
+      <b>Substituições e expulsões</b>
+      <span class="suave">Ainda não há um jogo carregado neste quadro. Toca em <b>⚽ Benfica + adversário</b> (aqui em baixo) ou escolhe um jogo na lista ao lado — as substituições e expulsões aparecem aqui, por minuto.</span>
+    </div></div>`;
+  }
   const equipaB = ((estado.suplentes || {}).equipaB) || 'Adversário';
   const momento = estado.momento == null ? null : Number(estado.momento);
   const bloco = (lado, titulo) => {

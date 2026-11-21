@@ -4,7 +4,7 @@
    a cópia guardada quando não há ligação. Nunca guarda pedidos ao GitHub. */
 'use strict';
 
-const CACHE = 'bi-plataforma-v13';
+const CACHE = 'bi-plataforma-v14';
 const FICHEIROS = ['./index.html', './estilos.css', './app.js', './quadro.js', './participacao.js', './jogadores.json', './icone.svg', './icone-192.png', './icone-512.png', './manifest.webmanifest'];
 
 self.addEventListener('install', ev => {
@@ -23,7 +23,8 @@ self.addEventListener('fetch', ev => {
   if (url.hostname === 'api.github.com' || url.hostname.endsWith('githubusercontent.com')) return;
   if (ev.request.method !== 'GET' || url.origin !== location.origin) return;
   ev.respondWith(
-    fetch(ev.request).then(resposta => {
+    // `cache: 'no-store'` salta a cache do browser: apanha logo as versões novas depois de publicar.
+    fetch(ev.request, { cache: 'no-store' }).then(resposta => {
       const copia = resposta.clone();
       caches.open(CACHE).then(c => c.put(ev.request, copia));
       return resposta;
