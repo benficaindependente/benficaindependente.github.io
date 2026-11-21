@@ -1,10 +1,11 @@
 /* =========================================================================
    Plataforma · Participação dos adeptos
-   - Prognósticos (resultado + nome + comentário) e "Quem vai jogar?" (os 11):
+   - Prognósticos (resultado + nome + comentário):
      quantas pessoas acertaram e quem foi (nomes e comentários só para administradores).
      Os dados dos adeptos desaparecem sozinhos ao fim de 5 dias.
    - Perguntas ao programa: ler, marcar as escolhidas e apagar.
-   - Quiz: as perguntas criadas pelo agente (só para ler).
+   - Quiz: as perguntas criadas pelo agente e quando cada uma sai
+     (enviar agora, planear uma data, ou envio automático X vezes por semana).
    Carregado antes do app.js.
    ========================================================================= */
 'use strict';
@@ -40,26 +41,113 @@ async function verPrognosticos(j) {
        : '<p class="suave">Ainda ninguém enviou.</p>'}`);
 }
 
-async function verOnzes(j) {
-  let lista;
-  try { carregar(true); lista = await rpcAdmin('bi_admin_onzes', { p_jogo: j.jogo }); }
-  catch (e) { aviso(e.message, true); return; } finally { carregar(false); }
-  const fechado = !!j.resultado;
-  const melhor = fechado ? Math.max(0, ...lista.map(x => x.acertos || 0)) : 0;
-  await janelaPart('Quem vai jogar? · ' + (j.titulo || j.jogo),
-    `<p class="suave"><b>${lista.length}</b> onzes${fechado ? ` · o melhor acertou <b>${melhor}</b> de 11` : ' · o jogo ainda não foi fechado'}.</p>
-     ${lista.length ? lista.map(x => `<div class="sondagem">
-        <div class="linha-acoes" style="justify-content:space-between"><b>${esc(x.nome)}</b>${fechado ? `<span class="pilula ${x.acertos >= 10 ? 'ok' : ''}">${x.acertos} de 11</span>` : ''}</div>
-        ${x.comentario ? `<div class="mini">“${esc(x.comentario)}”</div>` : ''}
-        <div class="mini">${(x.jogadores || []).map(esc).join(' · ')}</div></div>`).join('')
-       : '<p class="suave">Ainda ninguém enviou.</p>'}`, 640);
-}
-
 async function lerQuizPublico() {
   try {
     const r = await fetch(`https://raw.githubusercontent.com/${DONO_PADRAO}/${REPO_PADRAO}/main/data/quiz.json?t=${Date.now()}`);
     return r.ok ? await r.json() : [];
   } catch (e) { return []; }
+}
+
+/* ------------------------- Quiz: quando é que sai ------------------------- */
+const FICHEIRO_QUIZ_ENVIO = 'quiz_envio.json';
+const QUIZ_ENVIO_PADRAO = { modo: 'auto', porSemana: 2, hora: '10:00', inicio: '', envios: {}, atualizado: '', por: '' };
+
+async function lerQuizEnvio() {
+  try {
+    const v = await lerFicheiro(CFG.repo, FICHEIRO_QUIZ_ENVIO);
+    return Object.assign({}, QUIZ_ENVIO_PADRAO, v || {});
+  } catch (e) {
+    return Object.assign({}, QUIZ_ENVIO_PADRAO);
+  }
+}
+
+/** Grava a agenda do quiz (data/quiz_envio.json), que é o que a app lê. */
+async function guardarQuizEnvio(alteracao, mensagem) {
+  carregar(true);
+  try {
+    const atual = await lerQuizEnvio();
+    const novo = Object.assign({}, atual, alteracao);
+    novo.atualizado = agoraISO();
+    novo.por = CFG.login || CFG.nome || '';
+    await escreverFicheiro(CFG.repo, FICHEIRO_QUIZ_ENVIO, novo, mensagem || 'Plataforma: envio do quiz');
+    aviso('Guardado.');
+    return novo;
+  } catch (e) {
+    aviso(e.message, true);
+    return null;
+  } finally {
+    carregar(false);
+  }
+}
+
+/** Próximos momentos do envio automático: X por semana, à hora marcada, a contar de uma data. */
+function slotsQuiz(cfg, quantos) {
+  const porSemana = Math.min(7, Math.max(1, Number(cfg.porSemana) || 1));
+  const passo = (7 * 24 * 3600 * 1000) / porSemana;
+  let base = cfg.inicio ? new Date(cfg.inicio) : new Date();
+  if (isNaN(base.getTime())) base = new Date();
+  const [h, m] = String(cfg.hora || '10:00').split(':');
+  base.setHours(Number(h) || 0, Number(m) || 0, 0, 0);
+  const agora = Date.now();
+  let k = 0;
+  while (base.getTime() + k * passo < agora) k++;
+  return Array.from({ length: quantos }, (_, i) => new Date(base.getTime() + (k + i) * passo));
+}
+
+/** No automático, as perguntas ainda por enviar ficam nos próximos momentos livres. */
+function agendaQuiz(cfg, perguntas) {
+  const envios = Object.assign({}, cfg.envios || {});
+  const livres = (perguntas || [])
+    .filter(q => q && q.id && !envios[q.id] && Number(q.quando) > Date.now() - 21 * 24 * 3600 * 1000)
+    .sort((a, b) => Number(a.quando) - Number(b.quando));
+  const momentos = slotsQuiz(cfg, livres.length);
+  livres.forEach((q, i) => { envios[q.id] = momentos[i].toISOString(); });
+  return envios;
+}
+
+/** Data no formato dos campos "datetime-local" (hora local). */
+function paraCampoData(ms) {
+  const d = new Date(ms);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function cartaoQuiz(perguntas, cfg) {
+  const modo = cfg.modo === 'manual' ? 'manual' : 'auto';
+  const proximo = slotsQuiz(cfg, 1)[0];
+  const lista = (perguntas || []).slice().sort((a, b) => Number(b.quando) - Number(a.quando)).slice(0, 15);
+  const blocos = lista.map(q => {
+    const iso = (cfg.envios || {})[q.id];
+    const saiu = !!iso && new Date(iso).getTime() <= Date.now();
+    const estado = iso
+      ? `<span class="pilula ${saiu ? 'ok' : 'espera'}">${saiu ? 'Já saiu' : 'Sai'} · ${esc(dataCurta(iso))}</span>`
+      : '<span class="pilula espera">Por enviar</span>';
+    return `<div class="sondagem">
+      <div class="linha-acoes" style="justify-content:space-between"><b>${esc(q.pergunta)}</b>${estado}</div>
+      <ol type="A" class="mini">${(q.opcoes || []).map((o, i) => `<li${i === q.certa ? ' style="font-weight:700;color:#2e7d32"' : ''}>${esc(o)}${i === q.certa ? ' ✓' : ''}</li>`).join('')}</ol>
+      <div class="mini">${esc(q.explicacao || '')}</div>
+      <div class="linha-acoes">
+        ${saiu ? '' : `<button class="botao pequeno principal" data-quiz-agora="${esc(q.id)}">Enviar agora</button>`}
+        <button class="botao pequeno" data-quiz-planear="${esc(q.id)}">Planear data</button>
+        ${iso && !saiu ? `<button class="botao pequeno perigo" data-quiz-cancelar="${esc(q.id)}">Cancelar envio</button>` : ''}
+      </div></div>`;
+  }).join('');
+
+  return cartao('Quiz do BI (criado pelo agente)', `<p class="suave">O agente escreve as perguntas sobre a história gloriosa do Benfica, como um benfiquista fanático e conhecedor. Aqui decides <b>quando cada uma sai</b> na app: agora, numa data à escolha, ou automaticamente. Quem receber pode responder ou fechar com o X.</p>
+    <div class="sondagem">
+      <div class="linha-acoes" style="justify-content:space-between"><b>Quando sai</b>
+        <span class="pilula ${modo === 'auto' ? 'ok' : ''}">${modo === 'auto' ? 'Automático' : 'Só quando eu mandar'}</span></div>
+      <div class="mini">${modo === 'auto'
+        ? `Sai <b>${Number(cfg.porSemana) || 2}</b> ${Number(cfg.porSemana) === 1 ? 'vez' : 'vezes'} por semana, às <b>${esc(cfg.hora || '10:00')}</b>. Próximo envio: <b>${esc(dataCurta(proximo.toISOString()))}</b>.`
+        : 'Nada sai sozinho: só sai o que tiver data marcada em baixo. Podes “Enviar agora” ou “Planear data”.'}</div>
+      <div class="linha-acoes">
+        <button class="botao pequeno ${modo === 'auto' ? 'principal' : ''}" data-quiz-modo="auto">Automático</button>
+        <button class="botao pequeno ${modo === 'manual' ? 'principal' : ''}" data-quiz-modo="manual">Só quando eu mandar</button>
+        <button class="botao pequeno" data-quiz-horario="1">Mudar o horário</button>
+      </div>
+      <div class="mini">Mesmo no automático podes adiantar uma pergunta com “Enviar agora”.</div>
+    </div>
+    ${blocos || '<p class="suave">Ainda não há perguntas: a próxima execução do robô cria-as.</p>'}`);
 }
 
 function ecraParticipacao(alvo) {
@@ -69,24 +157,25 @@ function ecraParticipacao(alvo) {
   }
   alvo.innerHTML = cartao('Participação dos adeptos', '<p class="suave">A carregar…</p>');
   (async () => {
-    let jogos, perguntas, quiz;
+    let jogos, perguntas, quiz, envioQuiz;
     try {
       carregar(true);
-      [jogos, perguntas, quiz] = await Promise.all([rpcAdmin('bi_admin_participacao'), rpcAdmin('bi_admin_perguntas'), lerQuizPublico()]);
+      [jogos, perguntas, quiz, envioQuiz] = await Promise.all([
+        rpcAdmin('bi_admin_participacao'), rpcAdmin('bi_admin_perguntas'), lerQuizPublico(), lerQuizEnvio()
+      ]);
     } catch (e) {
       alvo.innerHTML = cartao('Participação dos adeptos', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-novidades.sql no Supabase.</p>`);
       return;
     } finally { carregar(false); }
 
-    let html = cartao('Prognósticos e "Quem vai jogar?"', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico; no dia antes ou no dia do jogo são convidados a adivinhar o onze. Quando o jogo acaba, o resultado e o onze oficial entram <b>automaticamente</b> (vêm do robô) e aqui aparece logo quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
+    let html = cartao('Prognósticos', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico. Quando o jogo acaba, o resultado oficial entra <b>automaticamente</b> (vem do robô) e aqui aparece logo quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
       ${jogos.length ? jogos.map((j, i) => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b>
           ${j.resultado ? `<span class="pilula ok">Fechado · ${j.resultado.golos_b}-${j.resultado.golos_r}</span>` : '<span class="pilula espera">Aberto</span>'}</div>
-        ${j.resultado ? '' : '<div class="mini">O resultado e o onze oficial entram sozinhos assim que o jogo acaba (até meia hora depois).</div>'}
-        <div class="mini">${numero(j.progs)} prognósticos · ${numero(j.onzes)} onzes · último ${esc(dataCurta(j.ultimo))}</div>
+        ${j.resultado ? '' : '<div class="mini">O resultado oficial entra sozinho assim que o jogo acaba (até meia hora depois).</div>'}
+        <div class="mini">${numero(j.progs)} prognósticos · último ${esc(dataCurta(j.ultimo))}</div>
         <div class="linha-acoes">
           <button class="botao pequeno" data-prog="${i}">📊 Ver prognósticos</button>
-          <button class="botao pequeno" data-onze="${i}">📋 Ver onzes</button>
         </div></div>`).join('') : '<p class="suave">Ainda não há participações (ou já desapareceram).</p>'}`);
 
     const novas = perguntas.filter(p => p.estado === 'nova').length;
@@ -101,16 +190,62 @@ function ecraParticipacao(alvo) {
           <button class="botao pequeno perigo" data-pe="${p.id}|apagar">Apagar</button>
         </div></div>`).join('') : '<p class="suave">Ainda não há perguntas.</p>'}`);
 
-    const ultimas = (quiz || []).slice(-6).reverse();
-    html += cartao('Quiz do BI (criado pelo agente)', `<p class="suave">O agente escreve uma pergunta à terça e outra à sexta, como um benfiquista fanático e conhecedor, sobre a história gloriosa e os grandes jogadores. Não precisa de aprovação. Aqui podes ver o que saiu; se alguma estiver errada, diz-me e eu corrijo.</p>
-      ${ultimas.length ? ultimas.map(q => `<div class="sondagem"><b>${esc(q.pergunta)}</b>
-        <div class="mini">${esc(dataCurta(new Date(q.quando).toISOString()))}</div>
-        <ol type="A" class="mini">${q.opcoes.map((o, i) => `<li${i === q.certa ? ' style="font-weight:700;color:#2e7d32"' : ''}>${esc(o)}${i === q.certa ? ' ✓' : ''}</li>`).join('')}</ol>
-        <div class="mini">${esc(q.explicacao)}</div></div>`).join('') : '<p class="suave">Ainda não saiu nenhuma pergunta: a primeira aparece na próxima execução do robô.</p>'}`);
+    html += cartaoQuiz(quiz, envioQuiz);
     alvo.innerHTML = html;
 
+    // Quiz: modo, horário do envio automático e data de cada pergunta.
+    $$('[data-quiz-modo]', alvo).forEach(b => b.addEventListener('click', async () => {
+      const modo = b.dataset.quizModo;
+      const alteracao = { modo };
+      if (modo === 'auto') alteracao.envios = agendaQuiz(envioQuiz, quiz);
+      if (await guardarQuizEnvio(alteracao, 'Plataforma: modo do quiz')) redesenhar();
+    }));
+    $$('[data-quiz-horario]', alvo).forEach(b => b.addEventListener('click', async () => {
+      const v = await formulario('Envio automático do quiz', [
+        { nome: 'porSemana', etiqueta: 'Quantas vezes por semana', tipo: 'number', dica: '1 a 7', valor: envioQuiz.porSemana || 2 },
+        { nome: 'hora', etiqueta: 'A que horas sai', tipo: 'time', valor: envioQuiz.hora || '10:00' },
+        { nome: 'inicio', etiqueta: 'A contar de (opcional)', tipo: 'datetime-local', dica: 'Vazio = começa no próximo horário.' }
+      ], {}, {
+        textoGuardar: 'Guardar',
+        nota: 'As perguntas que já saíram não mudam; as que faltam ficam nas próximas datas.'
+      });
+      if (!v) return;
+      const cfg = Object.assign({}, envioQuiz, {
+        modo: 'auto', porSemana: Number(v.porSemana) || 1, hora: v.hora || '10:00', inicio: v.inicio || ''
+      });
+      cfg.envios = agendaQuiz(cfg, quiz);
+      const ok = await guardarQuizEnvio(
+        { modo: 'auto', porSemana: cfg.porSemana, hora: cfg.hora, inicio: cfg.inicio, envios: cfg.envios },
+        'Plataforma: horário do quiz'
+      );
+      if (ok) redesenhar();
+    }));
+    $$('[data-quiz-agora]', alvo).forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('Enviar esta pergunta já para os telemóveis?')) return;
+      const envios = Object.assign({}, envioQuiz.envios);
+      envios[b.dataset.quizAgora] = agoraISO();
+      if (await guardarQuizEnvio({ envios }, 'Plataforma: enviar o quiz agora')) redesenhar();
+    }));
+    $$('[data-quiz-planear]', alvo).forEach(b => b.addEventListener('click', async () => {
+      const id = b.dataset.quizPlanear;
+      const atual = (envioQuiz.envios || {})[id];
+      const v = await formulario('Quando sai esta pergunta?', [
+        { nome: 'quando', etiqueta: 'Dia e hora', tipo: 'datetime-local' }
+      ], { quando: atual ? paraCampoData(new Date(atual).getTime()) : paraCampoData(Date.now() + 3600 * 1000) }, {
+        textoGuardar: 'Guardar', nota: 'Nesse dia e hora a pergunta aparece no Início (e é enviada a notificação).'
+      });
+      if (!v || !v.quando) return;
+      const envios = Object.assign({}, envioQuiz.envios);
+      envios[id] = new Date(v.quando).toISOString();
+      if (await guardarQuizEnvio({ envios }, 'Plataforma: data do quiz')) redesenhar();
+    }));
+    $$('[data-quiz-cancelar]', alvo).forEach(b => b.addEventListener('click', async () => {
+      const envios = Object.assign({}, envioQuiz.envios);
+      delete envios[b.dataset.quizCancelar];
+      if (await guardarQuizEnvio({ envios }, 'Plataforma: cancelar envio do quiz')) redesenhar();
+    }));
+
     $$('[data-prog]', alvo).forEach(b => b.addEventListener('click', () => verPrognosticos(jogos[b.dataset.prog])));
-    $$('[data-onze]', alvo).forEach(b => b.addEventListener('click', () => verOnzes(jogos[b.dataset.onze])));
     $$('[data-pe]', alvo).forEach(b => b.addEventListener('click', async () => {
       const [id, estado] = b.dataset.pe.split('|');
       if (estado === 'apagar' && !confirm('Apagar esta pergunta?')) return;
