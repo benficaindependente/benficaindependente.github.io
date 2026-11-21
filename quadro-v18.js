@@ -164,6 +164,7 @@ function aplicarTempo(estado, min) {
 }
 
 let QUADRO_TEMPO = null;    // null = automático (fechado em ecrã inteiro, aberto fora)
+let FORA_TEMPO = null;      // fecha a lista ao tocar fora
 
 /** Botões do tempo: uma barra com 1 substituição e, ao carregar, a lista completa. */
 function htmlTempo(estado, cheio) {
@@ -200,7 +201,9 @@ function htmlTempo(estado, cheio) {
         <span class="q-tempo-seta">${aberto ? '▴' : '▾'}</span>
       </button>
       <button class="q-ev q-ev-zero ${momento == null ? 'ativo' : ''}" data-min="0">⏱ Min. 0</button>
-      ${aberto ? '' : `<span class="q-tempo-resumo">${esc(resumo)}</span>`}
+      ${aberto
+        ? '<button class="q-tempo-fechar" data-tempo-fechar title="Fechar a lista">✕</button>'
+        : `<span class="q-tempo-resumo">${esc(resumo)}</span>`}
     </div>
     <div class="q-tempo-corpo">
       <div class="q-tempo-listas">${bloco('v', 'Benfica')}${bloco('b', equipaB)}</div>
@@ -232,6 +235,7 @@ const CSS_FOCO = `
 .q-tempo-toggle b{background:rgba(226,18,39,.18);color:#ffb3b3;border-radius:6px;padding:0 6px}
 .q-tempo-seta{color:#9aa4b2;font-size:11px}
 .q-tempo-resumo{flex:1;min-width:0;font-size:12px;color:#9aa4b2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-tempo-fechar{background:#2a1215;border:1px solid #5a1e25;color:#ffb3b3;border-radius:8px;padding:6px 10px;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer;margin-left:auto}
 .q-tempo-corpo{display:none;margin-top:8px}
 .q-tempo.aberto .q-tempo-corpo{display:block}
 .cartao.q-cheio{position:fixed!important;inset:0!important;z-index:90;margin:0!important;border:0!important;border-radius:0!important;background:#0f1115!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;height:100vh!important;height:100dvh!important;padding:0!important}
@@ -584,6 +588,18 @@ function desenharEditorQuadro(alvo) {
     QUADRO_TEMPO = !(caixa && caixa.classList.contains('aberto'));
     desenharEditorQuadro(alvo);
   });
+  const bFechar = $('[data-tempo-fechar]', alvo);
+  if (bFechar) bFechar.addEventListener('click', () => { QUADRO_TEMPO = false; desenharEditorQuadro(alvo); });
+  // Tocar fora da lista também a fecha.
+  if (FORA_TEMPO) { document.removeEventListener('pointerdown', FORA_TEMPO, true); FORA_TEMPO = null; }
+  if (QUADRO_TEMPO === true) {
+    FORA_TEMPO = (e) => {
+      if (e.target && e.target.closest && e.target.closest('.q-tempo')) return;
+      QUADRO_TEMPO = false;
+      desenharEditorQuadro(alvo);
+    };
+    setTimeout(() => document.addEventListener('pointerdown', FORA_TEMPO, true), 0);
+  }
   const bOnze = $('[data-onze-novo]', alvo);
   if (bOnze) bOnze.addEventListener('click', () => {
     const d = QUADRO_SUGERIDO;
