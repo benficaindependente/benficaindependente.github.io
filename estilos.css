@@ -625,6 +625,17 @@ a { color: var(--vermelho-claro); }
   background: #12161c; border: 1px solid var(--linha); border-radius: 12px;
   box-shadow: 0 -12px 30px rgba(0, 0, 0, .5); flex-basis: auto;
 }
+/* Não gastar espaço com o aviso de modo de teste nem com o texto do "sem jogo". */
+.cartao.q-cheio .cartao-corpo > .aviso { display: none; }
+.cartao.q-cheio .q-tempo-vazio { padding: 6px 10px; }
+.cartao.q-cheio .q-tempo-vazio .suave { display: none; }
+.cartao.q-cheio .q-tempo-vazio b { font-size: 12px; }
+@media (max-height: 520px) {
+  .cartao.q-cheio .q-barra .botao,
+  .cartao.q-cheio .q-rodape .botao { padding: .25em .5em; font-size: .72rem; min-height: 28px; }
+  .cartao.q-cheio .q-tempo-resumo { display: none; }
+  .cartao.q-cheio .cartao-corpo { padding: 3px 4px; gap: 3px; }
+}
 .cartao.q-cheio .q-tempo-listas { grid-template-columns: 1fr; gap: 6px; }
 .cartao.q-cheio .q-tempo-lado > b { margin-bottom: 1px; }
 .cartao.q-cheio .q-ev { grid-template-columns: 44px minmax(0, 1fr); padding: 5px 8px; font-size: .8rem; }

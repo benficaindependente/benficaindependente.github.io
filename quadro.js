@@ -233,8 +233,10 @@ let QUADRO_SUGERIDO = null; // onze mais recente, quando o quadro está com um j
 let QUADRO_CHEIO = false;   // editor em ecrã inteiro (melhor no tablet)
 
 function ecraQuadro(alvo) {
-  QUADRO_CHEIO = false;
+  // Se a página recarregar ao entrar em ecrã inteiro, o modo campo regressa sozinho.
+  try { QUADRO_CHEIO = localStorage.getItem('bi.quadro.foco') === '1'; } catch (e) { QUADRO_CHEIO = false; }
   QUADRO_TEMPO = null;
+  document.body.classList.toggle('modo-campo', QUADRO_CHEIO);
   alvo.innerHTML = cartao('Quadro tático', '<p class="suave">A carregar…</p>');
   (async () => {
     if (!QUADRO) {
@@ -262,6 +264,8 @@ function ecraQuadro(alvo) {
 async function modoCheio(alvo, ligar) {
   QUADRO_CHEIO = !!ligar;
   QUADRO_TEMPO = null;
+  try { localStorage.setItem('bi.quadro.foco', ligar ? '1' : '0'); } catch (e) { }
+  document.body.classList.toggle('modo-campo', !!ligar);
   if (ligar) {
     try {
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
@@ -285,6 +289,8 @@ if (typeof window !== 'undefined' && !window.__quadroFs) {
     if (document.fullscreenElement || !QUADRO_CHEIO) return;
     QUADRO_CHEIO = false;
     QUADRO_TEMPO = null;
+    try { localStorage.setItem('bi.quadro.foco', '0'); } catch (e) { }
+    document.body.classList.remove('modo-campo');
     try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) { }
     const ecra = document.getElementById('ecra');
     if (ecra && document.querySelector('.cartao.q-cheio')) desenharEditorQuadro(ecra);
@@ -390,6 +396,7 @@ function desenharEditorQuadro(alvo) {
   // Ecrã inteiro: o cartão ocupa a janela toda (relvado maior para trabalhar no tablet).
   const cardEl = $('.cartao', alvo);
   if (QUADRO_CHEIO && cardEl) cardEl.classList.add('q-cheio');
+  document.body.classList.toggle('modo-campo', QUADRO_CHEIO);
   const svg = $('.q-campo svg', alvo);
 
   const mudar = (alterar, semHistorico) => {
