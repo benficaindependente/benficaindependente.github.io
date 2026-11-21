@@ -8,24 +8,51 @@ const RL = 105, RW = 68;   // medidas oficiais do relvado (metros)
 /** Linhas do campo, em metros (x ao comprimento, y à largura). */
 function relvadoSvg() {
   const ln = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
-  const rect = (x1, y1, x2, y2) => `<rect x="${Math.min(x1, x2)}" y="${Math.min(y1, y2)}" width="${Math.abs(x2 - x1)}" height="${Math.abs(y2 - y1)}" fill="none"/>`;
+  const rect = (x1, y1, x2, y2, rx) => `<rect x="${Math.min(x1, x2)}" y="${Math.min(y1, y2)}" width="${Math.abs(x2 - x1)}" height="${Math.abs(y2 - y1)}" fill="none"${rx ? ` rx="${rx}"` : ''}/>`;
   const arco = (cx, cy, r, a1, a2) => {
     const p = a => [cx + r * Math.cos(a * Math.PI / 180), cy + r * Math.sin(a * Math.PI / 180)];
     const [x1, y1] = p(a1), [x2, y2] = p(a2);
     return `<path d="M${x1} ${y1} A${r} ${r} 0 ${a2 - a1 > 180 ? 1 : 0} 1 ${x2} ${y2}" fill="none"/>`;
   };
   let faixas = '';
-  for (let i = 0; i < 12; i += 2) faixas += `<rect x="${i * RL / 12}" y="0" width="${RL / 12}" height="${RW}" fill="#338a38"/>`;
-  return `<rect x="-3" y="-3" width="${RL + 6}" height="${RW + 6}" fill="#2e7d32"/>${faixas}
-    <g stroke="rgba(255,255,255,.92)" stroke-width=".22">
-      ${rect(0, 0, RL, RW)}${ln(RL / 2, 0, RL / 2, RW)}<circle cx="${RL / 2}" cy="${RW / 2}" r="9.15" fill="none"/>
+  for (let i = 0; i < 14; i += 2) faixas += `<rect x="${i * RL / 14}" y="0" width="${RL / 14}" height="${RW}" fill="rgba(255,255,255,.038)"/>`;
+  // Redes das balizas (linhas finas).
+  const rede = (x0, s) => {
+    let g = '';
+    for (let i = 1; i <= 3; i++) g += `<line x1="${x0 + s * i * .8}" y1="${RW / 2 - 3.66}" x2="${x0 + s * i * .8}" y2="${RW / 2 + 3.66}"/>`;
+    for (let j = 1; j <= 5; j++) {
+      const yy = RW / 2 - 3.66 + j * 7.32 / 6;
+      g += `<line x1="${x0}" y1="${yy}" x2="${x0 + s * 2.4}" y2="${yy}"/>`;
+    }
+    return g;
+  };
+  return `<defs>
+      <linearGradient id="relva" x1="0" y1="0" x2=".9" y2="1">
+        <stop offset="0" stop-color="#3a8f47"/><stop offset=".5" stop-color="#2f7c3a"/><stop offset="1" stop-color="#25662f"/>
+      </linearGradient>
+      <radialGradient id="luzRelva" cx="50%" cy="42%" r="72%">
+        <stop offset="0" stop-color="#ffffff" stop-opacity=".12"/><stop offset="1" stop-color="#00110a" stop-opacity=".22"/>
+      </radialGradient>
+      <filter id="sombraLinha" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy=".14" stdDeviation=".14" flood-color="#001b08" flood-opacity=".55"/>
+      </filter>
+    </defs>
+    <rect x="-3" y="-3" width="${RL + 6}" height="${RW + 6}" rx="3.2" fill="#0b1710"/>
+    <rect x="0" y="0" width="${RL}" height="${RW}" rx="1.8" fill="url(#relva)"/>
+    ${faixas}
+    <rect x="0" y="0" width="${RL}" height="${RW}" rx="1.8" fill="url(#luzRelva)"/>
+    <g stroke="rgba(255,255,255,.92)" stroke-width=".2" fill="none" stroke-linecap="round" filter="url(#sombraLinha)">
+      ${rect(0, 0, RL, RW, 1.8)}
+      ${ln(RL / 2, 0, RL / 2, RW)}
+      <circle cx="${RL / 2}" cy="${RW / 2}" r="9.15"/>
       ${rect(0, RW / 2 - 20.16, 16.5, RW / 2 + 20.16)}${rect(RL, RW / 2 - 20.16, RL - 16.5, RW / 2 + 20.16)}
       ${rect(0, RW / 2 - 9.16, 5.5, RW / 2 + 9.16)}${rect(RL, RW / 2 - 9.16, RL - 5.5, RW / 2 + 9.16)}
       ${rect(0, RW / 2 - 3.66, -2, RW / 2 + 3.66)}${rect(RL, RW / 2 - 3.66, RL + 2, RW / 2 + 3.66)}
       ${arco(11, RW / 2, 9.15, -53.13, 53.13)}${arco(RL - 11, RW / 2, 9.15, 126.87, 233.13)}
       ${arco(0, 0, 1, 0, 90)}${arco(0, RW, 1, 270, 360)}${arco(RL, 0, 1, 90, 180)}${arco(RL, RW, 1, 180, 270)}
+      <g stroke-width=".11" opacity=".8">${rede(0, -1)}${rede(RL, 1)}</g>
     </g>
-    <g fill="rgba(255,255,255,.92)"><circle cx="${RL / 2}" cy="${RW / 2}" r=".35"/><circle cx="11" cy="${RW / 2}" r=".35"/><circle cx="${RL - 11}" cy="${RW / 2}" r=".35"/></g>`;
+    <g fill="rgba(255,255,255,.92)"><circle cx="${RL / 2}" cy="${RW / 2}" r=".38"/><circle cx="11" cy="${RW / 2}" r=".38"/><circle cx="${RL - 11}" cy="${RW / 2}" r=".38"/></g>`;
 }
 
 /** Desenho completo (relvado + riscos + jogadores) para o editor e para as pré-visualizações. */
@@ -37,20 +64,29 @@ function quadroSvg(estado, extra) {
     `<line data-linha="${i}" x1="${l.x1 * RL}" y1="${l.y1 * RW}" x2="${l.x2 * RL}" y2="${l.y2 * RW}" stroke="#111" stroke-width=".55" stroke-linecap="round" ${l.t === 'seta' ? 'marker-end="url(#ponta)"' : ''}/>`).join('');
   const pontos = (e.pontos || []).map((p, i) => {
     const v = p.c !== 'b';
-    const x = Math.round(p.x * RL * 1000) / 1000, y = Math.round(p.y * RW * 1000) / 1000, R = 1.7;
+    const R = 2.05;
+    const x = Math.round(p.x * RL * 1000) / 1000;
+    const y = Math.round(p.y * RW * 1000) / 1000;
     const foto = /^https:\/\//i.test(String(p.foto || '')) ? p.foto : '';
     const clip = `qc${n}_${i}`;
     const cx = Math.round((x - R) * 1000) / 1000, cy = Math.round((y - R) * 1000) / 1000;
     const circulo = foto
       ? `<defs><clipPath id="${clip}"><circle cx="${x}" cy="${y}" r="${R}"/></clipPath></defs>
          <image href="${esc(foto)}" xlink:href="${esc(foto)}" x="${cx}" y="${cy}" width="${R * 2}" height="${R * 2}" clip-path="url(#${clip})" preserveAspectRatio="xMidYMid slice"/>`
-      : `<circle cx="${x}" cy="${y}" r="${R}" fill="${v ? '#e21227' : '#fff'}"/>`;
-    return `<g data-ponto="${i}" class="q-ponto"><circle cx="${x}" cy="${y}" r="${R * 2}" fill="#fff" fill-opacity="0"/>
-      <circle cx="${x}" cy="${y + .3}" r="${R * 1.08}" fill="rgba(0,0,0,.35)"/>${circulo}
-      <circle cx="${x}" cy="${y}" r="${R}" fill="none" stroke="${v ? '#fff' : '#222'}" stroke-width=".35"/>
-      ${p.n && !foto ? `<text x="${x}" y="${y + .62}" text-anchor="middle" font-size="1.75" font-weight="700" fill="${v ? '#fff' : '#141414'}" font-family="Arial">${esc(p.n)}</text>` : ''}
-      ${p.nome ? `<text x="${x}" y="${y + R + 1.35}" text-anchor="middle" font-size="1.5" font-weight="700" font-family="Arial"
-        fill="#fff" stroke="#0b3d12" stroke-width=".4" paint-order="stroke">${esc(p.nome)}</text>` : ''}</g>`;
+      : `<circle cx="${x}" cy="${y}" r="${R}" fill="${v ? '#e0121f' : '#f4f6f8'}"/>`;
+    const nome = String(p.nome || '');
+    const larg = Math.min(17, Math.max(3.6, nome.length * 0.86 + 1.6));
+    const pill = nome
+      ? `<rect x="${Math.round((x - larg / 2) * 100) / 100}" y="${Math.round((y + R + 0.25) * 100) / 100}" width="${Math.round(larg * 100) / 100}" height="2.8" rx="1.4" fill="rgba(3,10,6,.68)"/>
+         <text x="${x}" y="${Math.round((y + R + 2.2) * 100) / 100}" text-anchor="middle" font-size="1.65" font-weight="700" font-family="Arial, sans-serif" fill="#ffffff">${esc(nome)}</text>`
+      : '';
+    return `<g data-ponto="${i}" class="q-ponto">
+      <circle cx="${x}" cy="${y}" r="${R * 2.1}" fill="#fff" fill-opacity="0"/>
+      <ellipse cx="${x}" cy="${Math.round((y + R * 0.8) * 100) / 100}" rx="${R * 0.95}" ry="${R * 0.5}" fill="rgba(0,0,0,.35)"/>
+      ${circulo}
+      <circle cx="${x}" cy="${y}" r="${R}" fill="none" stroke="${v ? 'rgba(255,255,255,.95)' : 'rgba(8,14,10,.85)'}" stroke-width=".32"/>
+      ${p.n && !foto ? `<text x="${x}" y="${y + .68}" text-anchor="middle" font-size="1.95" font-weight="800" fill="${v ? '#fff' : '#141414'}" font-family="Arial, sans-serif">${esc(p.n)}</text>` : ''}
+      ${pill}</g>`;
   }).join('');
   return `<svg class="quadro-svg" viewBox="-3 -3 ${RL + 6} ${RW + 6}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <defs><marker id="ponta" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">

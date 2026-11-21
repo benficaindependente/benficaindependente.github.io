@@ -1,4 +1,4 @@
-/* Plataforma · Benfica Independente — estilos */
+﻿/* Plataforma Â· Benfica Independente â€” estilos */
 
 :root {
   --vermelho: #d40000;
@@ -41,35 +41,38 @@ a { color: var(--vermelho-claro); }
 .escondido { display: none !important; }
 .suave { color: var(--suave); font-size: .88rem; }
 
-/* ---------- Botões ---------- */
+/* ---------- BotÃµes ---------- */
 .botao {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: .45em;
-  padding: .62em 1.1em;
-  border: 1px solid var(--linha);
-  border-radius: var(--raio-peq);
-  background: var(--fundo-3);
+  padding: .6em 1.05em;
+  border: 1px solid #2c333d;
+  border-radius: 11px;
+  background: linear-gradient(180deg, #262d38, #1f242c);
   color: var(--texto);
   font: inherit;
   font-weight: 600;
+  letter-spacing: .01em;
   cursor: pointer;
-  transition: background .15s, border-color .15s, transform .05s;
   text-decoration: none;
   white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 2px 6px rgba(0,0,0,.22);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s, background .12s;
 }
-.botao:hover { background: #262d38; border-color: #3a424e; }
-.botao:active { transform: translateY(1px); }
-.botao.principal { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
-.botao.principal:hover { background: var(--vermelho-escuro); border-color: var(--vermelho-escuro); }
-.botao.perigo { background: transparent; border-color: #5a2020; color: #ff8b8b; }
-.botao.perigo:hover { background: #3a1414; }
-.botao.pequeno { padding: .38em .7em; font-size: .85rem; }
+.botao:hover { border-color: #3d4653; background: linear-gradient(180deg, #2b333f, #232932); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,.28); }
+.botao:active { transform: translateY(0); box-shadow: 0 1px 4px rgba(0,0,0,.4) inset; }
+.botao:focus-visible { outline: 2px solid var(--vermelho-claro); outline-offset: 2px; }
+.botao.principal { background: linear-gradient(180deg, #e6152b, #b8000f); border-color: rgba(255,90,110,.45); color: #fff; box-shadow: 0 4px 14px rgba(212,0,0,.3); }
+.botao.principal:hover { background: linear-gradient(180deg, #f11b31, #c40010); border-color: rgba(255,120,135,.6); }
+.botao.perigo { background: linear-gradient(180deg, #2b1518, #231013); border-color: #5a2020; color: #ff9a9a; }
+.botao.perigo:hover { background: linear-gradient(180deg, #38191d, #2b1215); }
+.botao.pequeno { padding: .45em .8em; font-size: .86rem; border-radius: 10px; }
 .botao.largo { width: 100%; }
 .botao:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ---------- Ecrã de entrada ---------- */
+/* ---------- EcrÃ£ de entrada ---------- */
 .entrar {
   min-height: 100%;
   display: flex;
@@ -134,7 +137,7 @@ a { color: var(--vermelho-claro); }
 
 .erro { color: var(--vermelho-erro); font-size: .88rem; min-height: 1.2em; margin: 10px 0 0; }
 
-/* ---------- Aplicação ---------- */
+/* ---------- AplicaÃ§Ã£o ---------- */
 .app { display: flex; min-height: 100%; }
 
 .barra {
@@ -225,7 +228,7 @@ a { color: var(--vermelho-claro); }
 
 .ecra { padding: 20px 22px calc(30px + env(safe-area-inset-bottom)); }
 
-/* ---------- Cartões ---------- */
+/* ---------- CartÃµes ---------- */
 .cartao {
   background: var(--fundo-2);
   border: 1px solid var(--linha);
@@ -284,7 +287,7 @@ a { color: var(--vermelho-claro); }
 
 .miniatura { width: 56px; height: 40px; object-fit: cover; border-radius: 6px; background: var(--fundo-3); }
 
-/* ---------- Formulário em modal ---------- */
+/* ---------- FormulÃ¡rio em modal ---------- */
 .fundo-modal {
   position: fixed;
   inset: 0;
@@ -344,7 +347,7 @@ a { color: var(--vermelho-claro); }
 }
 @keyframes girar { to { transform: rotate(360deg); } }
 
-/* ---------- Telemóvel ---------- */
+/* ---------- TelemÃ³vel ---------- */
 @media (max-width: 780px) {
   .so-telemovel { display: inline-flex; }
   .barra {
@@ -364,7 +367,7 @@ a { color: var(--vermelho-claro); }
   .linha-dupla { grid-template-columns: 1fr; }
 }
 
-/* ---------- Fotos no formulário ---------- */
+/* ---------- Fotos no formulÃ¡rio ---------- */
 .campo-imagem .imagem-linha { display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; }
 .miniatura.grande { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--linha); }
 .separador { margin: 18px 0 4px; padding-top: 12px; border-top: 1px solid var(--linha); font-size: .95rem; }
@@ -372,7 +375,7 @@ a { color: var(--vermelho-claro); }
 .tabela-numeros td, .tabela-numeros th { white-space: nowrap; }
 .glossario th { width: 150px; text-transform: none; letter-spacing: 0; font-size: .9rem; color: var(--texto); }
 
-/* ---------- Pré-visualização (telemóvel) ---------- */
+/* ---------- PrÃ©-visualizaÃ§Ã£o (telemÃ³vel) ---------- */
 .telemovel { width: 280px; border: 10px solid #000; border-radius: 34px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,.5); margin: 0 auto; }
 .tm-ecra { background: #121418; border-radius: 24px; overflow: hidden; min-height: 500px; display: flex; flex-direction: column; color: #eee; font-size: 13px; line-height: 1.35; }
 .tm-barra { display: flex; justify-content: space-between; padding: 6px 16px 2px; font-size: 11px; color: #ccc; }
@@ -406,7 +409,7 @@ a { color: var(--vermelho-claro); }
   .azulejo .rot { font-size: .78rem; }
 }
 
-/* Entrada simples: botões grandes */
+/* Entrada simples: botÃµes grandes */
 .grandes { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .botao.grande { display: flex; align-items: center; justify-content: flex-start; white-space: normal; gap: 14px; text-align: left; padding: 16px 18px; min-height: 84px; border-radius: 14px; font-size: 1rem; }
 .botao.grande b { display: block; }
@@ -422,7 +425,7 @@ a { color: var(--vermelho-claro); }
 
 /* =====================================================================
    Toque claro: continua escuro, mas com brancos (barra lateral, topo,
-   números, botões grandes e caixa de entrada) para ficar mais leve.
+   nÃºmeros, botÃµes grandes e caixa de entrada) para ficar mais leve.
    ===================================================================== */
 :root {
   --fundo: #11141a;
@@ -452,22 +455,22 @@ a { color: var(--vermelho-claro); }
 .topo h2 { color: var(--escuro-texto); }
 .topo .suave { color: var(--escuro-suave); }
 .topo .botao { background: var(--claro-2); border-color: var(--claro-linha); color: var(--escuro-texto); }
-/* Botões normais claros (o principal continua encarnado) */
+/* BotÃµes normais claros (o principal continua encarnado) */
 .botao { background: var(--claro-2); border-color: var(--claro-2); color: var(--escuro-texto); }
 .botao:hover { background: #ffffff; border-color: #ffffff; }
 .botao.principal { color: #fff; }
 .botao.perigo { background: transparent; border-color: #7a2a2a; color: #ff9b9b; }
 .botao.perigo:hover { background: #3a1414; }
-/* Números (azulejos) em cartões brancos */
+/* NÃºmeros (azulejos) em cartÃµes brancos */
 .azulejo { background: var(--claro); border-color: var(--claro); color: var(--escuro-texto); }
 .azulejo .num { color: var(--vermelho); }
 .azulejo .rot { color: var(--escuro-suave); }
-/* Botões grandes do "O que queres fazer?" em branco */
+/* BotÃµes grandes do "O que queres fazer?" em branco */
 .botao.grande { background: var(--claro); border-color: var(--claro); color: var(--escuro-texto); box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
 .botao.grande:hover { background: #ffffff; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0, 0, 0, .3); }
 .botao.grande.principal { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
 .botao.grande .grande-sub { opacity: .7; }
-/* Títulos dos cartões com uma linha encarnada */
+/* TÃ­tulos dos cartÃµes com uma linha encarnada */
 .cartao > header { background: linear-gradient(90deg, rgba(255, 255, 255, .06), transparent); }
 .cartao > header h3 { color: #fff; border-left: 3px solid var(--vermelho); padding-left: 9px; }
 /* Caixa de entrada branca */
@@ -477,11 +480,11 @@ a { color: var(--vermelho-claro); }
 .entrar input { background: var(--claro-2); border-color: var(--claro-linha); color: var(--escuro-texto); }
 .entrar .ajuda { border-color: var(--claro-linha); }
 #entrar-local { background: transparent; border-color: var(--claro-linha); color: var(--escuro-texto); }
-/* Janelas (formulários) com cabeçalho branco */
+/* Janelas (formulÃ¡rios) com cabeÃ§alho branco */
 .modal > header { background: var(--claro); color: var(--escuro-texto); border-bottom-color: var(--claro-linha); border-radius: var(--raio) var(--raio) 0 0; }
 .modal > header h3 { color: var(--escuro-texto); }
 
-/* Pré-visualização das sondagens, da versão da app e dos gestores */
+/* PrÃ©-visualizaÃ§Ã£o das sondagens, da versÃ£o da app e dos gestores */
 .tm-opcao { display: block; text-align: center; border: 1px solid #4a515c; border-radius: 99px; padding: 7px 10px; margin-top: 6px; font-weight: 600; }
 .tm-res { position: relative; display: flex; justify-content: space-between; gap: 8px; background: #262b33; border-radius: 8px; padding: 7px 10px; margin-top: 6px; overflow: hidden; }
 .tm-res i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(212, 0, 0, .45); }
@@ -489,49 +492,65 @@ a { color: var(--vermelho-claro); }
 .tm-dialogo { background: #1d2128; border-radius: 18px; padding: 16px; margin: 0 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
 .modal-corpo > .telemovel + p + .telemovel, .prev-pequena .telemovel + p + .telemovel { margin-top: 18px; }
 
-/* ---------- Quadro tático ---------- */
-.q-campo { border-radius: 12px; overflow: hidden; touch-action: none; user-select: none; max-width: 1100px; }
-.quadro-svg { display: block; width: 100%; height: auto; }
+/* ---------- Quadro tÃ¡tico ---------- */
+.q-campo {
+  border-radius: 18px; overflow: hidden; touch-action: none; user-select: none; max-width: 1100px;
+  padding: 8px; background: radial-gradient(120% 90% at 50% 0%, #17241b, #0b120e 78%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), 0 16px 36px rgba(0,0,0,.42);
+}
+.quadro-svg { display: block; width: 100%; height: auto; border-radius: 12px; }
 .q-campo .q-ponto { cursor: grab; }
-.q-barra { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-.q-estado { padding: 10px 12px; border-radius: 10px; background: #2a2f37; margin-bottom: 10px; }
-.q-estado.ok { background: #3a0d14; outline: 2px solid #e21227; }
+.q-campo .q-ponto:active { cursor: grabbing; }
+.q-barra {
+  display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0; padding: 5px;
+  background: #11151b; border: 1px solid var(--linha); border-radius: 14px;
+}
+.q-barra .botao { border-radius: 10px; box-shadow: none; background: transparent; border-color: transparent; }
+.q-barra .botao:hover { background: #232a34; border-color: #2f3742; transform: none; box-shadow: none; }
+.q-barra .botao.principal { background: linear-gradient(180deg, #e6152b, #b8000f); border-color: transparent; box-shadow: 0 3px 10px rgba(212,0,0,.3); }
+.q-estado { padding: 10px 12px; border-radius: 12px; background: #1c2129; border: 1px solid #2a313b; margin-bottom: 10px; }
+.q-estado.ok { background: linear-gradient(180deg, #3a0d14, #2a0a10); border-color: #e2122755; outline: 1px solid #e21227; }
 /* Nomes dos suplentes que entraram, por fora do relvado. */
 .q-bancos { display: flex; flex-direction: column; gap: 3px; margin: 8px 2px 0; }
 .q-banco { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--suave); }
 .q-banco i { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; border: 1px solid rgba(0,0,0,.45); }
 /* Mini lista dos últimos jogos, ao lado do relvado. */
-.q-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 12px; align-items: start; margin-top: 6px; }
-.q-lateral { background: #1b1f25; border: 1px solid var(--linha); border-radius: 10px; padding: 8px; }
-.q-lateral > b { display: block; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--suave); margin: 2px 0 6px; }
-.q-jogos { display: flex; flex-direction: column; gap: 4px; max-height: 430px; overflow: auto; }
-.q-jogo { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 6px; align-items: center; text-align: left;
-  background: #22262d; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; color: var(--texto);
-  cursor: pointer; font: inherit; font-size: 12.5px; }
-.q-jogo:hover { border-color: var(--linha); }
-.q-jogo.ativo { border-color: #e21227; background: #2b1218; }
-.q-jogo-data { color: var(--suave); font-size: 11px; }
+.q-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 14px; align-items: start; margin-top: 6px; }
+.q-lateral { background: linear-gradient(180deg, #181d24, #14181e); border: 1px solid #242b34; border-radius: 14px; padding: 10px; box-shadow: 0 8px 20px rgba(0,0,0,.25); }
+.q-lateral > b { display: block; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: #c7ced7; margin: 2px 0 8px; }
+.q-jogos { display: flex; flex-direction: column; gap: 5px; max-height: 430px; overflow: auto; padding-right: 2px; }
+.q-jogo { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center; text-align: left;
+  background: linear-gradient(180deg, #1d232b, #181d24); border: 1px solid #242b34; border-radius: 11px;
+  padding: 7px 9px; color: var(--texto); cursor: pointer; font: inherit; font-size: 12.5px;
+  transition: transform .12s, border-color .12s, background .12s; }
+.q-jogo:hover { border-color: #3a424e; transform: translateX(2px); }
+.q-jogo.ativo { border-color: #ff3b4b; background: linear-gradient(180deg, #2e1219, #241016); box-shadow: 0 0 0 1px #ff3b4b33; }
+.q-jogo-data { color: #9aa3af; font-size: 11px; }
 .q-jogo-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.q-jogo-res { font-weight: 800; }
-.q-acoes-fixas { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px; }
+.q-jogo-res { font-weight: 800; background: rgba(255,255,255,.07); border-radius: 7px; padding: 1px 7px; }
+.q-acoes-fixas { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
 /* Linha do tempo do jogo (substituições e expulsões). */
-.q-tempo { margin-top: 10px; border-top: 1px solid var(--linha); padding-top: 10px; }
-.q-tempo-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
-.q-tempo-listas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.q-tempo-lado { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.q-tempo-lado > b { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); margin-bottom: 2px; }
-.q-ev { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left;
-  background: #22262d; border: 1px solid transparent; border-radius: 8px; padding: 7px 9px; color: var(--texto);
-  cursor: pointer; font: inherit; font-size: 12.5px; }
-.q-ev:hover { border-color: var(--linha); }
-.q-ev.ativo { border-color: #e21227; background: #2b1218; }
-.q-ev-zero { grid-template-columns: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; font-weight: 700; }
-.q-ev-min { font-weight: 800; font-size: 12px; color: #ffb3b3; white-space: nowrap; }
+.q-tempo { margin-top: 14px; border-top: 1px solid var(--linha); padding-top: 12px; }
+.q-tempo-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.q-tempo-listas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.q-tempo-lado { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.q-tempo-lado > b { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: #c7ced7; margin-bottom: 3px; }
+.q-ev { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: center; text-align: left;
+  background: linear-gradient(180deg, #1d232b, #191e25); border: 1px solid #262d36; border-radius: 12px;
+  padding: 8px 10px; color: var(--texto); cursor: pointer; font: inherit; font-size: 12.5px;
+  transition: transform .1s, border-color .12s, background .12s, box-shadow .12s; }
+.q-ev:hover { border-color: #3a424e; transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,.25); }
+.q-ev.ativo { border-color: #ff3b4b; background: linear-gradient(180deg, #2e1219, #241016); box-shadow: 0 0 0 1px #ff3b4b33, 0 8px 18px rgba(212,0,0,.22); }
+.q-ev-zero { grid-template-columns: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; font-weight: 800;
+  background: linear-gradient(180deg, #2a1a1c, #221316); border-color: #4a2226; }
+.q-ev-zero.ativo { border-color: #ff3b4b; }
+.q-ev-min { display: inline-flex; align-items: center; justify-content: center; gap: 3px; font-weight: 800; font-size: 12px;
+  color: #ffd7d7; background: rgba(255,255,255,.06); border-radius: 8px; padding: 3px 0; white-space: nowrap; }
 .q-ev-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.q-ev-vermelho { background: #2a1618; }
-.q-ev-vermelho .q-ev-min { color: #ff8b8b; }
+.q-ev-vermelho { background: linear-gradient(180deg, #2a1618, #201013); border-color: #4a2226; }
+.q-ev-vermelho .q-ev-min { color: #ff8b8b; background: rgba(255,80,80,.12); }
 @media (max-width: 900px) { .q-tempo-listas { grid-template-columns: 1fr; } }
-/* Convocados que não entraram. */
+/* Convocados que nÃ£o entraram. */
 .q-convocados { display: flex; flex-wrap: wrap; gap: 12px; }
 .q-convocado { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 92px; font-size: 12px; text-align: center; }
 .q-convocado small { color: var(--suave); }
@@ -542,7 +561,7 @@ a { color: var(--vermelho-claro); }
 }
 
 /* ---------- Tablet / dedos ---------- */
-/* Com o dedo, os alvos têm de ser maiores (botões, lista e menu). */
+/* Com o dedo, os alvos tÃªm de ser maiores (botÃµes, lista e menu). */
 @media (pointer: coarse) {
   .botao.pequeno { padding: .55em .85em; font-size: .95rem; min-height: 42px; }
   .menu a { padding: .75em .8em; }
@@ -551,8 +570,8 @@ a { color: var(--vermelho-claro); }
   .q-lateral > b { font-size: 12px; }
 }
 
-/* ---------- Quadro em ecrã inteiro (tablet) ---------- */
-/* O cartão do quadro passa a ocupar o ecrã todo: o relvado fica muito maior para arrastar. */
+/* ---------- Quadro em ecrÃ£ inteiro (tablet) ---------- */
+/* O cartÃ£o do quadro passa a ocupar o ecrÃ£ todo: o relvado fica muito maior para arrastar. */
 .cartao.q-cheio {
   position: fixed; inset: 0; z-index: 90; margin: 0; border-radius: 0;
   overflow: auto; background: var(--fundo); padding: 10px;
