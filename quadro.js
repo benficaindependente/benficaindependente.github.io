@@ -315,7 +315,7 @@ async function novaSondagemFotos() {
     previsualizar: x => prevSondagemFotos(x.pergunta, escolhidos, x.fecha),
     confirmar: () => ({
       titulo: 'Enviar a sondagem para aprovação?',
-      html: `<p>A sondagem vai para <b>aprovação</b>: só aparece na app depois de <b>outro administrador</b> aprovar.</p>
+      html: `<p>A sondagem ${TESTE ? '' : 'vai para <b>aprovação</b>: '}${OUTRO_ADMIN}.</p>
              <p class="suave">Confirma nas imagens abaixo se está tudo bem.${CFG.modo === 'local' ? ' <b>Modo de teste:</b> nada vai ser enviado.' : ''}</p>`,
       sim: 'Sim, enviar'
     }),
@@ -339,7 +339,7 @@ async function novaSondagemFotos() {
       p_pergunta: v.pergunta, p_opcoes: escolhidos.map(j => j.nome.slice(0, 80)), p_fotos: escolhidos.map(j => j.foto || ''),
       p_fecha: new Date(v.fecha).toISOString()
     });
-    aviso('Sondagem enviada. Falta a aprovação de outro administrador.');
+    aviso(TESTE ? 'Sondagem publicada.' : 'Sondagem enviada. Falta a aprovação de outro administrador.');
   } catch (e) { aviso(e.message, true); } finally { carregar(false); }
   if (ECRAS_ATIVO === 'votacoes') redesenhar();
 }

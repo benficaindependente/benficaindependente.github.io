@@ -23,7 +23,12 @@ const REPO_PADRAO = 'benfica-independente-dados';
 const REPO_PRIVADO_PADRAO = 'benfica-independente-gestao';
 const RAMO_PADRAO = 'main';
 const PASTA = 'data/';
-const APROVACOES = 2;
+/* FASE DE TESTES: basta 1 administrador para publicar (quem cria publica logo).
+   PRODUÇÃO: mudar para 2 (e, no Supabase, `bi_modo_teste()` para false — ver supabase-novidades.sql). */
+const APROVACOES = 1;
+const TESTE = APROVACOES < 2;
+const OUTRO_ADMIN = TESTE ? 'é <b>publicado logo</b> (fase de testes: basta um administrador)' : 'só aparece na app depois de <b>outro administrador</b> aprovar';
+const AVISO_ENVIADO = TESTE ? 'Publicado.' : 'Enviado. Falta a aprovação de outro administrador.';
 
 /** Ficheiros públicos (a app lê-os). */
 const FICHEIROS = {
@@ -787,7 +792,7 @@ async function editarConteudo(tipo, id, modelo) {
       || (x.imagem && !imagemValida(x.imagem) ? 'A imagem tem de ser uma foto escolhida ou um endereço https://' : ''),
     confirmar: () => ({
       titulo: 'Enviar para publicação?',
-      html: `<p>${publicado ? 'A alteração' : `O ${T.singular}`} vai para <b>aprovação</b>: só aparece na app depois de <b>outro administrador</b> aprovar.</p>
+      html: `<p>${publicado ? 'A alteração' : `O ${T.singular}`} ${TESTE ? '' : 'vai para <b>aprovação</b>: '}${OUTRO_ADMIN}.</p>
              <p class="suave">Confirma na imagem abaixo se está tudo bem.</p>`,
       sim: 'Sim, enviar'
     })
@@ -799,9 +804,11 @@ async function editarConteudo(tipo, id, modelo) {
     const x = lista.find(i => i.id === novoId);
     if (!x) {
       if (atual) { aviso('Este item já não existe (alguém apagou).', true); return false; }
-      lista.unshift(Object.assign({ id: novoId, estado: 'aprovacao', autor: CFG.login, criado: agoraISO(), aprovacoes: [CFG.login] }, novos));
+      lista.unshift(Object.assign({ id: novoId, estado: TESTE ? 'publicado' : 'aprovacao', autor: CFG.login, criado: agoraISO(), aprovacoes: [CFG.login] }, TESTE ? { publicado: agoraISO() } : {}, novos));
     } else if (x.estado !== 'publicado') {
-      Object.assign(x, novos, { aprovacoes: [CFG.login] });   // mudou o texto: aprovações recomeçam
+      Object.assign(x, novos, { aprovacoes: [CFG.login] }, TESTE ? { estado: 'publicado', publicado: agoraISO() } : {});   // mudou o texto: aprovações recomeçam
+    } else if (TESTE) {
+      Object.assign(x, novos, { alterado: agoraISO() });
     } else {
       x.proposta = { campos: novos, autor: CFG.login, criado: agoraISO(), aprovacoes: [CFG.login] };
     }
@@ -812,7 +819,7 @@ async function editarConteudo(tipo, id, modelo) {
     try { await guardarPrivados(novoId, priv); }
     catch (e) { aviso('Enviado, mas os dados da publicidade paga não foram guardados: ' + e.message, true); }
   }
-  if (ok) { aviso('Enviado. Falta a aprovação de outro administrador.'); redesenhar(); }
+  if (ok) { aviso(AVISO_ENVIADO); redesenhar(); }
 }
 
 /** Antes da aprovação que publica: mostra como fica e pede confirmação. */
@@ -840,15 +847,15 @@ async function apagarConteudo(tipo, id) {
   const x = (ler(tipo) || []).find(i => i.id === id);
   if (!x) return;
   const publicado = x.estado === 'publicado';
-  if (!confirm(publicado ? `Pedir para apagar este ${T.singular}? Fica na app até outro administrador aprovar.`
+  if (!confirm(publicado && TESTE ? `Apagar este ${T.singular}? Sai logo da app.` : publicado ? `Pedir para apagar este ${T.singular}? Fica na app até outro administrador aprovar.`
     : `Apagar este ${T.singular}? Ainda não estava na app.`)) return;
   const ok = await alterarFicheiro(tipo, lista => {
     const i = lista.findIndex(e => e.id === id);
     if (i < 0) return false;
-    if (lista[i].estado !== 'publicado') lista.splice(i, 1);
+    if (lista[i].estado !== 'publicado' || TESTE) lista.splice(i, 1);
     else lista[i].proposta = { apagar: true, autor: CFG.login, criado: agoraISO(), aprovacoes: [CFG.login] };
   }, `Plataforma (${CFG.login}): ${publicado ? 'pede para apagar' : 'apaga'} ${T.singular}${tituloCommit(T.titulo(x))}`);
-  if (ok) { aviso(publicado ? 'Pedido enviado. Falta a aprovação de outro administrador.' : 'Apagado.'); redesenhar(); }
+  if (ok) { aviso(publicado && !TESTE ? 'Pedido enviado. Falta a aprovação de outro administrador.' : 'Apagado.'); redesenhar(); }
 }
 
 async function aprovarConteudo(tipo, id) {
@@ -1880,7 +1887,7 @@ async function novaSondagem() {
     previsualizar: x => prevSondagem(x.pergunta, opcoesSondagem(x.opcoes), x.fecha),
     confirmar: () => ({
       titulo: 'Enviar a sondagem para aprovação?',
-      html: `<p>A sondagem vai para <b>aprovação</b>: só aparece na app depois de <b>outro administrador</b> aprovar.</p>
+      html: `<p>A sondagem ${TESTE ? '' : 'vai para <b>aprovação</b>: '}${OUTRO_ADMIN}.</p>
              <p class="suave">Confirma nas imagens abaixo se está tudo bem.${CFG.modo === 'local' ? ' <b>Modo de teste:</b> nada vai ser enviado.' : ''}</p>`,
       sim: 'Sim, enviar'
     }),
@@ -1902,7 +1909,7 @@ async function novaSondagem() {
   try {
     carregar(true);
     await rpcAdmin('bi_admin_sondagem_criar', { p_pergunta: v.pergunta, p_opcoes: opcoes, p_fecha: v.fecha ? new Date(v.fecha).toISOString() : null });
-    aviso('Sondagem enviada. Falta a aprovação de outro administrador.');
+    aviso(TESTE ? 'Sondagem publicada.' : 'Sondagem enviada. Falta a aprovação de outro administrador.');
   } catch (e) { aviso(e.message, true); } finally { carregar(false); }
   if (ECRAS_ATIVO === 'votacoes') redesenhar();
 }
@@ -2072,6 +2079,7 @@ ECRAS = [
   { chave: 'ajuda', nome: 'Ajuda (IA)', icone: '✦', desenhar: ecraAjuda },
   { chave: 'votacoes', nome: 'Sondagens e Homem do jogo', icone: '🗳', desenhar: ecraVotacoes },
   { chave: 'quadro', nome: 'Quadro tático', icone: '📋', desenhar: ecraQuadro },
+  { chave: 'participacao', nome: 'Participação dos adeptos', icone: '🙌', desenhar: ecraParticipacao },
   { chave: 'estatisticas', nome: 'Estatísticas da app', icone: '📈', desenhar: ecraEstatisticasApp },
   { chave: 'atividade', nome: 'Registo de atividade', icone: '🕘', desenhar: ecraAtividade },
   { chave: 'gestores', nome: 'Gestores (contacto)', icone: '☎', desenhar: ecraGestores },
