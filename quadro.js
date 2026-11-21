@@ -226,6 +226,51 @@ const FORMACOES = {
   '3-5-2': [[.04, .5], [.18, .28], [.17, .5], [.18, .72], [.32, .1], [.3, .35], [.3, .65], [.32, .9], [.37, .5], [.45, .4], [.45, .6]]
 };
 
+const CSS_FOCO = `
+.q-tempo-barra{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.q-tempo-toggle{display:inline-flex;align-items:center;gap:8px;background:#1d232b;border:1px solid #2b333d;color:#e8edf3;border-radius:10px;padding:7px 11px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.q-tempo-toggle b{background:rgba(226,18,39,.18);color:#ffb3b3;border-radius:6px;padding:0 6px}
+.q-tempo-seta{color:#9aa4b2;font-size:11px}
+.q-tempo-resumo{flex:1;min-width:0;font-size:12px;color:#9aa4b2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-tempo-corpo{display:none;margin-top:8px}
+.q-tempo.aberto .q-tempo-corpo{display:block}
+.cartao.q-cheio{position:fixed!important;inset:0!important;z-index:90;margin:0!important;border:0!important;border-radius:0!important;background:#0f1115!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;height:100vh!important;height:100dvh!important;padding:0!important}
+.cartao.q-cheio>header{display:none!important}
+.cartao.q-cheio .cartao-corpo{flex:1!important;min-height:0!important;display:flex!important;flex-direction:column!important;gap:4px!important;padding:4px 6px!important}
+.cartao.q-cheio .q-estado,.cartao.q-cheio .q-lateral,.cartao.q-cheio .linha-acoes,.cartao.q-cheio label,.cartao.q-cheio [data-guardado],.cartao.q-cheio .q-principal>p.suave,.cartao.q-cheio .cartao-corpo>.aviso{display:none!important}
+.cartao.q-cheio .q-barra{padding:2px!important;gap:3px!important;margin:0!important}
+.cartao.q-cheio .q-barra .botao{padding:.25em .5em!important;font-size:.72rem!important;min-height:28px!important;border-radius:8px!important}
+.cartao.q-cheio .q-layout{flex:1!important;min-height:0!important;display:block!important;margin:0!important}
+.cartao.q-cheio .q-principal{display:flex!important;flex-direction:column!important;height:100%!important;min-height:0!important;gap:4px!important}
+.cartao.q-cheio .q-campo{flex:1!important;min-height:0!important;max-width:none!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
+.cartao.q-cheio .q-campo svg{width:100%!important;height:100%!important}
+.cartao.q-cheio .q-rodape{flex:0 0 auto!important;display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:6px!important}
+.cartao.q-cheio .q-acoes-fixas{margin:0!important;gap:4px!important}
+.cartao.q-cheio .q-acoes-fixas .botao{padding:.25em .55em!important;font-size:.72rem!important;min-height:28px!important;border-radius:8px!important}
+.cartao.q-cheio [data-limpar="linhas"]{display:none!important}
+.cartao.q-cheio .q-rodape .q-tempo{flex:1 1 300px!important;min-width:0!important;margin:0!important;padding:0!important;border:0!important;max-height:none!important;overflow:visible!important}
+.cartao.q-cheio .q-rodape .q-tempo.aberto{position:fixed!important;left:8px!important;right:8px!important;bottom:52px!important;z-index:96!important;max-height:58vh!important;overflow:auto!important;margin:0!important;padding:8px!important;background:#12161c!important;border:1px solid #2b333d!important;border-radius:12px!important;box-shadow:0 -12px 30px rgba(0,0,0,.5)!important}
+.cartao.q-cheio .q-tempo-listas{display:grid!important;grid-template-columns:1fr!important;gap:6px!important}
+.cartao.q-cheio .q-tempo-corpo{display:none}
+.cartao.q-cheio .q-tempo.aberto .q-tempo-corpo{display:block}
+.cartao.q-cheio .q-ev{padding:5px 8px!important;font-size:.8rem!important}
+.cartao.q-cheio .q-tempo-toggle{padding:6px 10px!important;font-size:.8rem!important}
+.cartao.q-cheio .q-tempo-vazio{padding:6px 10px!important}
+.cartao.q-cheio .q-tempo-vazio .suave{display:none!important}
+@media (max-height:520px){
+ .cartao.q-cheio .q-tempo-resumo{display:none!important}
+ .cartao.q-cheio .cartao-corpo{padding:3px 4px!important;gap:3px!important}
+}`;
+
+/** Regras do modo campo injetadas pelo JS: funcionam mesmo com o CSS em cache. */
+function estiloFoco() {
+  if (document.getElementById('bi-estilo-foco')) return;
+  const s = document.createElement('style');
+  s.id = 'bi-estilo-foco';
+  s.textContent = CSS_FOCO;
+  document.head.appendChild(s);
+}
+
 let QUADRO = null;          // { estado, visivel, titulo, versao }
 let QUADRO_HIST = [];       // para desfazer
 let QUADRO_TIMER = null;
@@ -321,11 +366,34 @@ async function sugerirOnzeAutomatico() {
       aviso('Quadro preenchido com o último onze: ' + d.jogo.nome + '.');
     } else if (QUADRO.estado.jogo && String(QUADRO.estado.jogo.id) !== d.jogo.id) {
       QUADRO_SUGERIDO = d;
+    } else if (!(QUADRO.estado.eventos || []).length && (d.eventos || []).length) {
+      // O quadro tem jogadores mas não tem o jogo: junta o onze inicial, o banco e as substituições.
+      QUADRO.estado.inicial = d.inicial;
+      QUADRO.estado.suplentes = d.suplentes;
+      QUADRO.estado.eventos = d.eventos;
+      QUADRO.estado.jogo = QUADRO.estado.jogo || d.jogo;
+      if (!QUADRO.titulo) QUADRO.titulo = d.titulo;
+      await guardarQuadro();
+      aviso('Substituições do último jogo carregadas (' + d.eventos.length + ').');
     }
   } catch (e) { /* sem rede ou sem onzes publicados: fica como está */ }
 }
 
+const VERSAO_QUADRO = 'v18';
+
+/** Etiqueta pequena com a versão: serve para saber se o telemóvel já apanhou a versão nova. */
+function marcaVersao() {
+  if (document.getElementById('versao-quadro')) return;
+  const s = document.createElement('div');
+  s.id = 'versao-quadro';
+  s.textContent = VERSAO_QUADRO;
+  s.style.cssText = 'position:fixed;right:6px;bottom:4px;z-index:9999;opacity:.6;font-size:10px;color:#9aa4b2;pointer-events:none;font-family:system-ui,sans-serif';
+  document.body.appendChild(s);
+}
+
 function desenharEditorQuadro(alvo) {
+  estiloFoco();
+  marcaVersao();
   const q = QUADRO;
   q.estado.pontos = q.estado.pontos || [];
   q.estado.linhas = q.estado.linhas || [];
