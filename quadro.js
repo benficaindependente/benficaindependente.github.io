@@ -1,0 +1,387 @@
+/* Plataforma · Benfica Independente — quadro tático em direto e sondagens com fotos.
+   Carregado antes de app.js (as funções só usam o que está em app.js quando são chamadas). */
+'use strict';
+
+/* =============================== Relvado (SVG) =============================== */
+const RL = 105, RW = 68;   // medidas oficiais do relvado (metros)
+
+/** Linhas do campo, em metros (x ao comprimento, y à largura). */
+function relvadoSvg() {
+  const ln = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+  const rect = (x1, y1, x2, y2) => `<rect x="${Math.min(x1, x2)}" y="${Math.min(y1, y2)}" width="${Math.abs(x2 - x1)}" height="${Math.abs(y2 - y1)}" fill="none"/>`;
+  const arco = (cx, cy, r, a1, a2) => {
+    const p = a => [cx + r * Math.cos(a * Math.PI / 180), cy + r * Math.sin(a * Math.PI / 180)];
+    const [x1, y1] = p(a1), [x2, y2] = p(a2);
+    return `<path d="M${x1} ${y1} A${r} ${r} 0 ${a2 - a1 > 180 ? 1 : 0} 1 ${x2} ${y2}" fill="none"/>`;
+  };
+  let faixas = '';
+  for (let i = 0; i < 12; i += 2) faixas += `<rect x="${i * RL / 12}" y="0" width="${RL / 12}" height="${RW}" fill="#338a38"/>`;
+  return `<rect x="-3" y="-3" width="${RL + 6}" height="${RW + 6}" fill="#2e7d32"/>${faixas}
+    <g stroke="rgba(255,255,255,.92)" stroke-width=".22">
+      ${rect(0, 0, RL, RW)}${ln(RL / 2, 0, RL / 2, RW)}<circle cx="${RL / 2}" cy="${RW / 2}" r="9.15" fill="none"/>
+      ${rect(0, RW / 2 - 20.16, 16.5, RW / 2 + 20.16)}${rect(RL, RW / 2 - 20.16, RL - 16.5, RW / 2 + 20.16)}
+      ${rect(0, RW / 2 - 9.16, 5.5, RW / 2 + 9.16)}${rect(RL, RW / 2 - 9.16, RL - 5.5, RW / 2 + 9.16)}
+      ${rect(0, RW / 2 - 3.66, -2, RW / 2 + 3.66)}${rect(RL, RW / 2 - 3.66, RL + 2, RW / 2 + 3.66)}
+      ${arco(11, RW / 2, 9.15, -53.13, 53.13)}${arco(RL - 11, RW / 2, 9.15, 126.87, 233.13)}
+      ${arco(0, 0, 1, 0, 90)}${arco(0, RW, 1, 270, 360)}${arco(RL, 0, 1, 90, 180)}${arco(RL, RW, 1, 180, 270)}
+    </g>
+    <g fill="rgba(255,255,255,.92)"><circle cx="${RL / 2}" cy="${RW / 2}" r=".35"/><circle cx="11" cy="${RW / 2}" r=".35"/><circle cx="${RL - 11}" cy="${RW / 2}" r=".35"/></g>`;
+}
+
+/** Desenho completo (relvado + riscos + jogadores) para o editor e para as pré-visualizações. */
+function quadroSvg(estado, extra) {
+  const e = estado || { pontos: [], linhas: [] };
+  const linhas = (e.linhas || []).map((l, i) =>
+    `<line data-linha="${i}" x1="${l.x1 * RL}" y1="${l.y1 * RW}" x2="${l.x2 * RL}" y2="${l.y2 * RW}" stroke="#111" stroke-width=".55" stroke-linecap="round" ${l.t === 'seta' ? 'marker-end="url(#ponta)"' : ''}/>`).join('');
+  const pontos = (e.pontos || []).map((p, i) => {
+    const v = p.c !== 'b';
+    return `<g data-ponto="${i}" class="q-ponto"><circle cx="${p.x * RL}" cy="${p.y * RW + .3}" r="1.85" fill="rgba(0,0,0,.35)"/>
+      <circle cx="${p.x * RL}" cy="${p.y * RW}" r="1.7" fill="${v ? '#e21227' : '#fff'}" stroke="${v ? '#fff' : '#222'}" stroke-width=".3"/>
+      ${p.n ? `<text x="${p.x * RL}" y="${p.y * RW + .62}" text-anchor="middle" font-size="1.75" font-weight="700" fill="${v ? '#fff' : '#141414'}" font-family="Arial">${esc(p.n)}</text>` : ''}</g>`;
+  }).join('');
+  return `<svg class="quadro-svg" viewBox="-3 -3 ${RL + 6} ${RW + 6}" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="ponta" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#111"/></marker></defs>
+    ${relvadoSvg()}<g>${linhas}</g><g>${pontos}</g>${extra || ''}</svg>`;
+}
+
+/** Como aparece no Início da app (para a pré-visualização antes de pôr na app). */
+function prevQuadro(estado, titulo) {
+  return telemovel(`<div class="tm-cartao tm-p"><div class="tm-etiqueta">● QUADRO TÁTICO · AO VIVO</div>
+      ${titulo ? `<b class="tm-grande">${esc(titulo)}</b>` : ''}
+      <div style="margin-top:8px;border-radius:8px;overflow:hidden">${quadroSvg(estado)}</div>
+      <div class="tm-mini">Em direto. Toca para ver em ecrã inteiro.</div></div>`,
+    'No topo do Início, no lugar do "Quem somos". Mexe ao mesmo tempo que aqui (1 a 2 segundos).');
+}
+
+/* =============================== Editor do quadro =============================== */
+const FORMACOES = {
+  '4-3-3': [[.04, .5], [.2, .15], [.18, .38], [.18, .62], [.2, .85], [.33, .5], [.38, .3], [.38, .7], [.45, .15], [.47, .5], [.45, .85]],
+  '4-4-2': [[.04, .5], [.2, .15], [.18, .38], [.18, .62], [.2, .85], [.34, .15], [.33, .4], [.33, .6], [.34, .85], [.45, .4], [.45, .6]],
+  '4-2-3-1': [[.04, .5], [.2, .15], [.18, .38], [.18, .62], [.2, .85], [.3, .4], [.3, .6], [.38, .18], [.38, .5], [.38, .82], [.46, .5]],
+  '3-5-2': [[.04, .5], [.18, .28], [.17, .5], [.18, .72], [.32, .1], [.3, .35], [.3, .65], [.32, .9], [.37, .5], [.45, .4], [.45, .6]]
+};
+
+let QUADRO = null;          // { estado, visivel, titulo, versao }
+let QUADRO_HIST = [];       // para desfazer
+let QUADRO_TIMER = null;
+
+function ecraQuadro(alvo) {
+  alvo.innerHTML = cartao('Quadro tático', '<p class="suave">A carregar…</p>');
+  (async () => {
+    if (!QUADRO) {
+      QUADRO = { estado: { pontos: [], linhas: [] }, visivel: false, titulo: '', versao: 0 };
+      if (CFG.modo !== 'local' && CFG.token) {
+        try {
+          carregar(true);
+          const q = await rpcAdmin('bi_admin_quadro');
+          if (q) QUADRO = { estado: q.estado || { pontos: [], linhas: [] }, visivel: !!q.visivel, titulo: q.titulo || '', versao: q.versao || 0 };
+        } catch (e) {
+          alvo.innerHTML = cartao('Quadro tático', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-quadro-e-fotos.sql no Supabase.</p>`);
+          return;
+        } finally { carregar(false); }
+      }
+    }
+    desenharEditorQuadro(alvo);
+  })();
+}
+
+function desenharEditorQuadro(alvo) {
+  const q = QUADRO;
+  let ferramenta = alvo.dataset.ferramenta || 'mover';
+  const conta = c => q.estado.pontos.filter(p => (p.c === 'b') === (c === 'b')).length;
+  const botaoF = (f, t) => `<button class="botao pequeno ${ferramenta === f ? 'principal' : ''}" data-f="${f}">${t}</button>`;
+  alvo.innerHTML = cartao('Quadro tático', `
+    ${CFG.modo === 'local' ? '<p class="aviso mau"><b>Modo de teste:</b> podes experimentar, mas nada aparece na app. Para usar a sério entra com a conta GitHub.</p>' : ''}
+    <div class="q-estado ${q.visivel ? 'ok' : ''}">${q.visivel
+      ? '📡 <b>Na app, em direto.</b> O que mexeres aqui mexe nos telemóveis em 1 a 2 segundos (no Início, no lugar do "Quem somos").'
+      : '⏸ <b>Não está na app.</b> Prepara à vontade; quando estiver pronto carrega em "Pôr na app".'}</div>
+    <label>Título (opcional)<input type="text" data-titulo maxlength="80" value="${esc(q.titulo)}" placeholder="Ex.: O onze provável para Braga"></label>
+    <div class="q-barra">
+      ${botaoF('mover', '✋ Mover')}
+      ${botaoF('v', '🔴 Pôr encarnado')}
+      ${botaoF('b', '⚪ Pôr branco')}
+      ${botaoF('linha', '／ Risco')}
+      ${botaoF('seta', '➚ Seta')}
+      ${botaoF('apagar', '🗑 Apagar')}
+    </div>
+    <div class="q-campo">${quadroSvg(q.estado)}</div>
+    <p class="suave" style="margin:6px 0">
+      Encarnados <b>${conta('v')}/11</b> · Brancos <b>${conta('b')}/11</b>.
+      ${ferramenta === 'mover' ? 'Arrasta os jogadores. Dois cliques num jogador para lhe pôr um número.' : ''}
+      ${ferramenta === 'v' || ferramenta === 'b' ? 'Clica no relvado onde queres pôr o jogador.' : ''}
+      ${ferramenta === 'linha' || ferramenta === 'seta' ? 'Carrega e arrasta no relvado para desenhar (preto).' : ''}
+      ${ferramenta === 'apagar' ? 'Clica num jogador, risco ou seta para o tirar.' : ''}
+    </p>
+    <div class="linha-acoes">
+      <span class="suave">Formações rápidas:</span>
+      ${Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="v:${f}">🔴 ${f}</button>`).join('')}
+      ${Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="b:${f}">⚪ ${f}</button>`).join('')}
+    </div>
+    <div class="linha-acoes">
+      <button class="botao pequeno" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'}>↶ Desfazer</button>
+      <button class="botao pequeno" data-limpar="linhas">Tirar riscos e setas</button>
+      <button class="botao pequeno perigo" data-limpar="tudo">Limpar tudo</button>
+    </div>
+    <p class="suave" data-guardado>${q.guardadoTxt || ''}</p>`,
+    q.visivel ? '<button class="botao pequeno perigo" data-visivel="0">Tirar da app</button>'
+      : '<button class="botao pequeno principal" data-visivel="1">📡 Pôr na app</button>');
+  alvo.dataset.ferramenta = ferramenta;
+  const svg = $('.q-campo svg', alvo);
+
+  const mudar = (alterar, semHistorico) => {
+    if (!semHistorico) { QUADRO_HIST.push(JSON.stringify(q.estado)); if (QUADRO_HIST.length > 60) QUADRO_HIST.shift(); }
+    alterar();
+    guardarQuadroEmBreve();
+    desenharEditorQuadro(alvo);
+  };
+  const ponto = ev => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return { x: Math.min(1.02, Math.max(-0.02, p.x / RL)), y: Math.min(1.03, Math.max(-0.03, p.y / RW)) };
+  };
+  const r3 = v => Math.round(v * 1000) / 1000;
+
+  $$('[data-f]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.ferramenta = b.dataset.f; desenharEditorQuadro(alvo); }));
+  $('[data-titulo]', alvo).addEventListener('change', ev => { q.titulo = ev.target.value.trim(); guardarQuadroEmBreve(); });
+  $$('[data-form]', alvo).forEach(b => b.addEventListener('click', () => {
+    const [c, f] = b.dataset.form.split(':');
+    mudar(() => {
+      q.estado.pontos = q.estado.pontos.filter(p => (p.c === 'b') !== (c === 'b'));
+      // Encarnados atacam para a direita; brancos ao contrário.
+      FORMACOES[f].forEach(([x, y]) => q.estado.pontos.push({ c, x: c === 'b' ? r3(1 - x) : x, y: c === 'b' ? r3(1 - y) : y, n: '' }));
+    });
+  }));
+  $('[data-desfazer]', alvo).addEventListener('click', () => {
+    if (!QUADRO_HIST.length) return;
+    q.estado = JSON.parse(QUADRO_HIST.pop());
+    mudar(() => {}, true);
+  });
+  $$('[data-limpar]', alvo).forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.limpar === 'tudo' && !confirm('Tirar todos os jogadores, riscos e setas?')) return;
+    mudar(() => { if (b.dataset.limpar === 'tudo') q.estado.pontos = []; q.estado.linhas = []; });
+  }));
+  const bVis = $('[data-visivel]', alvo);
+  if (bVis) bVis.addEventListener('click', async () => {
+    const ligar = bVis.dataset.visivel === '1';
+    if (ligar && !await perguntar('Pôr o quadro na app?',
+      `<p>O quadro passa a aparecer <b>no topo do Início da app, no lugar do "Quem somos"</b>, em direto: a partir daqui, cada jogador que mexeres, risco ou seta que desenhares mexe nos telemóveis em 1 a 2 segundos. Quem quiser pode vê-lo em ecrã inteiro.</p>
+       <p class="suave">Confirma no telemóvel abaixo se está tudo bem.${CFG.modo === 'local' ? ' <b>Modo de teste:</b> nada vai aparecer na app.' : ''}</p>
+       <div class="prev-pequena">${prevQuadro(q.estado, q.titulo)}</div>`, 'Sim, pôr na app', 'Ainda não')) return;
+    if (!ligar && !confirm('Tirar o quadro da app? (o desenho fica guardado aqui)')) return;
+    q.visivel = ligar;
+    await guardarQuadro();
+    desenharEditorQuadro(alvo);
+  });
+
+  // Ratos e dedos no relvado.
+  let arrastar = null;   // { i } ponto a mover | { nova: {t,x1,y1,x2,y2} } risco a desenhar
+  svg.addEventListener('pointerdown', ev => {
+    const g = ev.target.closest('[data-ponto]'), l = ev.target.closest('[data-linha]');
+    const p = ponto(ev);
+    if (ferramenta === 'apagar') {
+      if (g) mudar(() => q.estado.pontos.splice(Number(g.dataset.ponto), 1));
+      else if (l) mudar(() => q.estado.linhas.splice(Number(l.dataset.linha), 1));
+      return;
+    }
+    if (ferramenta === 'v' || ferramenta === 'b') {
+      if (conta(ferramenta) >= 11) { aviso(`Já tens 11 ${ferramenta === 'v' ? 'encarnados' : 'brancos'}.`, true); return; }
+      mudar(() => q.estado.pontos.push({ c: ferramenta, x: r3(p.x), y: r3(p.y), n: '' }));
+      return;
+    }
+    if (ferramenta === 'linha' || ferramenta === 'seta') {
+      if (q.estado.linhas.length >= 60) { aviso('Já há muitos riscos: apaga alguns.', true); return; }
+      QUADRO_HIST.push(JSON.stringify(q.estado));
+      arrastar = { nova: { t: ferramenta, x1: r3(p.x), y1: r3(p.y), x2: r3(p.x), y2: r3(p.y) } };
+      q.estado.linhas.push(arrastar.nova);
+      svg.setPointerCapture(ev.pointerId);
+      return;
+    }
+    if (g) {
+      QUADRO_HIST.push(JSON.stringify(q.estado));
+      arrastar = { i: Number(g.dataset.ponto) };
+      svg.setPointerCapture(ev.pointerId);
+    }
+  });
+  svg.addEventListener('pointermove', ev => {
+    if (!arrastar) return;
+    const p = ponto(ev);
+    if (arrastar.nova) { arrastar.nova.x2 = r3(p.x); arrastar.nova.y2 = r3(p.y); }
+    else { const pt = q.estado.pontos[arrastar.i]; pt.x = r3(p.x); pt.y = r3(p.y); }
+    // Redesenha dentro do mesmo svg (assim continua a seguir o rato/dedo).
+    const tmp = document.createElement('div');
+    tmp.innerHTML = quadroSvg(q.estado);
+    svg.innerHTML = tmp.firstElementChild.innerHTML;
+    guardarQuadroEmBreve();
+  });
+  const largar = () => {
+    if (!arrastar) return;
+    const n = arrastar.nova;
+    if (n && Math.hypot((n.x2 - n.x1) * RL, (n.y2 - n.y1) * RW) < 1.5) { q.estado.linhas.pop(); QUADRO_HIST.pop(); }
+    arrastar = null;
+    guardarQuadroEmBreve();
+    desenharEditorQuadro(alvo);
+  };
+  svg.addEventListener('pointerup', largar);
+  svg.addEventListener('pointercancel', largar);
+  svg.addEventListener('dblclick', ev => {
+    const g = ev.target.closest('[data-ponto]');
+    if (!g || ferramenta !== 'mover') return;
+    const pt = q.estado.pontos[Number(g.dataset.ponto)];
+    const n = prompt('Número ou letras do jogador (até 3; vazio para tirar):', pt.n || '');
+    if (n === null) return;
+    mudar(() => { pt.n = n.trim().slice(0, 3); });
+  });
+}
+
+/** Envia no máximo de 300 em 300 ms: enquanto se arrasta, a app vai vendo o jogador a mexer. */
+let QUADRO_A_ENVIAR = false, QUADRO_DE_NOVO = false;
+function guardarQuadroEmBreve() {
+  if (QUADRO_TIMER) return;
+  QUADRO_TIMER = setTimeout(() => { QUADRO_TIMER = null; guardarQuadro(); }, 300);
+}
+
+async function guardarQuadro() {
+  clearTimeout(QUADRO_TIMER); QUADRO_TIMER = null;
+  const q = QUADRO;
+  if (!q) return;
+  // Um envio de cada vez (pela ordem certa); se mudar entretanto, envia outra vez no fim.
+  if (QUADRO_A_ENVIAR) { QUADRO_DE_NOVO = true; return; }
+  QUADRO_A_ENVIAR = true;
+  try { await enviarQuadro(q); } finally {
+    QUADRO_A_ENVIAR = false;
+    if (QUADRO_DE_NOVO) { QUADRO_DE_NOVO = false; guardarQuadro(); }
+  }
+}
+
+async function enviarQuadro(q) {
+  const info = t => { q.guardadoTxt = t; const el = $('[data-guardado]'); if (el) el.textContent = t; };
+  if (CFG.modo === 'local' || !CFG.token) { info('Modo de teste: não é guardado nem aparece na app.'); return; }
+  try {
+    const r = await rpcAdmin('bi_admin_quadro_guardar', { p_estado: q.estado, p_visivel: q.visivel, p_titulo: q.titulo || '' });
+    q.versao = r.versao;
+    const h = new Date().toLocaleTimeString('pt-PT');
+    info(q.visivel ? `Enviado às ${h} · a app mostra em 1 a 2 segundos.` : `Guardado às ${h} (ainda não está na app).`);
+  } catch (e) { info(''); aviso('Não foi possível guardar o quadro: ' + e.message, true); }
+}
+
+/* =============================== Sondagens com fotos =============================== */
+let JOGADORES = null;
+
+async function lerJogadores() {
+  if (JOGADORES) return JOGADORES;
+  try { JOGADORES = await (await fetch('jogadores.json', { cache: 'no-cache' })).json(); }
+  catch (e) { JOGADORES = []; }
+  return JOGADORES;
+}
+
+function fotoRedonda(foto, nome, tam) {
+  const ini = String(nome || '?').split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+  return `<span class="foto-redonda" style="width:${tam}px;height:${tam}px">${foto ? `<img src="${esc(foto)}" alt="">` : `<i>${esc(ini)}</i>`}</span>`;
+}
+
+/** Como fica na app: aberta (tocar na foto para votar) e depois com o resultado. */
+function prevSondagemFotos(pergunta, jog, fecha, votos) {
+  jog = jog.length ? jog : [{ nome: 'Jogador 1', foto: '' }, { nome: 'Jogador 2', foto: '' }];
+  votos = votos || jog.map(() => 0);
+  const total = votos.reduce((a, b) => a + b, 0);
+  const venc = total ? votos.indexOf(Math.max(...votos)) : -1;
+  const tam = jog.length <= 2 ? 66 : jog.length === 3 ? 56 : 46;
+  const fim = fecha ? fimTexto(fecha) : '';
+  const grelha = res => `<div class="tm-fotos">${jog.map((j, i) => {
+    const pc = total ? Math.round((votos[i] || 0) / total * 100) : 0;
+    return `<div class="${res && i === venc ? 'venc' : ''}">${fotoRedonda(j.foto, j.nome, tam)}<span>${res && i === venc ? '🏆 ' : ''}${esc(j.nome)}</span>${res ? `<b>${pc}%</b><i class="tm-barrinha"><em style="width:${pc}%"></em></i>` : ''}</div>`;
+  }).join('')}</div>`;
+  return telemovel(`<div class="tm-seccao">Início — enquanto está aberta</div>
+      <div class="tm-cartao tm-p"><div class="tm-etiqueta">SONDAGEM DO BI · VOTA</div><b class="tm-grande">${esc(pergunta || 'A tua pergunta')}</b>
+      ${grelha(false)}<div class="tm-mini">Toca na foto para votar.${fim ? ` Termina a ${esc(fim)}.` : ''}</div></div>`,
+      'No topo do Início, no lugar do "Quem somos"' + (fim ? ` — até ${esc(fim)}` : ''))
+    + telemovel(`<div class="tm-seccao">Depois de terminar (1 dia)</div>
+      <div class="tm-cartao tm-p"><div class="tm-etiqueta">RESULTADO DA SONDAGEM</div><b class="tm-grande">${esc(pergunta || 'A tua pergunta')}</b>
+      ${grelha(true)}<div class="tm-mini">${numero(total)} ${total === 1 ? 'voto' : 'votos'} · votação terminada</div></div>`,
+      'O resultado fica 1 dia no Início; depois vai para o Histórico de sondagens (menu ⋮)');
+}
+
+async function novaSondagemFotos() {
+  const lista = await lerJogadores();
+  let escolhidos = [];
+  const v = await formulario('Nova sondagem com fotos', [
+    { nome: 'pergunta', etiqueta: 'Pergunta', tipo: 'text', dica: 'Ex.: Quem foi o melhor em novembro?' },
+    { nome: 'jogadores', etiqueta: 'Jogadores (escolhe de 2 a 4)', tipo: 'jogadores' },
+    { nome: 'fecha', etiqueta: 'Termina no dia e hora', tipo: 'datetime-local' }
+  ], {}, {
+    textoGuardar: 'Enviar para aprovação',
+    aoAbrir: fundo => montarEscolhaJogadores(fundo, lista, l => { escolhidos = l; }),
+    previsualizar: x => prevSondagemFotos(x.pergunta, escolhidos, x.fecha),
+    confirmar: () => ({
+      titulo: 'Enviar a sondagem para aprovação?',
+      html: `<p>A sondagem vai para <b>aprovação</b>: só aparece na app depois de <b>outro administrador</b> aprovar.</p>
+             <p class="suave">Confirma nas imagens abaixo se está tudo bem.${CFG.modo === 'local' ? ' <b>Modo de teste:</b> nada vai ser enviado.' : ''}</p>`,
+      sim: 'Sim, enviar'
+    }),
+    nota: (CFG.modo === 'local' ? '<b>Modo de teste:</b> podes experimentar e pré-visualizar, mas a sondagem não é enviada.<br><br>' : '') +
+      'Escolhe até 4 jogadores: na app aparece a foto e o nome de cada um e vota-se tocando na foto. Enquanto está aberta fica no topo do Início, no lugar do "Quem somos"; quando termina, o resultado fica <b>1 dia</b> no Início e depois vai para o "Histórico de sondagens" (menu ⋮). Precisa da aprovação de outro administrador.',
+    validar: x => {
+      if (!x.pergunta || x.pergunta.trim().length < 3) return 'Escreve a pergunta.';
+      if (escolhidos.length < 2 || escolhidos.length > 4) return 'Escolhe entre 2 e 4 jogadores.';
+      if (!x.fecha || new Date(x.fecha) <= new Date()) return 'Escolhe o dia e a hora em que termina (no futuro).';
+      return '';
+    }
+  });
+  if (!v) return;
+  if (CFG.modo === 'local' || !CFG.token) {
+    aviso('Modo de teste: a sondagem NÃO foi enviada. Para a publicar, sai e entra com a conta GitHub.', true);
+    return;
+  }
+  try {
+    carregar(true);
+    await rpcAdmin('bi_admin_sondagem_fotos_criar', {
+      p_pergunta: v.pergunta, p_opcoes: escolhidos.map(j => j.nome.slice(0, 80)), p_fotos: escolhidos.map(j => j.foto || ''),
+      p_fecha: new Date(v.fecha).toISOString()
+    });
+    aviso('Sondagem enviada. Falta a aprovação de outro administrador.');
+  } catch (e) { aviso(e.message, true); } finally { carregar(false); }
+  if (ECRAS_ATIVO === 'votacoes') redesenhar();
+}
+
+/** Lista de jogadores com foto para escolher (pesquisa, equipa principal / feminino, e "outro nome"). */
+function montarEscolhaJogadores(fundo, lista, aoMudar) {
+  const caixa = $('[data-jogadores]', fundo);
+  if (!caixa) return;
+  let escolhidos = [], equipa = 'Equipa principal', filtro = '';
+  const desenhar = () => {
+    const vis = lista.filter(j => j.equipa === equipa && (!filtro || j.nome.toLowerCase().includes(filtro)));
+    caixa.innerHTML = `
+      <div class="jog-escolhidos">${escolhidos.length ? escolhidos.map((j, i) => `<span class="jog-chip">${fotoRedonda(j.foto, j.nome, 26)} ${esc(j.nome)} <button type="button" data-tirar="${i}">✕</button></span>`).join('')
+        : '<span class="suave">Ainda nenhum escolhido.</span>'} <b class="mini">${escolhidos.length}/4</b></div>
+      <div class="linha-acoes">
+        ${['Equipa principal', 'Futebol feminino'].map(e => `<button type="button" class="botao pequeno ${e === equipa ? 'principal' : ''}" data-equipa="${e}">${e}</button>`).join('')}
+        <input type="search" data-filtro placeholder="Procurar nome…" value="${esc(filtro)}" style="flex:1;min-width:120px">
+      </div>
+      <div class="jog-grelha">${vis.map(j => {
+        const sel = escolhidos.some(x => x.nome === j.nome && x.foto === j.foto);
+        return `<button type="button" class="jog ${sel ? 'sel' : ''}" data-jog="${esc(j.foto)}">${fotoRedonda(j.foto, j.nome, 54)}<span>${esc(j.nome)}</span><small>${esc(j.numero ? '#' + j.numero : '')}</small></button>`;
+      }).join('') || '<p class="suave">Nenhum jogador com esse nome.</p>'}</div>
+      <div class="linha-acoes"><input type="text" data-outro placeholder="Outro nome (sem foto)" maxlength="60" style="flex:1">
+        <button type="button" class="botao pequeno" data-juntar>＋ Juntar</button></div>`;
+    $$('[data-jog]', caixa).forEach(b => b.addEventListener('click', () => {
+      const j = lista.find(x => x.foto === b.dataset.jog);
+      const i = escolhidos.findIndex(x => x.foto === j.foto && x.nome === j.nome);
+      if (i >= 0) escolhidos.splice(i, 1);
+      else if (escolhidos.length >= 4) { aviso('No máximo 4 jogadores.', true); return; }
+      else escolhidos.push({ nome: j.nome, foto: j.foto });
+      aoMudar(escolhidos.slice()); desenhar();
+    }));
+    $$('[data-tirar]', caixa).forEach(b => b.addEventListener('click', () => { escolhidos.splice(Number(b.dataset.tirar), 1); aoMudar(escolhidos.slice()); desenhar(); }));
+    $$('[data-equipa]', caixa).forEach(b => b.addEventListener('click', () => { equipa = b.dataset.equipa; desenhar(); }));
+    const f = $('[data-filtro]', caixa);
+    f.addEventListener('input', () => { filtro = f.value.trim().toLowerCase(); const pos = f.selectionStart; desenhar(); const n = $('[data-filtro]', caixa); n.focus(); n.setSelectionRange(pos, pos); });
+    $('[data-juntar]', caixa).addEventListener('click', () => {
+      const n = $('[data-outro]', caixa).value.trim();
+      if (!n) return;
+      if (escolhidos.length >= 4) { aviso('No máximo 4 jogadores.', true); return; }
+      escolhidos.push({ nome: n, foto: '' }); aoMudar(escolhidos.slice()); desenhar();
+    });
+  };
+  desenhar();
+}

@@ -396,6 +396,7 @@ function formulario(titulo, campos, valores, opcoes) {
       </div>
     </div>`;
     document.body.appendChild(fundo);
+    if (opcoes.aoAbrir) opcoes.aoAbrir(fundo);
     const recolher = () => {
       const saida = {};
       for (const c of campos) {
@@ -482,6 +483,7 @@ function campoHtml(c, valor) {
   const v = valor != null ? valor : (c.valor != null ? c.valor : '');
   const nome = esc(c.nome);
   const so = c.so ? ` data-so="${esc(c.so)}"` : '';
+  if (c.tipo === 'jogadores') return `<div class="campo"${so}><span class="rotulo">${esc(c.etiqueta)}</span><div data-jogadores></div></div>`;
   if (c.tipo === 'titulo') return `<h4 class="separador"${so}>${esc(c.etiqueta)}</h4>${c.ajuda ? `<p class="suave"${so}>${esc(c.ajuda)}</p>` : ''}`;
   if (c.tipo === 'checkbox' && c.varios) {
     const marcados = Array.isArray(v) ? v : [];
@@ -1769,6 +1771,8 @@ function ecraInicio(alvo) {
     ${botao('data-criar="destaques"', '★', 'Mudar o destaque do Início', 'O cartão grande do topo')}
     ${botao('data-criar="anuncios"', '💰', 'Novo anúncio pago', 'Na barra por cima do menu')}
     ${botao('data-ir="votacoes" data-nova-sondagem', '🗳', 'Criar uma sondagem', 'Os adeptos votam na app')}
+    ${botao('data-ir="votacoes" data-nova-fotos', '📸', 'Sondagem com fotos', 'Até 4 jogadores, com foto e nome')}
+    ${botao('data-ir="quadro"', '📋', 'Quadro tático em direto', 'Mexe nos jogadores e a app vê na hora')}
     ${botao('data-ir="estatisticas"', '📈', 'Ver como a app está a ser usada', 'Aberturas, separadores e programas')}
     ${botao('data-ir="ajuda"', '✦', 'Pedir ajuda à IA', 'Explica como fazer qualquer coisa')}
   </div>`);
@@ -1784,6 +1788,7 @@ function ecraInicio(alvo) {
     const destino = b.dataset.ir === 'aprovar' ? 'painel' : b.dataset.ir;
     irPara(destino);
     if (b.hasAttribute('data-nova-sondagem')) novaSondagem();
+    if (b.hasAttribute('data-nova-fotos')) novaSondagemFotos();
   }));
 }
 
@@ -1907,8 +1912,9 @@ function ecraVotacoes(alvo) {
     alvo.innerHTML = cartao('Sondagens e Homem do jogo', `<p class="aviso mau">Estás no <b>modo de teste</b>: as sondagens não são enviadas para a app.
       Para publicar a sério, sai (Definições › Sair) e entra com a conta GitHub.</p>
       <p class="suave">Podes na mesma experimentar o formulário e ver como a sondagem fica na app.</p>`,
-      '<button class="botao pequeno principal" data-nova>＋ Experimentar uma sondagem</button>');
+      '<button class="botao pequeno principal" data-nova>＋ Experimentar uma sondagem</button> <button class="botao pequeno principal" data-nova-fotos>📸 Experimentar com fotos</button>');
     $('[data-nova]', alvo).addEventListener('click', novaSondagem);
+    $('[data-nova-fotos]', alvo).addEventListener('click', novaSondagemFotos);
     return;
   }
   alvo.innerHTML = cartao('Sondagens', '<p class="suave">A carregar…</p>');
@@ -1928,13 +1934,15 @@ function ecraVotacoes(alvo) {
       if (!s.aprovada_por) return '<span class="pilula espera">À espera de aprovação</span>';
       const fim = s.fecha ? new Date(s.fecha).getTime() : 0, agora = Date.now();
       if (!s.fechada && fim > agora) return '<span class="pilula ok">Aberta · no topo do Início</span>';
-      if (fim && agora < fim + 48 * 3600e3) return `<span class="pilula ok">Terminada · resultado no Início até ${esc(dataCurta(new Date(fim + 48 * 3600e3).toISOString()))}</span>`;
+      const horas = s.fotos ? 24 : 48;
+      if (fim && agora < fim + horas * 3600e3) return `<span class="pilula ok">Terminada · resultado no Início até ${esc(dataCurta(new Date(fim + horas * 3600e3).toISOString()))}</span>`;
       return '<span class="pilula">No histórico (menu ⋮ da app)</span>';
     };
     let html = cartao('Sondagens', `<p class="suave">Enquanto está aberta, a sondagem aparece no topo do Início da app, no lugar da foto do BI (várias ficam empilhadas). Quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois passa para o "Histórico de sondagens" (menu ⋮ da app). Um voto por telemóvel.</p>
       ${sond.length ? sond.map(s => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(s.pergunta)}</b> ${estado(s)}</div>
         <div class="mini">Criada por ${esc(s.criada_por)} · ${esc(dataCurta(s.criada))}${s.aprovada_por ? ` · aprovada por ${esc(s.aprovada_por)}` : ''}${s.fecha ? ` · fecha ${esc(dataCurta(s.fecha))}` : ''}</div>
+        ${s.fotos ? `<div class="linha-acoes">${s.opcoes.map((o, i) => fotoRedonda(s.fotos[i], o, 38)).join('')}</div>` : ''}
         ${barrasVotos(s.opcoes, s.votos)}
         <div class="linha-acoes">
           <button class="botao pequeno" data-ver-s="${s.id}">👁 Ver como fica na app</button>
@@ -1943,7 +1951,7 @@ function ecraVotacoes(alvo) {
           ${s.aprovada_por && !s.fechada ? `<button class="botao pequeno" data-fechar-s="${s.id}">Fechar votação</button>` : ''}
           <button class="botao pequeno perigo" data-apagar-s="${s.id}">Apagar</button>
         </div></div>`).join('') : '<p class="suave">Ainda não há sondagens.</p>'}`,
-      '<button class="botao pequeno principal" data-nova>＋ Nova sondagem</button>');
+      '<button class="botao pequeno principal" data-nova>＋ Nova sondagem</button> <button class="botao pequeno principal" data-nova-fotos>📸 Com fotos</button>');
     html += cartao('Homem do jogo', `<p class="suave">Automático: no fim de cada jogo da equipa principal aparece no topo do Início com os jogadores que jogaram; a votação abre logo que o jogo acaba e fica 24 horas aberta, com os resultados provisórios e o número de votantes à vista; o vencedor fica 48 horas no Início e depois fica na ficha do jogo. Não é preciso fazer nada.</p>
       ${hdj.length ? hdj.map(j => `<div class="sondagem">
           <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b>
@@ -1952,6 +1960,9 @@ function ecraVotacoes(alvo) {
         : '<p class="suave">Ainda não houve votações.</p>'}`);
     alvo.innerHTML = html;
     $('[data-nova]', alvo).addEventListener('click', novaSondagem);
+    $('[data-nova-fotos]', alvo).addEventListener('click', novaSondagemFotos);
+    const prevDe = x => x.fotos ? prevSondagemFotos(x.pergunta, (x.opcoes || []).map((o, i) => ({ nome: o, foto: x.fotos[i] || '' })), x.fecha, x.votos)
+      : prevSondagem(x.pergunta, x.opcoes || [], x.fecha, x.votos);
     const acao = async (fn, id, ok) => {
       try { carregar(true); await rpcAdmin(fn, { p_id: Number(id) }); aviso(ok); } catch (e) { aviso(e.message, true); } finally { carregar(false); }
       redesenhar();
@@ -1959,13 +1970,13 @@ function ecraVotacoes(alvo) {
     const sondPorId = id => sond.find(x => String(x.id) === String(id));
     $$('[data-ver-s]', alvo).forEach(b => b.addEventListener('click', () => {
       const x = sondPorId(b.dataset.verS);
-      mostrarPrevisualizacao(prevSondagem(x.pergunta, x.opcoes || [], x.fecha, x.votos));
+      mostrarPrevisualizacao(prevDe(x));
     }));
     $$('[data-aprovar-s]', alvo).forEach(b => b.addEventListener('click', async () => {
       const x = sondPorId(b.dataset.aprovarS);
       const ok = await perguntar('Aprovar e publicar?',
         `<p>Com a tua aprovação a sondagem <b>aparece logo no topo do Início</b> da app${x.fecha ? ` e fica aberta até <b>${esc(fimTexto(x.fecha))}</b>` : ''}.</p>
-         <div class="prev-pequena">${prevSondagem(x.pergunta, x.opcoes || [], x.fecha, x.votos)}</div>`, 'Sim, publicar', 'Cancelar');
+         <div class="prev-pequena">${prevDe(x)}</div>`, 'Sim, publicar', 'Cancelar');
       if (ok) acao('bi_admin_sondagem_aprovar', b.dataset.aprovarS, 'Aprovada: já está na app.');
     }));
     $$('[data-fechar-s]', alvo).forEach(b => b.addEventListener('click', () => {
@@ -2060,6 +2071,7 @@ ECRAS = [
   { chave: 'mensagens', nome: 'Mensagens', icone: '✉', desenhar: ecraMensagens },
   { chave: 'ajuda', nome: 'Ajuda (IA)', icone: '✦', desenhar: ecraAjuda },
   { chave: 'votacoes', nome: 'Sondagens e Homem do jogo', icone: '🗳', desenhar: ecraVotacoes },
+  { chave: 'quadro', nome: 'Quadro tático', icone: '📋', desenhar: ecraQuadro },
   { chave: 'estatisticas', nome: 'Estatísticas da app', icone: '📈', desenhar: ecraEstatisticasApp },
   { chave: 'atividade', nome: 'Registo de atividade', icone: '🕘', desenhar: ecraAtividade },
   { chave: 'gestores', nome: 'Gestores (contacto)', icone: '☎', desenhar: ecraGestores },
