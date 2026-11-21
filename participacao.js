@@ -80,18 +80,25 @@ async function guardarQuizEnvio(alteracao, mensagem) {
   }
 }
 
-/** Próximos momentos do envio automático: X por semana, à hora marcada, a contar de uma data. */
+/** Próximos momentos do envio automático: X por semana, sempre à hora marcada, a contar de uma data. */
 function slotsQuiz(cfg, quantos) {
   const porSemana = Math.min(7, Math.max(1, Number(cfg.porSemana) || 1));
-  const passo = (7 * 24 * 3600 * 1000) / porSemana;
+  const [h, m] = String(cfg.hora || '10:00').split(':');
+  const hora = Math.min(23, Math.max(0, Number(h) || 0));
+  const minuto = Math.min(59, Math.max(0, Number(m) || 0));
   let base = cfg.inicio ? new Date(cfg.inicio) : new Date();
   if (isNaN(base.getTime())) base = new Date();
-  const [h, m] = String(cfg.hora || '10:00').split(':');
-  base.setHours(Number(h) || 0, Number(m) || 0, 0, 0);
+  const dia0 = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const passoDias = 7 / porSemana;
   const agora = Date.now();
-  let k = 0;
-  while (base.getTime() + k * passo < agora) k++;
-  return Array.from({ length: quantos }, (_, i) => new Date(base.getTime() + (k + i) * passo));
+  const out = [];
+  for (let n = 0; out.length < quantos && n < 500; n++) {
+    const dia = new Date(dia0);
+    dia.setDate(dia0.getDate() + Math.round(n * passoDias));
+    dia.setHours(hora, minuto, 0, 0);
+    if (dia.getTime() > agora) out.push(dia);
+  }
+  return out;
 }
 
 /** No automático, as perguntas ainda por enviar ficam nos próximos momentos livres. */
@@ -167,6 +174,19 @@ function ecraParticipacao(alvo) {
       alvo.innerHTML = cartao('Participação dos adeptos', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-novidades.sql no Supabase.</p>`);
       return;
     } finally { carregar(false); }
+
+    // No envio automático, as perguntas que o robô criar depois ficam logo com data — sem
+    // ninguém ter de voltar a mexer aqui. Só grava quando há alguma pergunta por agendar.
+    if (envioQuiz.modo !== 'manual') {
+      const agenda = agendaQuiz(envioQuiz, quiz);
+      const antes = envioQuiz.envios || {};
+      const mudou = Object.keys(agenda).length !== Object.keys(antes).length ||
+        Object.keys(agenda).some(id => agenda[id] !== antes[id]);
+      if (mudou) {
+        const guardado = await guardarQuizEnvio({ envios: agenda }, 'Plataforma: agenda do quiz');
+        if (guardado) envioQuiz = guardado;
+      }
+    }
 
     let html = cartao('Prognósticos', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico. Quando o jogo acaba, o resultado oficial entra <b>automaticamente</b> (vem do robô) e aqui aparece logo quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
       ${jogos.length ? jogos.map((j, i) => `<div class="sondagem">

@@ -1,7 +1,6 @@
 -- =====================================================================
 -- Benfica Independente — participação dos adeptos:
 --   • prognósticos do jogo (resultado + nome + comentário)
---   • "Quem vai jogar?" (os 11 que o adepto acha que vão jogar)
 --   • perguntas ao programa
 --   • modo de testes: basta 1 administrador para publicar
 -- Corre depois de supabase-quadro-e-fotos.sql. Pode correr-se mais de uma vez.
@@ -33,12 +32,6 @@ create table if not exists public.prognosticos (
   quando timestamptz not null default now(),
   primary key (jogo, dispositivo)
 );
-create table if not exists public.palpites_onze (
-  jogo text not null, titulo text not null default '', dispositivo text not null,
-  nome text not null, comentario text not null default '', jogadores jsonb not null,
-  quando timestamptz not null default now(),
-  primary key (jogo, dispositivo)
-);
 -- O que aconteceu de verdade (preenchido por um administrador): serve para contar quem acertou.
 create table if not exists public.jogos_real (
   jogo text primary key, titulo text not null default '',
@@ -51,7 +44,6 @@ create table if not exists public.perguntas_programa (
   quando timestamptz not null default now()
 );
 alter table public.prognosticos enable row level security;
-alter table public.palpites_onze enable row level security;
 alter table public.jogos_real enable row level security;
 alter table public.perguntas_programa enable row level security;
 
@@ -60,7 +52,6 @@ create or replace function public.bi_limpar_participacao() returns void
 language plpgsql security definer set search_path = public as $$
 begin
   delete from prognosticos where quando < now() - interval '5 days';
-  delete from palpites_onze where quando < now() - interval '5 days';
   delete from jogos_real where fechado < now() - interval '10 days';
   delete from perguntas_programa where quando < now() - interval '30 days';
   perform bi_sincronizar_jogos();
@@ -127,42 +118,6 @@ begin
     'total', tot, 'total_acertaram', ac);
 end $$;
 
-create or replace function public.bi_onze_enviar(
-  p_jogo text, p_titulo text, p_dispositivo text, p_nome text, p_jogadores json, p_comentario text) returns json
-language plpgsql security definer set search_path = public as $$
-begin
-  if coalesce(length(trim(p_nome)), 0) < 2 then raise exception 'Escreve o teu nome.'; end if;
-  if json_array_length(p_jogadores) <> 11 then raise exception 'Escolhe exatamente 11 jogadores.'; end if;
-  if coalesce(length(p_dispositivo), 0) < 8 or coalesce(length(p_jogo), 0) < 1 then raise exception 'Pedido inválido.'; end if;
-  if exists (select 1 from jogos_real where jogo = p_jogo) then raise exception 'Este jogo já terminou.'; end if;
-  perform bi_limpar_participacao();
-  insert into palpites_onze (jogo, titulo, dispositivo, nome, comentario, jogadores)
-  values (left(p_jogo, 40), left(coalesce(p_titulo, ''), 120), left(p_dispositivo, 80), left(trim(p_nome), 40), left(coalesce(trim(p_comentario), ''), 280), p_jogadores::jsonb)
-  on conflict (jogo, dispositivo) do update set nome = excluded.nome, comentario = excluded.comentario,
-    jogadores = excluded.jogadores, quando = now();
-  return json_build_object('ok', true);
-end $$;
-
--- Quantos jogadores acertei (depois do jogo) e a melhor pontuação.
-create or replace function public.bi_onze_meu(p_jogo text, p_dispositivo text) returns json
-language plpgsql security definer set search_path = public as $$
-declare m palpites_onze; r jogos_real; tot int; melhor int; acertos int;
-begin
-  perform bi_sincronizar_jogos();
-  select * into m from palpites_onze where jogo = p_jogo and dispositivo = p_dispositivo;
-  select * into r from jogos_real where jogo = p_jogo;
-  select count(*) into tot from palpites_onze where jogo = p_jogo;
-  if r.jogo is not null then
-    select max((select count(*) from jsonb_array_elements_text(p.jogadores) x where x in (select jsonb_array_elements_text(r.onze)))) into melhor
-      from palpites_onze p where p.jogo = p_jogo;
-    if m.jogo is not null then
-      select count(*) into acertos from jsonb_array_elements_text(m.jogadores) x where x in (select jsonb_array_elements_text(r.onze));
-    end if;
-  end if;
-  return json_build_object('enviado', m.jogo is not null, 'nome', m.nome, 'jogadores', m.jogadores, 'comentario', m.comentario,
-    'fechado', r.jogo is not null, 'acertos', acertos, 'melhor', melhor, 'total', tot);
-end $$;
-
 create or replace function public.bi_pergunta_enviar(p_dispositivo text, p_nome text, p_texto text) returns json
 language plpgsql security definer set search_path = public as $$
 begin
@@ -178,19 +133,16 @@ begin
 end $$;
 
 -- ------------------------- Funções da plataforma (administradores) -------------------------
--- Um jogo de cada vez: quantos prognósticos/onzes e, se já fechado, quantos acertaram.
+-- Um jogo de cada vez: quantos prognósticos e, se já fechado, quantos acertaram.
 create or replace function public.bi_admin_participacao(p_gh text) returns json
 language plpgsql security definer set search_path = public as $$
 declare l text := bi_quem(p_gh);
 begin
   perform bi_limpar_participacao();
   return (select coalesce(json_agg(j order by j.ultimo desc), '[]'::json) from (
-    select x.jogo, max(x.titulo) titulo, max(x.ultimo) ultimo, max(x.progs) progs, max(x.onzes) onzes,
+    select x.jogo, max(x.titulo) titulo, max(x.quando) ultimo, count(*) progs,
       (select row_to_json(r) from (select golos_b, golos_r, onze, fechado from jogos_real where jogo = x.jogo) r) resultado
-    from (
-      select jogo, titulo, quando ultimo, 1 progs, 0 onzes from prognosticos
-      union all select jogo, titulo, quando, 0, 1 from palpites_onze
-    ) x group by x.jogo) j);
+    from prognosticos x group by x.jogo) j);
 end $$;
 
 create or replace function public.bi_admin_prognosticos(p_gh text, p_jogo text) returns json
@@ -202,18 +154,6 @@ begin
       'quando', quando, 'acertou', case when r.jogo is not null then (golos_b = r.golos_b and golos_r = r.golos_r) end)
       order by (r.jogo is not null and golos_b = r.golos_b and golos_r = r.golos_r) desc, quando), '[]'::json)
     from prognosticos where jogo = p_jogo);
-end $$;
-
-create or replace function public.bi_admin_onzes(p_gh text, p_jogo text) returns json
-language plpgsql security definer set search_path = public as $$
-declare l text := bi_quem(p_gh); r jogos_real;
-begin
-  select * into r from jogos_real where jogo = p_jogo;
-  return (select coalesce(json_agg(t order by t.acertos desc nulls last, t.quando), '[]'::json) from (
-    select nome, comentario, jogadores, quando,
-      case when r.jogo is not null then (select count(*) from jsonb_array_elements_text(p.jogadores) x
-        where x in (select jsonb_array_elements_text(r.onze))) end acertos
-    from palpites_onze p where p.jogo = p_jogo) t);
 end $$;
 
 create or replace function public.bi_admin_jogo_fechar(p_gh text, p_jogo text, p_titulo text, p_gb int, p_gr int, p_onze json) returns json
@@ -248,20 +188,17 @@ end $$;
 
 -- ------------------------- Permissões -------------------------
 revoke execute on function public.bi_prognostico_enviar(text, text, text, text, int, int, text),
-  public.bi_prognostico_meu(text, text), public.bi_onze_enviar(text, text, text, text, json, text),
-  public.bi_onze_meu(text, text), public.bi_pergunta_enviar(text, text, text),
-  public.bi_admin_participacao(text), public.bi_admin_prognosticos(text, text), public.bi_admin_onzes(text, text),
+  public.bi_prognostico_meu(text, text), public.bi_pergunta_enviar(text, text, text),
+  public.bi_admin_participacao(text), public.bi_admin_prognosticos(text, text),
   public.bi_admin_jogo_fechar(text, text, text, int, int, json), public.bi_admin_perguntas(text),
   public.bi_admin_pergunta_estado(text, bigint, text), public.bi_limpar_participacao(), public.bi_sincronizar_jogos() from public, anon, authenticated;
 revoke execute on function public.bi_prognostico_enviar(text, text, text, text, int, int, text),
-  public.bi_prognostico_meu(text, text), public.bi_onze_enviar(text, text, text, text, json, text),
-  public.bi_onze_meu(text, text), public.bi_pergunta_enviar(text, text, text),
-  public.bi_admin_participacao(text), public.bi_admin_prognosticos(text, text), public.bi_admin_onzes(text, text),
+  public.bi_prognostico_meu(text, text), public.bi_pergunta_enviar(text, text, text),
+  public.bi_admin_participacao(text), public.bi_admin_prognosticos(text, text),
   public.bi_admin_jogo_fechar(text, text, text, int, int, json), public.bi_admin_perguntas(text),
   public.bi_admin_pergunta_estado(text, bigint, text) from public;
 grant execute on function public.bi_prognostico_enviar(text, text, text, text, int, int, text),
-  public.bi_prognostico_meu(text, text), public.bi_onze_enviar(text, text, text, text, json, text),
-  public.bi_onze_meu(text, text), public.bi_pergunta_enviar(text, text, text),
-  public.bi_admin_participacao(text), public.bi_admin_prognosticos(text, text), public.bi_admin_onzes(text, text),
+  public.bi_prognostico_meu(text, text), public.bi_pergunta_enviar(text, text, text),
+  public.bi_admin_participacao(text), public.bi_admin_prognosticos(text, text),
   public.bi_admin_jogo_fechar(text, text, text, int, int, json), public.bi_admin_perguntas(text),
   public.bi_admin_pergunta_estado(text, bigint, text) to anon, authenticated;
