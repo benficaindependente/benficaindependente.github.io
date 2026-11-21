@@ -183,6 +183,7 @@ function desenharEditorQuadro(alvo) {
     const [c, f] = b.dataset.form.split(':');
     mudar(() => {
       q.estado.pontos = q.estado.pontos.filter(p => (p.c === 'b') !== (c === 'b'));
+      q.estado.bancos = null;   // os suplentes do último jogo deixam de fazer sentido
       // Encarnados atacam para a direita; brancos ao contrário.
       FORMACOES[f].forEach(([x, y]) => q.estado.pontos.push({ c, x: c === 'b' ? r3(1 - x) : x, y: c === 'b' ? r3(1 - y) : y, n: '' }));
     });
@@ -194,7 +195,7 @@ function desenharEditorQuadro(alvo) {
   });
   $$('[data-limpar]', alvo).forEach(b => b.addEventListener('click', () => {
     if (b.dataset.limpar === 'tudo' && !confirm('Tirar todos os jogadores, riscos e setas?')) return;
-    mudar(() => { if (b.dataset.limpar === 'tudo') q.estado.pontos = []; q.estado.linhas = []; });
+    mudar(() => { if (b.dataset.limpar === 'tudo') { q.estado.pontos = []; q.estado.bancos = null; } q.estado.linhas = []; });
   }));
   const bVis = $('[data-visivel]', alvo);
   if (bVis) bVis.addEventListener('click', async () => {
