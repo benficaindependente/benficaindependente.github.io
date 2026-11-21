@@ -29,20 +29,42 @@ function relvadoSvg() {
 }
 
 /** Desenho completo (relvado + riscos + jogadores) para o editor e para as pré-visualizações. */
+let QUADRO_IDS = 0;
 function quadroSvg(estado, extra) {
   const e = estado || { pontos: [], linhas: [] };
+  const n = ++QUADRO_IDS;
   const linhas = (e.linhas || []).map((l, i) =>
     `<line data-linha="${i}" x1="${l.x1 * RL}" y1="${l.y1 * RW}" x2="${l.x2 * RL}" y2="${l.y2 * RW}" stroke="#111" stroke-width=".55" stroke-linecap="round" ${l.t === 'seta' ? 'marker-end="url(#ponta)"' : ''}/>`).join('');
   const pontos = (e.pontos || []).map((p, i) => {
     const v = p.c !== 'b';
-    return `<g data-ponto="${i}" class="q-ponto"><circle cx="${p.x * RL}" cy="${p.y * RW + .3}" r="1.85" fill="rgba(0,0,0,.35)"/>
-      <circle cx="${p.x * RL}" cy="${p.y * RW}" r="1.7" fill="${v ? '#e21227' : '#fff'}" stroke="${v ? '#fff' : '#222'}" stroke-width=".3"/>
-      ${p.n ? `<text x="${p.x * RL}" y="${p.y * RW + .62}" text-anchor="middle" font-size="1.75" font-weight="700" fill="${v ? '#fff' : '#141414'}" font-family="Arial">${esc(p.n)}</text>` : ''}</g>`;
+    const x = Math.round(p.x * RL * 1000) / 1000, y = Math.round(p.y * RW * 1000) / 1000, R = 1.7;
+    const foto = /^https:\/\//i.test(String(p.foto || '')) ? p.foto : '';
+    const clip = `qc${n}_${i}`;
+    const cx = Math.round((x - R) * 1000) / 1000, cy = Math.round((y - R) * 1000) / 1000;
+    const circulo = foto
+      ? `<defs><clipPath id="${clip}"><circle cx="${x}" cy="${y}" r="${R}"/></clipPath></defs>
+         <image href="${esc(foto)}" xlink:href="${esc(foto)}" x="${cx}" y="${cy}" width="${R * 2}" height="${R * 2}" clip-path="url(#${clip})" preserveAspectRatio="xMidYMid slice"/>`
+      : `<circle cx="${x}" cy="${y}" r="${R}" fill="${v ? '#e21227' : '#fff'}"/>`;
+    return `<g data-ponto="${i}" class="q-ponto"><circle cx="${x}" cy="${y + .3}" r="${R * 1.08}" fill="rgba(0,0,0,.35)"/>${circulo}
+      <circle cx="${x}" cy="${y}" r="${R}" fill="none" stroke="${v ? '#fff' : '#222'}" stroke-width=".35"/>
+      ${p.n && !foto ? `<text x="${x}" y="${y + .62}" text-anchor="middle" font-size="1.75" font-weight="700" fill="${v ? '#fff' : '#141414'}" font-family="Arial">${esc(p.n)}</text>` : ''}
+      ${p.nome ? `<text x="${x}" y="${y + R + 1.35}" text-anchor="middle" font-size="1.5" font-weight="700" font-family="Arial"
+        fill="#fff" stroke="#0b3d12" stroke-width=".4" paint-order="stroke">${esc(p.nome)}</text>` : ''}</g>`;
   }).join('');
-  return `<svg class="quadro-svg" viewBox="-3 -3 ${RL + 6} ${RW + 6}" xmlns="http://www.w3.org/2000/svg">
+  return `<svg class="quadro-svg" viewBox="-3 -3 ${RL + 6} ${RW + 6}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <defs><marker id="ponta" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="#111"/></marker></defs>
     ${relvadoSvg()}<g>${linhas}</g><g>${pontos}</g>${extra || ''}</svg>`;
+}
+
+/** Nomes dos suplentes que entraram, em texto (por fora do relvado). */
+function bancosHtml(bancos) {
+  if (!bancos) return '';
+  const b = bancos.b || [], v = bancos.v || [];
+  if (!v.length && !b.length) return '';
+  const linha = (lista, cor) => lista.length
+    ? `<div class="q-banco"><i style="background:${cor}"></i>${lista.map(esc).join(' · ')}</div>` : '';
+  return `<div class="q-bancos">${linha(v, '#e21227')}${linha(b, '#fff')}</div>`;
 }
 
 /** Como aparece no Início da app (para a pré-visualização antes de pôr na app). */
@@ -50,6 +72,7 @@ function prevQuadro(estado, titulo) {
   return telemovel(`<div class="tm-cartao tm-p"><div class="tm-etiqueta">● QUADRO TÁTICO · AO VIVO</div>
       ${titulo ? `<b class="tm-grande">${esc(titulo)}</b>` : ''}
       <div style="margin-top:8px;border-radius:8px;overflow:hidden">${quadroSvg(estado)}</div>
+      ${bancosHtml(estado && estado.bancos)}
       <div class="tm-mini">Em direto. Toca para ver em ecrã inteiro.</div></div>`,
     'No topo do Início, no lugar do "Quem somos". Mexe ao mesmo tempo que aqui (1 a 2 segundos).');
 }
@@ -99,6 +122,7 @@ function desenharEditorQuadro(alvo) {
     <label>Título (opcional)<input type="text" data-titulo maxlength="80" value="${esc(q.titulo)}" placeholder="Ex.: O onze provável para Braga"></label>
     <div class="q-barra">
       ${botaoF('mover', '✋ Mover')}
+      ${botaoF('nome', '✏️ Nome')}
       ${botaoF('v', '🔴 Pôr encarnado')}
       ${botaoF('b', '⚪ Pôr branco')}
       ${botaoF('linha', '／ Risco')}
@@ -106,13 +130,20 @@ function desenharEditorQuadro(alvo) {
       ${botaoF('apagar', '🗑 Apagar')}
     </div>
     <div class="q-campo">${quadroSvg(q.estado)}</div>
+    ${bancosHtml(q.estado.bancos)}
     <p class="suave" style="margin:6px 0">
       Encarnados <b>${conta('v')}/11</b> · Brancos <b>${conta('b')}/11</b>.
       ${ferramenta === 'mover' ? 'Arrasta os jogadores. Dois cliques num jogador para lhe pôr um número.' : ''}
+      ${ferramenta === 'nome' ? 'Clica num jogador para escrever o nome que aparece por baixo (até 14 letras).' : ''}
       ${ferramenta === 'v' || ferramenta === 'b' ? 'Clica no relvado onde queres pôr o jogador.' : ''}
       ${ferramenta === 'linha' || ferramenta === 'seta' ? 'Carrega e arrasta no relvado para desenhar (preto).' : ''}
       ${ferramenta === 'apagar' ? 'Clica num jogador, risco ou seta para o tirar.' : ''}
     </p>
+    <div class="linha-acoes">
+      <span class="suave">Do último jogo:</span>
+      <button class="botao pequeno principal" data-auto="ambos">⚽ Benfica + adversário</button>
+      <button class="botao pequeno" data-auto="benfica">🔴 Só o Benfica</button>
+    </div>
     <div class="linha-acoes">
       <span class="suave">Formações rápidas:</span>
       ${Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="v:${f}">🔴 ${f}</button>`).join('')}
@@ -144,6 +175,10 @@ function desenharEditorQuadro(alvo) {
 
   $$('[data-f]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.ferramenta = b.dataset.f; desenharEditorQuadro(alvo); }));
   $('[data-titulo]', alvo).addEventListener('change', ev => { q.titulo = ev.target.value.trim(); guardarQuadroEmBreve(); });
+  $$('[data-auto]', alvo).forEach(b => b.addEventListener('click', async () => {
+    const d = await preencherComUltimoJogo(b.dataset.auto === 'benfica');
+    if (d) mudar(() => { q.estado.pontos = d.pontos; q.estado.bancos = d.bancos; q.titulo = d.titulo; });
+  }));
   $$('[data-form]', alvo).forEach(b => b.addEventListener('click', () => {
     const [c, f] = b.dataset.form.split(':');
     mudar(() => {
@@ -182,6 +217,14 @@ function desenharEditorQuadro(alvo) {
     if (ferramenta === 'apagar') {
       if (g) mudar(() => q.estado.pontos.splice(Number(g.dataset.ponto), 1));
       else if (l) mudar(() => q.estado.linhas.splice(Number(l.dataset.linha), 1));
+      return;
+    }
+    if (ferramenta === 'nome') {
+      if (!g) return;
+      const alvoPonto = q.estado.pontos[Number(g.dataset.ponto)];
+      const nome = prompt('Nome do jogador (até 14 letras; vazio para tirar):', alvoPonto.nome || '');
+      if (nome === null) return;
+      mudar(() => { alvoPonto.nome = nome.trim().slice(0, 14); });
       return;
     }
     if (ferramenta === 'v' || ferramenta === 'b') {
@@ -384,4 +427,209 @@ function montarEscolhaJogadores(fundo, lista, aoMudar) {
     });
   };
   desenhar();
+}
+
+/* ============================ Onze do último jogo (ESPN) ============================ */
+// O ESPN tem os onzes de cada jogo com a formação e a posição de cada jogador. Daqui saem
+// as bolinhas já colocadas: Benfica à esquerda (encarnado), adversário à direita (branco),
+// com o nome por baixo e a foto nos jogadores do Benfica.
+const ESPN_SOCCER = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
+const ESPN_BENFICA = '1929';
+
+/** "Tomás Araújo" → "tomas araujo" (sem acentos, para comparar nomes). */
+function semAcentos(t) {
+  return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function nomeCurto(nomeCompleto) {
+  const partes = String(nomeCompleto || '').trim().split(/\s+/).filter(Boolean);
+  return partes.length <= 1 ? (partes[0] || '') : partes[partes.length - 1];
+}
+
+/** G = guarda-redes, D = defesa, M = meio-campo, F = ataque. */
+function tipoPosicao(p) {
+  const c = String((p && p.position && p.position.abbreviation) || '').toUpperCase();
+  if (c === 'G' || c === 'GK') return 'G';
+  if (/^(RB|LB|CB|CD|SW|D|LWB|RWB|FB)/.test(c)) return 'D';
+  if (/^(F|ST|CF|W|LW|RW)/.test(c)) return 'F';
+  return 'M';
+}
+
+/** -1 = lateral esquerda, +1 = lateral direita; os centrais ficam mais perto do meio.
+ *  É isto que põe a defesa e o meio pela ordem certa, da esquerda para a direita. */
+function ladoPosicao(p) {
+  const c = String((p && p.position && p.position.abbreviation) || '').toUpperCase();
+  const lados = {
+    LB: -1, LWB: -1, LW: -1, LM: -0.8, 'CD-L': -0.6, 'AM-L': -1,
+    RB: 1, RWB: 1, RW: 1, RM: 0.8, 'CD-R': 0.6, 'AM-R': 1
+  };
+  if (c in lados) return lados[c];
+  if (/(^|-)L$/.test(c)) return -1;
+  if (/(^|-)R$/.test(c)) return 1;
+  return 0;
+}
+
+/** Profundidade no campo: 0 guarda-redes, 1 defesa, 2 trinco, 3 meio, 4 médio ofensivo, 5 ataque.
+ *  Serve para repartir os médios pelas linhas da formação (ex.: 4-2-3-1 → 2 e 3). */
+function profundidadePosicao(p) {
+  const c = String((p && p.position && p.position.abbreviation) || '').toUpperCase();
+  if (c === 'G' || c === 'GK') return 0;
+  if (/^(RB|LB|CB|CD|SW|D|LWB|RWB|FB)/.test(c)) return 1;
+  if (/^(DM|CDM|SW)/.test(c)) return 2;
+  if (/^(AM|CAM)/.test(c)) return 4;
+  if (/^(F|ST|CF|W|LW|RW)/.test(c)) return 5;
+  return 3;
+}
+
+/** Divide uma lista em partes com os tamanhos pedidos (ex.: [2,3]). */
+function dividirLista(lista, partes) {
+  const total = partes.reduce((a, b) => a + b, 0) || 1;
+  const out = [];
+  let i = 0;
+  partes.forEach(n => {
+    const qtd = Math.round(lista.length * n / total);
+    out.push(lista.slice(i, i + qtd));
+    i += qtd;
+  });
+  if (out.length && i < lista.length) out[out.length - 1] = out[out.length - 1].concat(lista.slice(i));
+  return out.length ? out : [lista];
+}
+
+/** Quantos jogadores em cada linha, segundo a formação que o ESPN indica. */
+function linhasDoOnze(time) {
+  const roster = (time.roster || []).filter(p => p.starter === true);
+  const porTipo = { G: [], D: [], M: [], F: [] };
+  roster.forEach(p => porTipo[tipoPosicao(p)].push(p));
+  const dita = String(time.formation || '').split('-').map(n => parseInt(n, 10)).filter(n => n > 0 && n <= 6);
+  let def = dita.length ? dita[0] : porTipo.D.length;
+  let meio = dita.length >= 3 ? dita.slice(1, -1) : (dita.length === 2 ? [dita[1] - porTipo.F.length] : [porTipo.M.length]);
+  let ata = dita.length ? dita[dita.length - 1] : porTipo.F.length;
+  const somaMeio = meio.reduce((a, b) => a + b, 0);
+  // Se a formação não bater certo com o que o ESPN lista, usa as contagens reais.
+  if (def !== porTipo.D.length || somaMeio !== porTipo.M.length || ata !== porTipo.F.length || !meio.length) {
+    def = porTipo.D.length;
+    ata = porTipo.F.length;
+    meio = porTipo.M.length ? [porTipo.M.length] : [];
+  }
+  return { porTipo, meio };
+}
+
+/** Coordenadas (0..1) do onze: mesma tática e posições do jogo. */
+function coordenadasOnze(time) {
+  const { porTipo, meio } = linhasDoOnze(time);
+  const filas = [{ x: 0.045, jogadores: porTipo.G }, { x: 0.19, jogadores: porTipo.D }];
+  // Os médios entram na formação do mais recuado para o mais adiantado (4-2-3-1 → 2 e 3).
+  const medios = porTipo.M.slice().sort((a, b) => profundidadePosicao(a) - profundidadePosicao(b));
+  const blocos = dividirLista(medios, meio);
+  const xs = blocos.length === 1 ? [0.34] : blocos.length === 2 ? [0.30, 0.405] : [0.28, 0.345, 0.41];
+  blocos.forEach((lista, i) => filas.push({ x: xs[Math.min(i, xs.length - 1)], jogadores: lista }));
+  if (porTipo.F.length) filas.push({ x: 0.465, jogadores: porTipo.F });
+  const out = [];
+  filas.forEach(fila => {
+    const lista = fila.jogadores.slice().sort((a, b) => ladoPosicao(a) - ladoPosicao(b));
+    lista.forEach((j, i) => {
+      const y = lista.length === 1 ? 0.5 : 0.12 + i * (0.76 / (lista.length - 1));
+      out.push({ jogador: j, x: fila.x, y: Math.round(y * 1000) / 1000 });
+    });
+  });
+  return out;
+}
+
+/** Nome do ESPN → jogador do plantel (para a foto). */
+function acharJogador(nomeCompleto, lista) {
+  const n = semAcentos(nomeCompleto);
+  const tokens = n.split(' ').filter(Boolean);
+  if (!tokens.length) return null;
+  const nome = j => semAcentos(j.nome);
+  return lista.find(j => nome(j) === n)
+    || lista.find(j => nome(j) === tokens[tokens.length - 1])
+    || lista.find(j => nome(j) === tokens[0])
+    || lista.find(j => { const p = nome(j).split(' '); return p.length > 1 && p.every(t => tokens.includes(t)); })
+    || null;
+}
+
+/** Vai buscar o último jogo terminado do Benfica e devolve o quadro já preenchido. */
+async function onzeDoUltimoJogo(soBenfica) {
+  const r = await fetch(`${ESPN_SOCCER}/all/teams/${ESPN_BENFICA}/schedule`, { cache: 'no-store' });
+  if (!r.ok) throw new Error('O ESPN não respondeu (' + r.status + ').');
+  const cal = await r.json();
+  const feitos = (cal.events || [])
+    .filter(e => e.competitions && e.competitions[0] && e.competitions[0].status && e.competitions[0].status.type && e.competitions[0].status.type.completed)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  if (!feitos.length) throw new Error('Não encontrei nenhum jogo terminado do Benfica.');
+  const jogo = feitos[0];
+  const rs = await fetch(`${ESPN_SOCCER}/all/summary?event=${encodeURIComponent(jogo.id)}`, { cache: 'no-store' });
+  if (!rs.ok) throw new Error('O ESPN não tem o resumo desse jogo (' + rs.status + ').');
+  const sum = await rs.json();
+  const rosters = sum.rosters || [];
+  const benfica = rosters.find(x => String((x.team || {}).id) === ESPN_BENFICA);
+  const rival = rosters.find(x => String((x.team || {}).id) !== ESPN_BENFICA);
+  if (!benfica || !(benfica.roster || []).some(p => p.starter === true)) {
+    throw new Error('O ESPN ainda não tem os onzes desse jogo. Tenta mais tarde ou preenche à mão.');
+  }
+  const fotos = await lerJogadores();
+  const pontos = [];
+  const juntar = (time, espelhar) => {
+    coordenadasOnze(time).forEach(({ jogador, x, y }) => {
+      const nomeC = (jogador.athlete || {}).displayName || '';
+      const nosso = espelhar ? null : acharJogador(nomeC, fotos);
+      pontos.push({
+        c: espelhar ? 'b' : 'v',
+        x: espelhar ? Math.round((1 - x) * 1000) / 1000 : x,
+        y: espelhar ? Math.round((1 - y) * 1000) / 1000 : y,
+        n: String(jogador.jersey || '').slice(0, 3),
+        nome: String(nosso ? nosso.nome : nomeCurto(nomeC)).slice(0, 14),
+        foto: nosso ? nosso.foto : ''
+      });
+    });
+  };
+  juntar(benfica, false);
+  if (!soBenfica && rival) juntar(rival, true);
+
+  // Quem entrou do banco (fica por fora do relvado).
+  const entraram = t => ((t && t.roster) || [])
+    .filter(p => p.starter !== true && p.subbedIn === true)
+    .map(p => nomeCurto((p.athlete || {}).displayName)).filter(Boolean);
+  const bancos = {
+    v: entraram(benfica),
+    b: soBenfica ? [] : entraram(rival),
+    equipaB: soBenfica || !rival ? '' : String(rival.team.shortDisplayName || rival.team.displayName || '')
+  };
+
+  const comp = (sum.header && sum.header.competitions && sum.header.competitions[0] && sum.header.competitions[0].competitors) || [];
+  const eu = comp.find(c => String((c.team || {}).id) === ESPN_BENFICA) || {};
+  const ele = comp.find(c => String((c.team || {}).id) !== ESPN_BENFICA) || {};
+  const g = c => {
+    const s = c.score;
+    if (typeof s === 'string' || typeof s === 'number') return String(s);
+    if (s && s.displayValue != null) return String(s.displayValue);
+    if (s && s.value != null) return String(s.value);
+    return '';
+  };
+  const dataTxt = new Date(jogo.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
+  const titulo = `${(eu.team || {}).shortDisplayName || 'Benfica'} ${g(eu)}-${g(ele)} ${(ele.team || {}).shortDisplayName || ''} · ${dataTxt}`
+    .replace(/\s+/g, ' ').trim().slice(0, 80);
+  const resumo = `Último jogo: <b>${esc(jogo.name || titulo)}</b> (${esc(dataTxt)}). Formações: ${(benfica.team || {}).displayName} ${esc(benfica.formation || '—')}` +
+    (rival ? ` · ${esc(rival.team.displayName)} ${esc(rival.formation || '—')}` : '') +
+    `. <b>${pontos.length}</b> jogadores no campo` +
+    (bancos.v.length || bancos.b.length ? ` + ${bancos.v.length + bancos.b.length} que entraram do banco` : '') + '.';
+  return { pontos, bancos, titulo, resumo };
+}
+
+/** Pede confirmação e devolve o quadro preenchido (ou null se o administrador desistir). */
+async function preencherComUltimoJogo(soBenfica) {
+  carregar(true);
+  try {
+    const d = await onzeDoUltimoJogo(soBenfica);
+    const ok = await perguntar('Preencher com o último jogo?',
+      `<p>${d.resumo}</p>
+       <p class="suave">Fica com a mesma tática e as posições desse jogo. Cada bolinha tem o nome por baixo; nos jogadores do Benfica aparece a foto. Depois podes arrastar, mudar o nome (✏️ Nome) ou apagar.</p>
+       <div class="prev-pequena">${prevQuadro({ pontos: d.pontos, bancos: d.bancos }, d.titulo)}</div>`,
+      'Sim, preencher', 'Cancelar');
+    return ok ? d : null;
+  } catch (e) {
+    aviso(e.message || 'Não foi possível ir buscar o último jogo.', true);
+    return null;
+  } finally { carregar(false); }
 }

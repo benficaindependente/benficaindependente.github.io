@@ -496,6 +496,10 @@ a { color: var(--vermelho-claro); }
 .q-barra { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
 .q-estado { padding: 10px 12px; border-radius: 10px; background: #2a2f37; margin-bottom: 10px; }
 .q-estado.ok { background: #3a0d14; outline: 2px solid #e21227; }
+/* Nomes dos suplentes que entraram, por fora do relvado. */
+.q-bancos { display: flex; flex-direction: column; gap: 3px; margin: 8px 2px 0; }
+.q-banco { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--suave); }
+.q-banco i { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; border: 1px solid rgba(0,0,0,.45); }
 
 /* ---------- Sondagens com fotos ---------- */
 .foto-redonda { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden;
