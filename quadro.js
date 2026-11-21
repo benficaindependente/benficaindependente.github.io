@@ -67,6 +67,25 @@ function bancosHtml(bancos) {
   return `<div class="q-bancos">${linha(v, '#e21227')}${linha(b, '#fff')}</div>`;
 }
 
+/** "2026-11-08T20:30Z" → "8/11". */
+function dataCurtaJogo(iso) {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-PT', { day: 'numeric', month: 'numeric' });
+}
+
+/** Mini lista lateral com os últimos 10 jogos; tocar num jogo põe lá o onze das duas equipas. */
+function listaJogosHtml() {
+  const lista = ULTIMOS.lista;
+  if (!lista) return ULTIMOS.falhou ? '<p class="suave mini">Sem lista de jogos (ESPN indisponível).</p>' : '<p class="suave mini">A carregar os jogos…</p>';
+  if (!lista.length) return '<p class="suave mini">Sem lista de jogos (ESPN indisponível).</p>';
+  const ativo = (QUADRO.estado.jogo && String(QUADRO.estado.jogo.id)) || '';
+  return lista.map(j => `<button class="q-jogo ${String(j.id) === ativo ? 'ativo' : ''}" data-jogo="${esc(j.id)}" title="${esc(j.nome)}">
+      <span class="q-jogo-data">${esc(dataCurtaJogo(j.data))}</span>
+      <span class="q-jogo-nome">${j.casa ? 'vs' : 'em'} ${esc(j.adversario)}</span>
+      <span class="q-jogo-res">${esc(j.golosN)}-${esc(j.golosA)}</span>
+    </button>`).join('');
+}
+
 /** Como aparece no Início da app (para a pré-visualização antes de pôr na app). */
 function prevQuadro(estado, titulo) {
   return telemovel(`<div class="tm-cartao tm-p"><div class="tm-etiqueta">● QUADRO TÁTICO · AO VIVO</div>
@@ -89,6 +108,7 @@ let QUADRO = null;          // { estado, visivel, titulo, versao }
 let QUADRO_HIST = [];       // para desfazer
 let QUADRO_TIMER = null;
 let QUADRO_SUGERIDO = null; // onze mais recente, quando o quadro está com um jogo anterior
+let QUADRO_INICIAL = null;  // como estava ao abrir (para "Voltar ao início")
 
 function ecraQuadro(alvo) {
   alvo.innerHTML = cartao('Quadro tático', '<p class="suave">A carregar…</p>');
@@ -106,9 +126,9 @@ function ecraQuadro(alvo) {
         } finally { carregar(false); }
       }
     }
+    guardarInicio();
     await sugerirOnzeAutomatico();
-    desenharEditorQuadro(alvo);
-  })();
+    desenharEditorQuadro(alvo);  })();
 }
 
 /**
@@ -128,6 +148,7 @@ async function sugerirOnzeAutomatico() {
       QUADRO.estado.jogo = d.jogo;
       QUADRO.titulo = d.titulo;
       await guardarQuadro();
+      guardarInicio();
       aviso('Quadro preenchido com o último onze: ' + d.jogo.nome + '.');
     } else if (QUADRO.estado.jogo && String(QUADRO.estado.jogo.id) !== d.jogo.id) {
       QUADRO_SUGERIDO = d;
@@ -135,8 +156,16 @@ async function sugerirOnzeAutomatico() {
   } catch (e) { /* sem rede ou sem onzes publicados: fica como está */ }
 }
 
+/** Guarda o estado atual como "início", para o botão "Voltar ao início". */
+function guardarInicio() {
+  if (!QUADRO) return;
+  QUADRO_INICIAL = JSON.stringify({ estado: QUADRO.estado, titulo: QUADRO.titulo || '' });
+}
+
 function desenharEditorQuadro(alvo) {
   const q = QUADRO;
+  q.estado.pontos = q.estado.pontos || [];
+  q.estado.linhas = q.estado.linhas || [];
   let ferramenta = alvo.dataset.ferramenta || 'mover';
   const conta = c => q.estado.pontos.filter(p => (p.c === 'b') === (c === 'b')).length;
   const botaoF = (f, t) => `<button class="botao pequeno ${ferramenta === f ? 'principal' : ''}" data-f="${f}">${t}</button>`;
@@ -157,16 +186,31 @@ function desenharEditorQuadro(alvo) {
       ${botaoF('seta', '➚ Seta')}
       ${botaoF('apagar', '🗑 Apagar')}
     </div>
-    <div class="q-campo">${quadroSvg(q.estado)}</div>
-    ${bancosHtml(q.estado.bancos)}
-    <p class="suave" style="margin:6px 0">
-      Encarnados <b>${conta('v')}/11</b> · Brancos <b>${conta('b')}/11</b>.
-      ${ferramenta === 'mover' ? 'Arrasta os jogadores. Dois cliques num jogador para lhe pôr um número.' : ''}
-      ${ferramenta === 'nome' ? 'Clica num jogador para escrever o nome que aparece por baixo (até 14 letras).' : ''}
-      ${ferramenta === 'v' || ferramenta === 'b' ? 'Clica no relvado onde queres pôr o jogador.' : ''}
-      ${ferramenta === 'linha' || ferramenta === 'seta' ? 'Carrega e arrasta no relvado para desenhar (preto).' : ''}
-      ${ferramenta === 'apagar' ? 'Clica num jogador, risco ou seta para o tirar.' : ''}
-    </p>
+    <div class="q-layout">
+      <aside class="q-lateral">
+        <b>Últimos 10 jogos</b>
+        <div class="q-jogos">${listaJogosHtml()}</div>
+        <p class="suave mini">Toca num jogo para pôr no campo o onze do Benfica e do adversário desse jogo.</p>
+      </aside>
+      <div class="q-principal">
+        <div class="q-campo">${quadroSvg(q.estado)}</div>
+        ${bancosHtml(q.estado.bancos)}
+        <div class="q-acoes-fixas">
+          <button class="botao pequeno" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'}>↶ Desfazer</button>
+          <button class="botao pequeno" data-inicio>🏠 Voltar ao início</button>
+          <button class="botao pequeno perigo" data-limpar="tudo">🧹 Limpar o campo</button>
+          <button class="botao pequeno" data-limpar="linhas">Tirar riscos e setas</button>
+        </div>
+        <p class="suave" style="margin:6px 0">
+          Encarnados <b>${conta('v')}/11</b> · Brancos <b>${conta('b')}/11</b>.
+          ${ferramenta === 'mover' ? 'Arrasta os jogadores. Dois cliques num jogador para lhe pôr um número.' : ''}
+          ${ferramenta === 'nome' ? 'Clica num jogador para escrever o nome que aparece por baixo (até 14 letras).' : ''}
+          ${ferramenta === 'v' || ferramenta === 'b' ? 'Clica no relvado onde queres pôr o jogador.' : ''}
+          ${ferramenta === 'linha' || ferramenta === 'seta' ? 'Carrega e arrasta no relvado para desenhar (preto).' : ''}
+          ${ferramenta === 'apagar' ? 'Clica num jogador, risco ou seta para o tirar.' : ''}
+        </p>
+      </div>
+    </div>
     <div class="linha-acoes">
       <span class="suave">Do último jogo:</span>
       <button class="botao pequeno principal" data-auto="ambos">⚽ Benfica + adversário</button>
@@ -176,11 +220,6 @@ function desenharEditorQuadro(alvo) {
       <span class="suave">Formações rápidas:</span>
       ${Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="v:${f}">🔴 ${f}</button>`).join('')}
       ${Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="b:${f}">⚪ ${f}</button>`).join('')}
-    </div>
-    <div class="linha-acoes">
-      <button class="botao pequeno" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'}>↶ Desfazer</button>
-      <button class="botao pequeno" data-limpar="linhas">Tirar riscos e setas</button>
-      <button class="botao pequeno perigo" data-limpar="tudo">Limpar tudo</button>
     </div>
     <p class="suave" data-guardado>${q.guardadoTxt || ''}</p>`,
     q.visivel ? '<button class="botao pequeno perigo" data-visivel="0">Tirar da app</button>'
@@ -205,14 +244,46 @@ function desenharEditorQuadro(alvo) {
   $('[data-titulo]', alvo).addEventListener('change', ev => { q.titulo = ev.target.value.trim(); guardarQuadroEmBreve(); });
   $$('[data-auto]', alvo).forEach(b => b.addEventListener('click', async () => {
     const d = await preencherComUltimoJogo(b.dataset.auto === 'benfica');
-    if (d) mudar(() => { q.estado.pontos = d.pontos; q.estado.bancos = d.bancos; q.estado.jogo = d.jogo; q.titulo = d.titulo; });
+    if (d) {
+      mudar(() => { q.estado.pontos = d.pontos; q.estado.bancos = d.bancos; q.estado.jogo = d.jogo; q.titulo = d.titulo; });
+      guardarInicio();
+    }
   }));
+  // Mini lista lateral: carrega o onze das duas equipas desse jogo.
+  $$('[data-jogo]', alvo).forEach(b => b.addEventListener('click', async () => {
+    const item = (ULTIMOS.lista || []).find(x => String(x.id) === String(b.dataset.jogo));
+    if (!item) return;
+    carregar(true);
+    try {
+      const d = await onzeDoJogo(item, false);
+      QUADRO_SUGERIDO = null;
+      mudar(() => { q.estado.pontos = d.pontos; q.estado.bancos = d.bancos; q.estado.jogo = d.jogo; q.titulo = d.titulo; });
+      guardarInicio();
+      aviso('Onze de ' + d.jogo.nome + '.');
+    } catch (e) {
+      aviso(e.message || 'Não foi possível carregar esse jogo.', true);
+    } finally { carregar(false); }
+  }));
+  // Voltar ao início: como estava quando se abriu (ou o último onze carregado).
+  const bInicio = $('[data-inicio]', alvo);
+  if (bInicio) bInicio.addEventListener('click', () => {
+    if (!QUADRO_INICIAL) { aviso('Ainda não há um início guardado.', true); return; }
+    let s;
+    try { s = JSON.parse(QUADRO_INICIAL); } catch (e) { return; }
+    QUADRO_HIST.push(JSON.stringify(q.estado));
+    q.estado = JSON.parse(JSON.stringify(s.estado));
+    q.titulo = s.titulo || '';
+    guardarQuadroEmBreve();
+    desenharEditorQuadro(alvo);
+    aviso('Voltou ao início.');
+  });
   const bOnze = $('[data-onze-novo]', alvo);
   if (bOnze) bOnze.addEventListener('click', () => {
     const d = QUADRO_SUGERIDO;
     if (!d) return;
     QUADRO_SUGERIDO = null;
     mudar(() => { q.estado.pontos = d.pontos; q.estado.bancos = d.bancos; q.estado.jogo = d.jogo; q.titulo = d.titulo; });
+    guardarInicio();
     aviso('Atualizado para o último onze: ' + d.jogo.nome + '.');
   });
   $$('[data-form]', alvo).forEach(b => b.addEventListener('click', () => {
@@ -231,7 +302,7 @@ function desenharEditorQuadro(alvo) {
     mudar(() => {}, true);
   });
   $$('[data-limpar]', alvo).forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.limpar === 'tudo' && !confirm('Tirar todos os jogadores, riscos e setas?')) return;
+    if (b.dataset.limpar === 'tudo' && !confirm('Limpar o campo? Saem os jogadores, os riscos e as setas (podes sempre voltar com "Desfazer" ou "Voltar ao início").')) return;
     mudar(() => { if (b.dataset.limpar === 'tudo') { q.estado.pontos = []; q.estado.bancos = null; q.estado.jogo = null; } q.estado.linhas = []; });
   }));
   const bVis = $('[data-visivel]', alvo);
@@ -599,38 +670,71 @@ function acharJogador(nomeCompleto, lista) {
     || null;
 }
 
-/** Vai buscar o último onze disponível (o jogo terminado mais recente que já tenha onzes).
- *  Guarda o resultado 10 minutos em memória, para não repetir os pedidos ao ESPN. */
-let ONZE_CACHE = { quando: 0, dados: null };
-async function onzeDoUltimoJogo(soBenfica, forcar) {
-  const agora = Date.now();
-  if (!soBenfica && !forcar && ONZE_CACHE.dados && agora - ONZE_CACHE.quando < 10 * 60_000) {
-    return JSON.parse(JSON.stringify(ONZE_CACHE.dados));
-  }
-  const r = await fetch(`${ESPN_SOCCER}/all/teams/${ESPN_BENFICA}/schedule`, { cache: 'no-store' });
-  if (!r.ok) throw new Error('O ESPN não respondeu (' + r.status + ').');
-  const cal = await r.json();
-  const feitos = (cal.events || [])
-    .filter(e => e.competitions && e.competitions[0] && e.competitions[0].status && e.competitions[0].status.type && e.competitions[0].status.type.completed)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-  if (!feitos.length) throw new Error('Não encontrei nenhum jogo terminado do Benfica.');
+/* ------------------------------ Jogos e onzes (ESPN) ------------------------------ */
+// A lista dos últimos jogos alimenta a mini lista lateral; cada jogo tem o onze das duas
+// equipas (formação e posições), que se carrega com um toque.
+let ULTIMOS = { quando: 0, lista: null };
+const RESUMOS = new Map();
 
-  // Se o jogo mais recente ainda não tiver onzes publicados, recua aos anteriores.
-  let jogo = null, sum = null, benfica = null, rival = null;
-  for (const e of feitos.slice(0, 8)) {
-    try {
-      const rs = await fetch(`${ESPN_SOCCER}/all/summary?event=${encodeURIComponent(e.id)}`, { cache: 'no-store' });
-      if (!rs.ok) continue;
-      const s = await rs.json();
-      const lista = s.rosters || [];
-      const eu = lista.find(x => String((x.team || {}).id) === ESPN_BENFICA);
-      if (!eu || !(eu.roster || []).some(p => p.starter === true)) continue;
-      jogo = e; sum = s; benfica = eu;
-      rival = lista.find(x => String((x.team || {}).id) !== ESPN_BENFICA) || null;
-      break;
-    } catch (erro) { /* tenta o jogo anterior */ }
+/** Últimos 10 jogos terminados do Benfica (data, adversário e resultado). */
+async function ultimosJogos() {
+  const agora = Date.now();
+  if (ULTIMOS.lista && agora - ULTIMOS.quando < 10 * 60_000) return ULTIMOS.lista;
+  let cal;
+  try {
+    const r = await fetch(`${ESPN_SOCCER}/all/teams/${ESPN_BENFICA}/schedule`, { cache: 'no-store' });
+    if (!r.ok) throw new Error('O ESPN não respondeu (' + r.status + ').');
+    cal = await r.json();
+  } catch (e) {
+    ULTIMOS = { quando: 0, lista: null, falhou: true };
+    throw e;
   }
-  if (!jogo) throw new Error('Ainda não há onzes disponíveis (nem neste jogo, nem nos anteriores).');
+  const g = c => {
+    const s = c.score;
+    if (typeof s === 'string' || typeof s === 'number') return String(s);
+    if (s && s.displayValue != null) return String(s.displayValue);
+    if (s && s.value != null) return String(s.value);
+    return '';
+  };
+  const lista = (cal.events || [])
+    .filter(e => e.competitions && e.competitions[0] && e.competitions[0].status && e.competitions[0].status.type && e.competitions[0].status.type.completed)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10)
+    .map(e => {
+      const cs = (e.competitions && e.competitions[0] && e.competitions[0].competitors) || [];
+      const eu = cs.find(c => String((c.team || {}).id) === ESPN_BENFICA) || {};
+      const ele = cs.find(c => String((c.team || {}).id) !== ESPN_BENFICA) || {};
+      return {
+        id: String(e.id), nome: String(e.name || ''), data: String(e.date || ''),
+        casa: eu.homeAway === 'home',
+        golosN: g(eu), golosA: g(ele),
+        adversario: String((ele.team || {}).shortDisplayName || (ele.team || {}).displayName || 'adversário'),
+        competicao: String((e.season || {}).displayName || '')
+      };
+    });
+  ULTIMOS = { quando: agora, lista };
+  return lista;
+}
+
+/** Resumo de um jogo (fica em memória para não repetir pedidos). */
+async function resumoDoJogo(id) {
+  const chave = String(id);
+  if (RESUMOS.has(chave)) return RESUMOS.get(chave);
+  const r = await fetch(`${ESPN_SOCCER}/all/summary?event=${encodeURIComponent(id)}`, { cache: 'no-store' });
+  if (!r.ok) throw new Error('O ESPN não tem o resumo desse jogo (' + r.status + ').');
+  const s = await r.json();
+  RESUMOS.set(chave, s);
+  return s;
+}
+
+/** Com o resumo do jogo, monta as bolinhas das duas equipas (formação, nomes e fotos). */
+async function montarQuadro(sum, jogo, soBenfica) {
+  const rosters = sum.rosters || [];
+  const benfica = rosters.find(x => String((x.team || {}).id) === ESPN_BENFICA);
+  const rival = rosters.find(x => String((x.team || {}).id) !== ESPN_BENFICA) || null;
+  if (!benfica || !(benfica.roster || []).some(p => p.starter === true)) {
+    throw new Error('Esse jogo ainda não tem onzes publicados.');
+  }
   const fotos = await lerJogadores();
   const pontos = [];
   const juntar = (time, espelhar) => {
@@ -670,20 +774,39 @@ async function onzeDoUltimoJogo(soBenfica, forcar) {
     if (s && s.value != null) return String(s.value);
     return '';
   };
-  const dataTxt = new Date(jogo.date).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
+  const dataTxt = new Date(jogo.data).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
   const titulo = `${(eu.team || {}).shortDisplayName || 'Benfica'} ${g(eu)}-${g(ele)} ${(ele.team || {}).shortDisplayName || ''} · ${dataTxt}`
     .replace(/\s+/g, ' ').trim().slice(0, 80);
-  const resumo = `Último onze disponível: <b>${esc(jogo.name || titulo)}</b> (${esc(dataTxt)}). Formações: ${(benfica.team || {}).displayName} ${esc(benfica.formation || '—')}` +
+  const resumo = `<b>${esc(jogo.nome || titulo)}</b> (${esc(dataTxt)}). Formações: ${(benfica.team || {}).displayName} ${esc(benfica.formation || '—')}` +
     (rival ? ` · ${esc(rival.team.displayName)} ${esc(rival.formation || '—')}` : '') +
     `. <b>${pontos.length}</b> jogadores no campo` +
-    (bancos.v.length || bancos.b.length ? ` + ${bancos.v.length + bancos.b.length} que entraram do banco` : '') + '.' +
-    (feitos[0] && String(feitos[0].id) !== String(jogo.id) ? ' (O jogo mais recente ainda não tem onzes; usei o anterior.)' : '');
-  const resultado = {
+    (bancos.v.length || bancos.b.length ? ` + ${bancos.v.length + bancos.b.length} que entraram do banco` : '') + '.';
+  return {
     pontos, bancos, titulo, resumo,
-    jogo: { id: String(jogo.id), nome: String(jogo.name || titulo), data: String(jogo.date || '') }
+    jogo: { id: String(jogo.id), nome: String(jogo.nome || titulo), data: String(jogo.data || '') }
   };
-  if (!soBenfica) ONZE_CACHE = { quando: Date.now(), dados: JSON.parse(JSON.stringify(resultado)) };
-  return resultado;
+}
+
+/** Onze de um jogo escolhido na lista. */
+async function onzeDoJogo(jogo, soBenfica) {
+  const sum = await resumoDoJogo(jogo.id);
+  return montarQuadro(sum, jogo, soBenfica);
+}
+
+/** Último onze disponível: o jogo terminado mais recente que já tenha onzes publicados. */
+async function onzeDoUltimoJogo(soBenfica) {
+  const lista = await ultimosJogos();
+  if (!lista.length) throw new Error('Não encontrei nenhum jogo terminado do Benfica.');
+  for (const jogo of lista) {
+    try {
+      const d = await onzeDoJogo(jogo, soBenfica);
+      if (String(jogo.id) !== String(lista[0].id)) {
+        d.resumo += ' (O jogo mais recente ainda não tem onzes; usei o anterior.)';
+      }
+      return d;
+    } catch (e) { /* tenta o jogo anterior */ }
+  }
+  throw new Error('Ainda não há onzes disponíveis (nem neste jogo, nem nos anteriores).');
 }
 
 /** Pede confirmação e devolve o quadro preenchido (ou null se o administrador desistir). */
