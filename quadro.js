@@ -45,7 +45,8 @@ function quadroSvg(estado, extra) {
       ? `<defs><clipPath id="${clip}"><circle cx="${x}" cy="${y}" r="${R}"/></clipPath></defs>
          <image href="${esc(foto)}" xlink:href="${esc(foto)}" x="${cx}" y="${cy}" width="${R * 2}" height="${R * 2}" clip-path="url(#${clip})" preserveAspectRatio="xMidYMid slice"/>`
       : `<circle cx="${x}" cy="${y}" r="${R}" fill="${v ? '#e21227' : '#fff'}"/>`;
-    return `<g data-ponto="${i}" class="q-ponto"><circle cx="${x}" cy="${y + .3}" r="${R * 1.08}" fill="rgba(0,0,0,.35)"/>${circulo}
+    return `<g data-ponto="${i}" class="q-ponto"><circle cx="${x}" cy="${y}" r="${R * 2}" fill="#fff" fill-opacity="0"/>
+      <circle cx="${x}" cy="${y + .3}" r="${R * 1.08}" fill="rgba(0,0,0,.35)"/>${circulo}
       <circle cx="${x}" cy="${y}" r="${R}" fill="none" stroke="${v ? '#fff' : '#222'}" stroke-width=".35"/>
       ${p.n && !foto ? `<text x="${x}" y="${y + .62}" text-anchor="middle" font-size="1.75" font-weight="700" fill="${v ? '#fff' : '#141414'}" font-family="Arial">${esc(p.n)}</text>` : ''}
       ${p.nome ? `<text x="${x}" y="${y + R + 1.35}" text-anchor="middle" font-size="1.5" font-weight="700" font-family="Arial"
@@ -109,8 +110,10 @@ let QUADRO_HIST = [];       // para desfazer
 let QUADRO_TIMER = null;
 let QUADRO_SUGERIDO = null; // onze mais recente, quando o quadro está com um jogo anterior
 let QUADRO_INICIAL = null;  // como estava ao abrir (para "Voltar ao início")
+let QUADRO_CHEIO = false;   // editor em ecrã inteiro (melhor no tablet)
 
 function ecraQuadro(alvo) {
+  QUADRO_CHEIO = false;
   alvo.innerHTML = cartao('Quadro tático', '<p class="suave">A carregar…</p>');
   (async () => {
     if (!QUADRO) {
@@ -180,6 +183,7 @@ function desenharEditorQuadro(alvo) {
     <div class="q-barra">
       ${botaoF('mover', '✋ Mover')}
       ${botaoF('nome', '✏️ Nome')}
+      ${botaoF('numero', '🔢 Nº')}
       ${botaoF('v', '🔴 Pôr encarnado')}
       ${botaoF('b', '⚪ Pôr branco')}
       ${botaoF('linha', '／ Risco')}
@@ -200,11 +204,13 @@ function desenharEditorQuadro(alvo) {
           <button class="botao pequeno" data-inicio>🏠 Voltar ao início</button>
           <button class="botao pequeno perigo" data-limpar="tudo">🧹 Limpar o campo</button>
           <button class="botao pequeno" data-limpar="linhas">Tirar riscos e setas</button>
+          <button class="botao pequeno" data-cheio>${QUADRO_CHEIO ? '✕ Sair do ecrã inteiro' : '⛶ Ecrã inteiro'}</button>
         </div>
         <p class="suave" style="margin:6px 0">
           Encarnados <b>${conta('v')}/11</b> · Brancos <b>${conta('b')}/11</b>.
           ${ferramenta === 'mover' ? 'Arrasta os jogadores. Dois cliques num jogador para lhe pôr um número.' : ''}
           ${ferramenta === 'nome' ? 'Clica num jogador para escrever o nome que aparece por baixo (até 14 letras).' : ''}
+      ${ferramenta === 'numero' ? 'Clica num jogador para escrever o número (até 3).' : ''}
           ${ferramenta === 'v' || ferramenta === 'b' ? 'Clica no relvado onde queres pôr o jogador.' : ''}
           ${ferramenta === 'linha' || ferramenta === 'seta' ? 'Carrega e arrasta no relvado para desenhar (preto).' : ''}
           ${ferramenta === 'apagar' ? 'Clica num jogador, risco ou seta para o tirar.' : ''}
@@ -225,6 +231,9 @@ function desenharEditorQuadro(alvo) {
     q.visivel ? '<button class="botao pequeno perigo" data-visivel="0">Tirar da app</button>'
       : '<button class="botao pequeno principal" data-visivel="1">📡 Pôr na app</button>');
   alvo.dataset.ferramenta = ferramenta;
+  // Ecrã inteiro: o cartão ocupa a janela toda (relvado maior para trabalhar no tablet).
+  const cardEl = $('.cartao', alvo);
+  if (QUADRO_CHEIO && cardEl) cardEl.classList.add('q-cheio');
   const svg = $('.q-campo svg', alvo);
 
   const mudar = (alterar, semHistorico) => {
@@ -277,6 +286,8 @@ function desenharEditorQuadro(alvo) {
     desenharEditorQuadro(alvo);
     aviso('Voltou ao início.');
   });
+  const bCheio = $('[data-cheio]', alvo);
+  if (bCheio) bCheio.addEventListener('click', () => { QUADRO_CHEIO = !QUADRO_CHEIO; desenharEditorQuadro(alvo); });
   const bOnze = $('[data-onze-novo]', alvo);
   if (bOnze) bOnze.addEventListener('click', () => {
     const d = QUADRO_SUGERIDO;
@@ -346,6 +357,14 @@ function desenharEditorQuadro(alvo) {
       const nome = prompt('Nome do jogador (até 14 letras; vazio para tirar):', alvoPonto.nome || '');
       if (nome === null) return;
       mudar(() => { alvoPonto.nome = nome.trim().slice(0, 14); });
+      return;
+    }
+    if (ferramenta === 'numero') {
+      if (!g) return;
+      const alvoPonto = q.estado.pontos[Number(g.dataset.ponto)];
+      const n = prompt('Número do jogador (até 3; vazio para tirar):', alvoPonto.n || '');
+      if (n === null) return;
+      mudar(() => { alvoPonto.n = n.trim().slice(0, 3); });
       return;
     }
     if (ferramenta === 'v' || ferramenta === 'b') {
