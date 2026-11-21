@@ -381,14 +381,60 @@ async function sugerirOnzeAutomatico() {
 
 const VERSAO_QUADRO = 'v18';
 
+/**
+ * Aplica o modo campo com estilos diretos (sem depender do CSS).
+ * É o que garante o layout no telemóvel mesmo com o CSS antigo em cache.
+ */
+function aplicarFocoInline(alvo) {
+  const card = $('.cartao', alvo); if (!card) return;
+  card.style.cssText = 'position:fixed;inset:0;z-index:90;margin:0;border:0;border-radius:0;background:#0f1115;display:flex;flex-direction:column;overflow:hidden;height:100vh;height:100dvh;padding:0';
+  const head = card.querySelector(':scope > header'); if (head) head.style.display = 'none';
+  const corpo = $('.cartao-corpo', card);
+  if (corpo) { corpo.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;padding:4px 6px'; }
+  const esconder = ['.q-estado', '.q-lateral', 'label', '[data-guardado]', '.linha-acoes', '.cartao-corpo > .aviso'];
+  esconder.forEach(sel => alvo.querySelectorAll(sel).forEach(e => { e.style.display = 'none'; }));
+  alvo.querySelectorAll('.q-principal > p.suave').forEach(e => { e.style.display = 'none'; });
+  const barra = $('.q-barra', alvo);
+  if (barra) {
+    barra.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;margin:0;padding:2px;flex:0 0 auto';
+    barra.querySelectorAll('.botao').forEach(b => { b.style.cssText += ';padding:.25em .5em;font-size:.72rem;min-height:28px;border-radius:8px'; });
+  }
+  const layout = $('.q-layout', alvo);
+  if (layout) layout.style.cssText = 'flex:1;min-height:0;display:block;margin:0';
+  const principal = $('.q-principal', alvo);
+  if (principal) principal.style.cssText = 'display:flex;flex-direction:column;height:100%;min-height:0;gap:4px';
+  const campo = $('.q-campo', alvo);
+  if (campo) {
+    campo.style.cssText = 'flex:1;min-height:0;max-width:none;display:flex;align-items:center;justify-content:center;padding:0';
+    campo.querySelectorAll('svg').forEach(s => { s.style.width = '100%'; s.style.height = '100%'; });
+  }
+  const rodape = $('.q-rodape', alvo);
+  if (rodape) rodape.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:6px;flex:0 0 auto';
+  const acoes = $('.q-acoes-fixas', alvo);
+  if (acoes) {
+    acoes.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin:0';
+    acoes.querySelectorAll('.botao').forEach(b => { b.style.cssText += ';padding:.25em .55em;font-size:.72rem;min-height:28px;border-radius:8px'; });
+  }
+  alvo.querySelectorAll('[data-limpar="linhas"]').forEach(e => { e.style.display = 'none'; });
+  const tempo = $('.q-tempo', alvo);
+  if (tempo) {
+    tempo.style.cssText += ';margin:0;padding:0;border:0;flex:1 1 300px;min-width:0;max-height:none;overflow:visible';
+    if (tempo.classList.contains('aberto')) {
+      tempo.style.position = 'fixed'; tempo.style.left = '8px'; tempo.style.right = '8px'; tempo.style.bottom = '52px';
+      tempo.style.zIndex = '96'; tempo.style.maxHeight = '58vh'; tempo.style.overflow = 'auto';
+      tempo.style.background = '#12161c'; tempo.style.border = '1px solid #2b333d'; tempo.style.borderRadius = '12px';
+      tempo.style.padding = '8px'; tempo.style.boxShadow = '0 -12px 30px rgba(0,0,0,.5)';
+    }
+    const corpoTempo = $('.q-tempo-corpo', tempo);
+    if (corpoTempo) corpoTempo.style.display = tempo.classList.contains('aberto') ? 'block' : 'none';
+    const listas = $('.q-tempo-listas', tempo);
+    if (listas) listas.style.cssText = 'display:grid;grid-template-columns:1fr;gap:6px';
+  }
+}
+
 /** Etiqueta pequena com a versão: serve para saber se o telemóvel já apanhou a versão nova. */
 function marcaVersao() {
-  if (document.getElementById('versao-quadro')) return;
-  const s = document.createElement('div');
-  s.id = 'versao-quadro';
-  s.textContent = VERSAO_QUADRO;
-  s.style.cssText = 'position:fixed;right:6px;bottom:4px;z-index:9999;opacity:.6;font-size:10px;color:#9aa4b2;pointer-events:none;font-family:system-ui,sans-serif';
-  document.body.appendChild(s);
+  return; // sem etiquetas na plataforma
 }
 
 function desenharEditorQuadro(alvo) {
@@ -465,6 +511,8 @@ function desenharEditorQuadro(alvo) {
   const cardEl = $('.cartao', alvo);
   if (QUADRO_CHEIO && cardEl) cardEl.classList.add('q-cheio');
   document.body.classList.toggle('modo-campo', QUADRO_CHEIO);
+  // Layout do modo campo aplicado diretamente (não depende do CSS carregado).
+  if (QUADRO_CHEIO) aplicarFocoInline(alvo);
   const svg = $('.q-campo svg', alvo);
 
   const mudar = (alterar, semHistorico) => {
