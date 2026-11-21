@@ -260,7 +260,6 @@ function desenharEditorQuadro(alvo) {
       </aside>
       <div class="q-principal">
         <div class="q-campo">${quadroSvg(q.estado)}</div>
-        ${bancosHtml(q.estado.bancos)}
         <div class="q-acoes-fixas">
           <button class="botao pequeno" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'}>↶ Desfazer</button>
           <button class="botao pequeno perigo" data-limpar="tudo">🧹 Limpar o campo</button>
