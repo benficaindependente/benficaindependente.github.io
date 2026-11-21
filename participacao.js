@@ -101,14 +101,20 @@ function slotsQuiz(cfg, quantos) {
   return out;
 }
 
-/** No automático, as perguntas ainda por enviar ficam nos próximos momentos livres. */
+/**
+ * No automático, as perguntas ainda por enviar ficam nos próximos momentos livres.
+ * Só entram as perguntas criadas depois da última vez que a agenda foi gravada:
+ * as que já saíram antes disso mantêm a data que têm (não desaparecem da app).
+ */
 function agendaQuiz(cfg, perguntas) {
   const envios = Object.assign({}, cfg.envios || {});
+  if (cfg.modo === 'manual') return envios;
+  const corte = cfg.atualizado ? new Date(cfg.atualizado).getTime() : Date.now();
   const livres = (perguntas || [])
-    .filter(q => q && q.id && !envios[q.id] && Number(q.quando) > Date.now() - 21 * 24 * 3600 * 1000)
+    .filter(q => q && q.id && !envios[q.id] && Number(q.quando) > corte)
     .sort((a, b) => Number(a.quando) - Number(b.quando));
   const momentos = slotsQuiz(cfg, livres.length);
-  livres.forEach((q, i) => { envios[q.id] = momentos[i].toISOString(); });
+  livres.forEach((q, i) => { if (momentos[i]) envios[q.id] = momentos[i].toISOString(); });
   return envios;
 }
 
@@ -176,13 +182,14 @@ function ecraParticipacao(alvo) {
     } finally { carregar(false); }
 
     // No envio automático, as perguntas que o robô criar depois ficam logo com data — sem
-    // ninguém ter de voltar a mexer aqui. Só grava quando há alguma pergunta por agendar.
+    // ninguém ter de voltar a mexer aqui. Na primeira vez cria a agenda (a partir de agora),
+    // para que as perguntas seguintes não saiam a qualquer hora.
     if (envioQuiz.modo !== 'manual') {
       const agenda = agendaQuiz(envioQuiz, quiz);
       const antes = envioQuiz.envios || {};
       const mudou = Object.keys(agenda).length !== Object.keys(antes).length ||
         Object.keys(agenda).some(id => agenda[id] !== antes[id]);
-      if (mudou) {
+      if (mudou || !envioQuiz.atualizado) {
         const guardado = await guardarQuizEnvio({ envios: agenda }, 'Plataforma: agenda do quiz');
         if (guardado) envioQuiz = guardado;
       }
