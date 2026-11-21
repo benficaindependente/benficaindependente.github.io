@@ -87,6 +87,73 @@ function listaJogosHtml() {
     </button>`).join('');
 }
 
+/* ------------------------------ Linha do tempo (substituições e expulsões) ------------------------------ */
+// O quadro guarda o onze inicial e a lista de acontecimentos do jogo. Carregar num
+// acontecimento põe o campo como estava nesse minuto — nas duas equipas ao mesmo tempo.
+
+/** XI inicial guardado no quadro (nos quadros antigos, o próprio desenho). */
+function pontosIniciais(estado) {
+  const e = estado || {};
+  if (e.inicial && (((e.inicial.v || []).length) || ((e.inicial.b || []).length))) {
+    return JSON.parse(JSON.stringify([...(e.inicial.v || []), ...(e.inicial.b || [])]));
+  }
+  return JSON.parse(JSON.stringify(e.pontos || []));
+}
+
+function mesmoNome(a, b) { return semAcentos(a) === semAcentos(b); }
+
+function acharSuplente(estado, equipa, nome) {
+  const lista = ((estado.suplentes || {})[equipa]) || [];
+  return lista.find(s => mesmoNome(s.nome, nome)) || null;
+}
+
+/** Campo como estava até um minuto (inclusive). [min] null = minuto 0 (onze inicial). */
+function aplicarTempo(estado, min) {
+  const pontos = pontosIniciais(estado);
+  if (min == null) return pontos;
+  const eventos = (estado.eventos || []).filter(e => Number(e.min) <= Number(min));
+  for (const ev of eventos) {
+    const i = pontos.findIndex(p => p.c === ev.equipa && mesmoNome(p.nome, ev.sai));
+    if (i < 0) continue;
+    if (ev.tipo === 'vermelho') { pontos.splice(i, 1); continue; }
+    const s = acharSuplente(estado, ev.equipa, ev.entra);
+    pontos[i] = {
+      ...pontos[i],
+      nome: (s && s.nome) || ev.entra,
+      n: (s && s.n) || pontos[i].n || '',
+      foto: (s && s.foto) || ''
+    };
+  }
+  return pontos;
+}
+
+/** Botões do tempo: um bloco por equipa, por ordem de minuto. */
+function htmlTempo(estado) {
+  const evs = (estado.eventos || []).slice().sort((a, b) => Number(a.min) - Number(b.min));
+  if (!evs.length) return '';
+  const equipaB = ((estado.suplentes || {}).equipaB) || 'Adversário';
+  const momento = estado.momento == null ? null : Number(estado.momento);
+  const bloco = (lado, titulo) => {
+    let n = 0;
+    const linhas = evs.filter(e => e.equipa === lado).map(e => {
+      const ativo = momento != null && Number(e.min) === momento;
+      const vermelho = e.tipo === 'vermelho';
+      const rotulo = vermelho ? `Expulsão · ${e.sai}` : `Sub ${++n} · ${e.entra} (sai ${e.sai})`;
+      return `<button class="q-ev ${ativo ? 'ativo' : ''} ${vermelho ? 'q-ev-vermelho' : ''}" data-min="${esc(e.min)}">
+        <span class="q-ev-min">${vermelho ? '🟥 ' : ''}${esc(e.min)}'</span>
+        <span class="q-ev-txt">${esc(rotulo)}</span></button>`;
+    }).join('');
+    return `<div class="q-tempo-lado"><b>${esc(titulo)}</b>${linhas || '<span class="suave mini">Sem substituições.</span>'}</div>`;
+  };
+  return `<div class="q-tempo">
+    <div class="q-tempo-topo">
+      <button class="q-ev q-ev-zero ${momento == null ? 'ativo' : ''}" data-min="0">⏱ Min. 0</button>
+      <span class="suave mini">Carrega num momento para pôr o campo como estava nessa altura — substituições e expulsões, nas duas equipas.</span>
+    </div>
+    <div class="q-tempo-listas">${bloco('v', 'Benfica')}${bloco('b', equipaB)}</div>
+  </div>`;
+}
+
 /** Como aparece no Início da app (para a pré-visualização antes de pôr na app). */
 function prevQuadro(estado, titulo) {
   return telemovel(`<div class="tm-cartao tm-p"><div class="tm-etiqueta">● QUADRO TÁTICO · AO VIVO</div>
@@ -109,7 +176,6 @@ let QUADRO = null;          // { estado, visivel, titulo, versao }
 let QUADRO_HIST = [];       // para desfazer
 let QUADRO_TIMER = null;
 let QUADRO_SUGERIDO = null; // onze mais recente, quando o quadro está com um jogo anterior
-let QUADRO_INICIAL = null;  // como estava ao abrir (para "Voltar ao início")
 let QUADRO_CHEIO = false;   // editor em ecrã inteiro (melhor no tablet)
 
 function ecraQuadro(alvo) {
@@ -129,9 +195,9 @@ function ecraQuadro(alvo) {
         } finally { carregar(false); }
       }
     }
-    guardarInicio();
     await sugerirOnzeAutomatico();
-    desenharEditorQuadro(alvo);  })();
+    desenharEditorQuadro(alvo);
+  })();
 }
 
 /**
@@ -147,22 +213,19 @@ async function sugerirOnzeAutomatico() {
     const pontos = QUADRO.estado.pontos || [];
     if (!pontos.length) {
       QUADRO.estado.pontos = d.pontos;
+      QUADRO.estado.inicial = d.inicial;
+      QUADRO.estado.suplentes = d.suplentes;
+      QUADRO.estado.eventos = d.eventos;
       QUADRO.estado.bancos = d.bancos;
       QUADRO.estado.jogo = d.jogo;
+      QUADRO.estado.momento = null;
       QUADRO.titulo = d.titulo;
       await guardarQuadro();
-      guardarInicio();
       aviso('Quadro preenchido com o último onze: ' + d.jogo.nome + '.');
     } else if (QUADRO.estado.jogo && String(QUADRO.estado.jogo.id) !== d.jogo.id) {
       QUADRO_SUGERIDO = d;
     }
   } catch (e) { /* sem rede ou sem onzes publicados: fica como está */ }
-}
-
-/** Guarda o estado atual como "início", para o botão "Voltar ao início". */
-function guardarInicio() {
-  if (!QUADRO) return;
-  QUADRO_INICIAL = JSON.stringify({ estado: QUADRO.estado, titulo: QUADRO.titulo || '' });
 }
 
 function desenharEditorQuadro(alvo) {
@@ -182,45 +245,44 @@ function desenharEditorQuadro(alvo) {
     <label>Título (opcional)<input type="text" data-titulo maxlength="80" value="${esc(q.titulo)}" placeholder="Ex.: O onze provável para Braga"></label>
     <div class="q-barra">
       ${botaoF('mover', '✋ Mover')}
-      ${botaoF('nome', '✏️ Nome')}
-      ${botaoF('numero', '🔢 Nº')}
+      ${botaoF('manual', '🔁 Sub. Manual')}
       ${botaoF('v', '🔴 Pôr encarnado')}
       ${botaoF('b', '⚪ Pôr branco')}
       ${botaoF('linha', '／ Risco')}
       ${botaoF('seta', '➚ Seta')}
-      ${botaoF('apagar', '🗑 Apagar')}
+      ${botaoF('apagar', '🗑 Tirar')}
     </div>
     <div class="q-layout">
       <aside class="q-lateral">
         <b>Últimos 10 jogos</b>
         <div class="q-jogos">${listaJogosHtml()}</div>
-        <p class="suave mini">Toca num jogo para pôr no campo o onze do Benfica e do adversário desse jogo.</p>
+        <p class="suave mini">Toca num jogo para pôr no campo o onze das duas equipas desse jogo — e as substituições reais.</p>
       </aside>
       <div class="q-principal">
         <div class="q-campo">${quadroSvg(q.estado)}</div>
         ${bancosHtml(q.estado.bancos)}
         <div class="q-acoes-fixas">
           <button class="botao pequeno" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'}>↶ Desfazer</button>
-          <button class="botao pequeno" data-inicio>🏠 Voltar ao início</button>
           <button class="botao pequeno perigo" data-limpar="tudo">🧹 Limpar o campo</button>
           <button class="botao pequeno" data-limpar="linhas">Tirar riscos e setas</button>
           <button class="botao pequeno" data-cheio>${QUADRO_CHEIO ? '✕ Sair do ecrã inteiro' : '⛶ Ecrã inteiro'}</button>
         </div>
         <p class="suave" style="margin:6px 0">
           Encarnados <b>${conta('v')}/11</b> · Brancos <b>${conta('b')}/11</b>.
-          ${ferramenta === 'mover' ? 'Arrasta os jogadores. Dois cliques num jogador para lhe pôr um número.' : ''}
-          ${ferramenta === 'nome' ? 'Clica num jogador para escrever o nome que aparece por baixo (até 14 letras).' : ''}
-      ${ferramenta === 'numero' ? 'Clica num jogador para escrever o número (até 3).' : ''}
-          ${ferramenta === 'v' || ferramenta === 'b' ? 'Clica no relvado onde queres pôr o jogador.' : ''}
+          ${ferramenta === 'mover' ? 'Arrasta os jogadores. Para trocar dois de posição: 🔁 Sub. Manual.' : ''}
+          ${ferramenta === 'manual' ? 'Clica num jogador e depois no outro: trocam de posição.' : ''}
+          ${ferramenta === 'v' || ferramenta === 'b' ? 'Clica no relvado onde queres pôr o jogador. Se já tens 11, tira um com 🗑 Tirar.' : ''}
           ${ferramenta === 'linha' || ferramenta === 'seta' ? 'Carrega e arrasta no relvado para desenhar (preto).' : ''}
-          ${ferramenta === 'apagar' ? 'Clica num jogador, risco ou seta para o tirar.' : ''}
+          ${ferramenta === 'apagar' ? 'Clica num jogador, risco ou seta para o tirar do campo.' : ''}
         </p>
       </div>
     </div>
+    ${htmlTempo(q.estado)}
     <div class="linha-acoes">
       <span class="suave">Do último jogo:</span>
       <button class="botao pequeno principal" data-auto="ambos">⚽ Benfica + adversário</button>
       <button class="botao pequeno" data-auto="benfica">🔴 Só o Benfica</button>
+      <button class="botao pequeno" data-convocados>📋 Convocados</button>
     </div>
     <div class="linha-acoes">
       <span class="suave">Formações rápidas:</span>
@@ -249,16 +311,17 @@ function desenharEditorQuadro(alvo) {
   };
   const r3 = v => Math.round(v * 1000) / 1000;
 
-  $$('[data-f]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.ferramenta = b.dataset.f; desenharEditorQuadro(alvo); }));
+  $$('[data-f]', alvo).forEach(b => b.addEventListener('click', () => {
+    delete alvo.dataset.selecao;
+    alvo.dataset.ferramenta = b.dataset.f;
+    desenharEditorQuadro(alvo);
+  }));
   $('[data-titulo]', alvo).addEventListener('change', ev => { q.titulo = ev.target.value.trim(); guardarQuadroEmBreve(); });
   $$('[data-auto]', alvo).forEach(b => b.addEventListener('click', async () => {
     const d = await preencherComUltimoJogo(b.dataset.auto === 'benfica');
-    if (d) {
-      mudar(() => { q.estado.pontos = d.pontos; q.estado.bancos = d.bancos; q.estado.jogo = d.jogo; q.titulo = d.titulo; });
-      guardarInicio();
-    }
+    if (d) aplicarJogo(d);
   }));
-  // Mini lista lateral: carrega o onze das duas equipas desse jogo.
+  // Mini lista lateral: carrega o onze das duas equipas desse jogo (e as substituições reais).
   $$('[data-jogo]', alvo).forEach(b => b.addEventListener('click', async () => {
     const item = (ULTIMOS.lista || []).find(x => String(x.id) === String(b.dataset.jogo));
     if (!item) return;
@@ -266,26 +329,25 @@ function desenharEditorQuadro(alvo) {
     try {
       const d = await onzeDoJogo(item, false);
       QUADRO_SUGERIDO = null;
-      mudar(() => { q.estado.pontos = d.pontos; q.estado.bancos = d.bancos; q.estado.jogo = d.jogo; q.titulo = d.titulo; });
-      guardarInicio();
+      aplicarJogo(d);
       aviso('Onze de ' + d.jogo.nome + '.');
     } catch (e) {
       aviso(e.message || 'Não foi possível carregar esse jogo.', true);
     } finally { carregar(false); }
   }));
-  // Voltar ao início: como estava quando se abriu (ou o último onze carregado).
-  const bInicio = $('[data-inicio]', alvo);
-  if (bInicio) bInicio.addEventListener('click', () => {
-    if (!QUADRO_INICIAL) { aviso('Ainda não há um início guardado.', true); return; }
-    let s;
-    try { s = JSON.parse(QUADRO_INICIAL); } catch (e) { return; }
-    QUADRO_HIST.push(JSON.stringify(q.estado));
-    q.estado = JSON.parse(JSON.stringify(s.estado));
-    q.titulo = s.titulo || '';
-    guardarQuadroEmBreve();
-    desenharEditorQuadro(alvo);
-    aviso('Voltou ao início.');
-  });
+  /** Põe no quadro um jogo carregado: onze inicial, banco, acontecimentos e título. */
+  function aplicarJogo(d) {
+    mudar(() => {
+      q.estado.pontos = d.pontos;
+      q.estado.inicial = d.inicial;
+      q.estado.suplentes = d.suplentes;
+      q.estado.eventos = d.eventos;
+      q.estado.bancos = d.bancos;
+      q.estado.jogo = d.jogo;
+      q.estado.momento = null;
+      q.titulo = d.titulo;
+    });
+  }
   const bCheio = $('[data-cheio]', alvo);
   if (bCheio) bCheio.addEventListener('click', () => { QUADRO_CHEIO = !QUADRO_CHEIO; desenharEditorQuadro(alvo); });
   const bOnze = $('[data-onze-novo]', alvo);
@@ -293,18 +355,43 @@ function desenharEditorQuadro(alvo) {
     const d = QUADRO_SUGERIDO;
     if (!d) return;
     QUADRO_SUGERIDO = null;
-    mudar(() => { q.estado.pontos = d.pontos; q.estado.bancos = d.bancos; q.estado.jogo = d.jogo; q.titulo = d.titulo; });
-    guardarInicio();
+    aplicarJogo(d);
     aviso('Atualizado para o último onze: ' + d.jogo.nome + '.');
+  });
+  // Linha do tempo: carregar num momento põe o campo como estava nesse minuto (as duas equipas).
+  $$('[data-min]', alvo).forEach(b => b.addEventListener('click', () => {
+    const min = Number(b.dataset.min);
+    mudar(() => {
+      q.estado.pontos = aplicarTempo(q.estado, min === 0 ? null : min);
+      q.estado.momento = min === 0 ? null : min;
+    });
+    aviso(min === 0
+      ? 'Campo como no minuto 0 (onze inicial).'
+      : `Campo como estava aos ${min}' — substituições e expulsões até esse minuto, nas duas equipas.`);
+  }));
+  // Convocados que não entraram (só Benfica).
+  const bConv = $('[data-convocados]', alvo);
+  if (bConv) bConv.addEventListener('click', () => {
+    const banco = ((q.estado.suplentes || {}).v) || [];
+    const usados = (q.estado.eventos || []).filter(e => e.equipa === 'v' && e.tipo === 'sub').map(e => e.entra);
+    const restantes = banco.filter(s => !usados.some(u => mesmoNome(u, s.nome)));
+    const html = restantes.length
+      ? `<div class="q-convocados">${restantes.map(s => `<div class="q-convocado">${fotoRedonda(s.foto, s.nome, 54)}<span>${esc(s.nome)}</span><small>${esc(s.n || '')}</small></div>`).join('')}</div>`
+      : '<p class="suave">Não há convocados por entrar (ou o quadro não veio de um jogo).</p>';
+    if (typeof janelaPart === 'function') janelaPart('Convocados que não entraram · Benfica', html, 560);
+    else document.body.insertAdjacentHTML('beforeend', `<div class="fundo-modal"><div class="modal"><header><h3>Convocados</h3></header><div class="modal-corpo">${html}</div></div></div>`);
   });
   $$('[data-form]', alvo).forEach(b => b.addEventListener('click', () => {
     const [c, f] = b.dataset.form.split(':');
     mudar(() => {
-      q.estado.pontos = q.estado.pontos.filter(p => (p.c === 'b') !== (c === 'b'));
-      q.estado.bancos = null;   // os suplentes do último jogo deixam de fazer sentido
-      q.estado.jogo = null;     // e o quadro já não é o onze desse jogo
-      // Encarnados atacam para a direita; brancos ao contrário.
-      FORMACOES[f].forEach(([x, y]) => q.estado.pontos.push({ c, x: c === 'b' ? r3(1 - x) : x, y: c === 'b' ? r3(1 - y) : y, n: '' }));
+      // Muda só as posições: mantém os jogadores que lá estão, com nomes e fotos.
+      const atuais = q.estado.pontos.filter(p => p.c === c).slice().sort((a, b) => a.x - b.x || a.y - b.y);
+      const lugares = FORMACOES[f].map(([x, y]) => ({ x: c === 'b' ? r3(1 - x) : x, y: c === 'b' ? r3(1 - y) : y }))
+        .sort((a, b) => a.x - b.x || a.y - b.y);
+      atuais.forEach((p, i) => {
+        const lugar = lugares[Math.min(i, lugares.length - 1)];
+        p.x = lugar.x; p.y = lugar.y;
+      });
     });
   }));
   $('[data-desfazer]', alvo).addEventListener('click', () => {
@@ -313,9 +400,27 @@ function desenharEditorQuadro(alvo) {
     mudar(() => {}, true);
   });
   $$('[data-limpar]', alvo).forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.limpar === 'tudo' && !confirm('Limpar o campo? Saem os jogadores, os riscos e as setas (podes sempre voltar com "Desfazer" ou "Voltar ao início").')) return;
-    mudar(() => { if (b.dataset.limpar === 'tudo') { q.estado.pontos = []; q.estado.bancos = null; q.estado.jogo = null; } q.estado.linhas = []; });
+    if (b.dataset.limpar === 'tudo' && !confirm('Limpar o campo? Saem os jogadores, os riscos e as setas (podes voltar com "Desfazer").')) return;
+    mudar(() => {
+      if (b.dataset.limpar === 'tudo') {
+        q.estado.pontos = [];
+        q.estado.bancos = null;
+        q.estado.jogo = null;
+        q.estado.momento = null;
+      }
+      q.estado.linhas = [];
+    });
   }));
+  // Seleção do "Sub. Manual": o primeiro jogador fica marcado.
+  const sel = alvo.dataset.selecao;
+  if (sel != null && sel !== '') {
+    const g = $(`[data-ponto="${sel}"]`, alvo);
+    if (g) {
+      const circulos = g.querySelectorAll('circle');
+      const anel = circulos[circulos.length - 1];
+      if (anel) { anel.setAttribute('stroke', '#ffd400'); anel.setAttribute('stroke-width', '.55'); }
+    }
+  }
   const bVis = $('[data-visivel]', alvo);
   if (bVis) bVis.addEventListener('click', async () => {
     const ligar = bVis.dataset.visivel === '1';
@@ -351,20 +456,31 @@ function desenharEditorQuadro(alvo) {
       else if (l) mudar(() => q.estado.linhas.splice(Number(l.dataset.linha), 1));
       return;
     }
-    if (ferramenta === 'nome') {
-      if (!g) return;
-      const alvoPonto = q.estado.pontos[Number(g.dataset.ponto)];
-      const nome = prompt('Nome do jogador (até 14 letras; vazio para tirar):', alvoPonto.nome || '');
-      if (nome === null) return;
-      mudar(() => { alvoPonto.nome = nome.trim().slice(0, 14); });
-      return;
-    }
-    if (ferramenta === 'numero') {
-      if (!g) return;
-      const alvoPonto = q.estado.pontos[Number(g.dataset.ponto)];
-      const n = prompt('Número do jogador (até 3; vazio para tirar):', alvoPonto.n || '');
-      if (n === null) return;
-      mudar(() => { alvoPonto.n = n.trim().slice(0, 3); });
+    if (ferramenta === 'manual') {
+      // Troca dois jogadores de posição, mesmo que não tenham entrado na realidade.
+      if (!g) { delete alvo.dataset.selecao; desenharEditorQuadro(alvo); return; }
+      const i = Number(g.dataset.ponto);
+      const escolhido = alvo.dataset.selecao;
+      if (escolhido == null || escolhido === '') {
+        const jogador = q.estado.pontos[i];
+        if (!jogador) return;
+        alvo.dataset.selecao = String(i);
+        aviso('Escolheste ' + (jogador.nome || 'um jogador') + '. Clica no outro para trocarem de posição.');
+        desenharEditorQuadro(alvo);
+        return;
+      }
+      const j = Number(escolhido);
+      if (j === i) { delete alvo.dataset.selecao; desenharEditorQuadro(alvo); return; }
+      const a = q.estado.pontos[i], b2 = q.estado.pontos[j];
+      if (!a || !b2) { delete alvo.dataset.selecao; return; }
+      if (a.c !== b2.c) { aviso('Têm de ser dois jogadores da mesma equipa.', true); return; }
+      delete alvo.dataset.selecao;
+      mudar(() => {
+        const tx = a.x, ty = a.y;
+        a.x = b2.x; a.y = b2.y;
+        b2.x = tx; b2.y = ty;
+      });
+      aviso('Trocados: ' + (b2.nome || '?') + ' e ' + (a.nome || '?') + '.');
       return;
     }
     if (ferramenta === 'v' || ferramenta === 'b') {
@@ -407,14 +523,6 @@ function desenharEditorQuadro(alvo) {
   };
   svg.addEventListener('pointerup', largar);
   svg.addEventListener('pointercancel', largar);
-  svg.addEventListener('dblclick', ev => {
-    const g = ev.target.closest('[data-ponto]');
-    if (!g || ferramenta !== 'mover') return;
-    const pt = q.estado.pontos[Number(g.dataset.ponto)];
-    const n = prompt('Número ou letras do jogador (até 3; vazio para tirar):', pt.n || '');
-    if (n === null) return;
-    mudar(() => { pt.n = n.trim().slice(0, 3); });
-  });
 }
 
 /** Envia no máximo de 300 em 300 ms: enquanto se arrasta, a app vai vendo o jogador a mexer. */
@@ -746,6 +854,39 @@ async function resumoDoJogo(id) {
   return s;
 }
 
+/** Substituições e expulsões do jogo, com minuto e equipa (as duas equipas). */
+function eventosDoJogo(sum, benfica, rival, fotos) {
+  const lado = id => String(id) === ESPN_BENFICA ? 'v' : 'b';
+  const banco = time => new Set(((time && time.roster) || [])
+    .filter(p => p.starter !== true)
+    .map(p => semAcentos((p.athlete || {}).displayName)));
+  const bancoV = banco(benfica), bancoB = banco(rival);
+  const rotulo = (nome, equipa) => {
+    const nosso = equipa === 'v' ? acharJogador(nome, fotos) : null;
+    return String(nosso ? nosso.nome : nomeCurto(nome)).slice(0, 14);
+  };
+  const out = [];
+  (sum.keyEvents || []).forEach(ev => {
+    const tipo = String(((ev.type || {}).text) || '');
+    const min = parseInt(String((((ev.clock || {}).displayValue) || '')), 10);
+    if (!Number.isFinite(min)) return;
+    const nomes = ((ev.participants || []).map(x => ((x.athlete || {}).displayName))).filter(Boolean);
+    if (!nomes.length) return;
+    const equipa = lado((ev.team || {}).id);
+    if (/substitution/i.test(tipo) && nomes.length >= 2) {
+      // O ESPN põe primeiro quem entrou, mas confirmamos pelo banco (para nunca trocar os dois).
+      const doBanco = equipa === 'v' ? bancoV : bancoB;
+      const entra = doBanco.has(semAcentos(nomes[0])) ? nomes[0] : (doBanco.has(semAcentos(nomes[1])) ? nomes[1] : nomes[0]);
+      const sai = entra === nomes[0] ? nomes[1] : nomes[0];
+      out.push({ tipo: 'sub', min, equipa, sai: rotulo(sai, equipa), entra: rotulo(entra, equipa) });
+    } else if (/red card|second yellow/i.test(tipo)) {
+      out.push({ tipo: 'vermelho', min, equipa, sai: rotulo(nomes[0], equipa), entra: '' });
+    }
+  });
+  out.sort((a, b) => Number(a.min) - Number(b.min));
+  return out;
+}
+
 /** Com o resumo do jogo, monta as bolinhas das duas equipas (formação, nomes e fotos). */
 async function montarQuadro(sum, jogo, soBenfica) {
   const rosters = sum.rosters || [];
@@ -755,13 +896,14 @@ async function montarQuadro(sum, jogo, soBenfica) {
     throw new Error('Esse jogo ainda não tem onzes publicados.');
   }
   const fotos = await lerJogadores();
-  const pontos = [];
+  const inicial = { v: [], b: [] };
   const juntar = (time, espelhar) => {
+    const lado = espelhar ? 'b' : 'v';
     coordenadasOnze(time).forEach(({ jogador, x, y }) => {
       const nomeC = (jogador.athlete || {}).displayName || '';
       const nosso = espelhar ? null : acharJogador(nomeC, fotos);
-      pontos.push({
-        c: espelhar ? 'b' : 'v',
+      inicial[lado].push({
+        c: lado,
         x: espelhar ? Math.round((1 - x) * 1000) / 1000 : x,
         y: espelhar ? Math.round((1 - y) * 1000) / 1000 : y,
         n: String(jogador.jersey || '').slice(0, 3),
@@ -771,16 +913,38 @@ async function montarQuadro(sum, jogo, soBenfica) {
     });
   };
   juntar(benfica, false);
+  const equipaB = soBenfica || !rival ? '' : String(rival.team.shortDisplayName || rival.team.displayName || '');
   if (!soBenfica && rival) juntar(rival, true);
 
-  // Quem entrou do banco (fica por fora do relvado).
-  const entraram = t => ((t && t.roster) || [])
-    .filter(p => p.starter !== true && p.subbedIn === true)
-    .map(p => nomeCurto((p.athlete || {}).displayName)).filter(Boolean);
+  // Convocados que ficaram no banco: servem para as substituições e para a lista "Convocados".
+  const bancoDe = (time, comFoto) => ((time && time.roster) || [])
+    .filter(p => p.starter !== true)
+    .map(p => {
+      const nomeC = (p.athlete || {}).displayName || '';
+      const nosso = comFoto ? acharJogador(nomeC, fotos) : null;
+      return {
+        nome: String(nosso ? nosso.nome : nomeCurto(nomeC)).slice(0, 14),
+        foto: nosso ? nosso.foto : '',
+        n: String(p.jersey || '').slice(0, 3)
+      };
+    })
+    .filter(s => s.nome);
+  const suplentes = { v: bancoDe(benfica, true), b: [], equipaB };
+  if (!soBenfica && rival) suplentes.b = bancoDe(rival, false);
+
+  // Linha do tempo do jogo (substituições e expulsões, as duas equipas).
+  const eventos = eventosDoJogo(sum, benfica, rival, fotos).filter(e => !soBenfica || e.equipa === 'v');
+  const pontos = JSON.parse(JSON.stringify([...inicial.v, ...inicial.b]));
+
+  // Compatibilidade: a app mostra os nomes de quem entrou por baixo do campo.
+  const entraram = (time, equipa) => eventos.length
+    ? eventos.filter(e => e.equipa === equipa && e.tipo === 'sub').map(e => e.entra)
+    : ((time && time.roster) || []).filter(p => p.starter !== true && p.subbedIn === true)
+        .map(p => nomeCurto((p.athlete || {}).displayName)).filter(Boolean);
   const bancos = {
-    v: entraram(benfica),
-    b: soBenfica ? [] : entraram(rival),
-    equipaB: soBenfica || !rival ? '' : String(rival.team.shortDisplayName || rival.team.displayName || '')
+    v: entraram(benfica, 'v'),
+    b: soBenfica ? [] : entraram(rival, 'b'),
+    equipaB
   };
 
   const comp = (sum.header && sum.header.competitions && sum.header.competitions[0] && sum.header.competitions[0].competitors) || [];
@@ -799,9 +963,9 @@ async function montarQuadro(sum, jogo, soBenfica) {
   const resumo = `<b>${esc(jogo.nome || titulo)}</b> (${esc(dataTxt)}). Formações: ${(benfica.team || {}).displayName} ${esc(benfica.formation || '—')}` +
     (rival ? ` · ${esc(rival.team.displayName)} ${esc(rival.formation || '—')}` : '') +
     `. <b>${pontos.length}</b> jogadores no campo` +
-    (bancos.v.length || bancos.b.length ? ` + ${bancos.v.length + bancos.b.length} que entraram do banco` : '') + '.';
+    (eventos.length ? ` e ${eventos.length} acontecimentos (substituições/expulsões)` : '') + '.';
   return {
-    pontos, bancos, titulo, resumo,
+    pontos, inicial, suplentes, eventos, bancos, titulo, resumo,
     jogo: { id: String(jogo.id), nome: String(jogo.nome || titulo), data: String(jogo.data || '') }
   };
 }
@@ -835,7 +999,7 @@ async function preencherComUltimoJogo(soBenfica) {
     const d = await onzeDoUltimoJogo(soBenfica, true);
     const ok = await perguntar('Preencher com o último jogo?',
       `<p>${d.resumo}</p>
-       <p class="suave">Fica com a mesma tática e as posições desse jogo. Cada bolinha tem o nome por baixo; nos jogadores do Benfica aparece a foto. Depois podes arrastar, mudar o nome (✏️ Nome) ou apagar.</p>
+       <p class="suave">Fica com a mesma tática e as posições desse jogo. Cada bolinha tem o nome por baixo; nos jogadores do Benfica aparece a foto. Em baixo ficam as substituições e expulsões reais, por minuto. Depois podes arrastar, trocar dois com 🔁 Sub. Manual ou tirar com 🗑 Tirar.</p>
        <div class="prev-pequena">${prevQuadro({ pontos: d.pontos, bancos: d.bancos }, d.titulo)}</div>`,
       'Sim, preencher', 'Cancelar');
     return ok ? d : null;

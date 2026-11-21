@@ -514,6 +514,27 @@ a { color: var(--vermelho-claro); }
 .q-jogo-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .q-jogo-res { font-weight: 800; }
 .q-acoes-fixas { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px; }
+/* Linha do tempo do jogo (substituições e expulsões). */
+.q-tempo { margin-top: 10px; border-top: 1px solid var(--linha); padding-top: 10px; }
+.q-tempo-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+.q-tempo-listas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.q-tempo-lado { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.q-tempo-lado > b { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); margin-bottom: 2px; }
+.q-ev { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left;
+  background: #22262d; border: 1px solid transparent; border-radius: 8px; padding: 7px 9px; color: var(--texto);
+  cursor: pointer; font: inherit; font-size: 12.5px; }
+.q-ev:hover { border-color: var(--linha); }
+.q-ev.ativo { border-color: #e21227; background: #2b1218; }
+.q-ev-zero { grid-template-columns: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; font-weight: 700; }
+.q-ev-min { font-weight: 800; font-size: 12px; color: #ffb3b3; white-space: nowrap; }
+.q-ev-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-ev-vermelho { background: #2a1618; }
+.q-ev-vermelho .q-ev-min { color: #ff8b8b; }
+@media (max-width: 900px) { .q-tempo-listas { grid-template-columns: 1fr; } }
+/* Convocados que não entraram. */
+.q-convocados { display: flex; flex-wrap: wrap; gap: 12px; }
+.q-convocado { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 92px; font-size: 12px; text-align: center; }
+.q-convocado small { color: var(--suave); }
 @media (max-width: 780px) {
   .q-layout { grid-template-columns: 1fr; }
   .q-jogos { flex-direction: row; overflow-x: auto; max-height: none; }
