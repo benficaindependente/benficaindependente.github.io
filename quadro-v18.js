@@ -272,6 +272,7 @@ const CSS_FOCO = `
 .cartao.q-cheio .q-tempo-toggle{padding:6px 10px!important;font-size:.8rem!important}
 .cartao.q-cheio .q-tempo-vazio{padding:6px 10px!important}
 .cartao.q-cheio .q-tempo-vazio .suave{display:none!important}
+.cartao.q-cheio .q-publicar{background:linear-gradient(180deg,#e21227,#b30d1e)!important;color:#fff!important;border:0!important;font-weight:800!important;box-shadow:0 2px 10px rgba(226,18,39,.45)!important}
 .q-menus{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .q-menus .botao{padding:.25em .5em!important;font-size:.9rem!important;min-height:28px!important;border-radius:8px!important}
 .q-painel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:97;width:min(92vw,420px);max-height:80vh;overflow:auto;background:#12161c;border:1px solid #2b333d;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:10px}
@@ -448,6 +449,7 @@ function aplicarFocoInline(alvo) {
     acoes.querySelectorAll('.botao').forEach(b => { b.style.cssText += ';padding:.25em .55em;font-size:.72rem;min-height:28px;border-radius:8px'; });
   }
   alvo.querySelectorAll('[data-limpar="linhas"]').forEach(e => { e.style.display = 'none'; });
+  alvo.querySelectorAll('.q-publicar').forEach(b => { b.style.background = 'linear-gradient(180deg,#e21227,#b30d1e)'; b.style.color = '#fff'; b.style.border = '0'; b.style.fontWeight = '800'; });
   const tempo = $('.q-tempo', alvo);
   if (tempo) {
     tempo.style.cssText += ';margin:0;padding:0;border:0;flex:1 1 300px;min-width:0;max-height:none;overflow:visible';
@@ -494,6 +496,7 @@ function desenharEditorQuadro(alvo) {
       ${botaoF('linha', '／ Risco')}
       ${botaoF('seta', '➚ Seta')}
       ${botaoF('apagar', '🗑 Tirar')}
+      ${QUADRO_CHEIO ? `<button class="botao pequeno principal q-publicar" data-visivel="${q.visivel ? 0 : 1}" style="margin-left:auto">${q.visivel ? 'Tirar da app' : '📡 Pôr na app'}</button>` : ''}
     </div>
     <div class="q-layout">
       <aside class="q-lateral">
@@ -699,9 +702,9 @@ function desenharEditorQuadro(alvo) {
       if (anel) { anel.setAttribute('stroke', '#ffd400'); anel.setAttribute('stroke-width', '.55'); }
     }
   }
-  const bVis = $('[data-visivel]', alvo);
-  if (bVis) bVis.addEventListener('click', async () => {
-    const ligar = bVis.dataset.visivel === '1';
+  const bVis = $$('[data-visivel]', alvo);
+  bVis.forEach(b => b.addEventListener('click', async () => {
+    const ligar = b.dataset.visivel === '1';
     // Se o quadro estiver vazio, vai buscar o último onze antes de o pôr na app.
     if (ligar && !(q.estado.pontos || []).length) {
       carregar(true);
@@ -722,7 +725,7 @@ function desenharEditorQuadro(alvo) {
     q.visivel = ligar;
     await guardarQuadro();
     desenharEditorQuadro(alvo);
-  });
+  }));
 
   // Ratos e dedos no relvado.
   let arrastar = null;   // { i } ponto a mover | { nova: {t,x1,y1,x2,y2} } risco a desenhar
