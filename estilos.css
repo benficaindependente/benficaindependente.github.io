@@ -1,4 +1,4 @@
-/* Plataforma Â· Benfica Independente â€” estilos */
+/* Plataforma · Benfica Independente — estilos */
 
 :root {
   --vermelho: #d40000;
@@ -41,7 +41,7 @@ a { color: var(--vermelho-claro); }
 .escondido { display: none !important; }
 .suave { color: var(--suave); font-size: .88rem; }
 
-/* ---------- BotÃµes ---------- */
+/* ---------- Botões ---------- */
 .botao {
   display: inline-flex;
   align-items: center;
@@ -72,7 +72,7 @@ a { color: var(--vermelho-claro); }
 .botao.largo { width: 100%; }
 .botao:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ---------- EcrÃ£ de entrada ---------- */
+/* ---------- Ecrã de entrada ---------- */
 .entrar {
   min-height: 100%;
   display: flex;
@@ -137,7 +137,7 @@ a { color: var(--vermelho-claro); }
 
 .erro { color: var(--vermelho-erro); font-size: .88rem; min-height: 1.2em; margin: 10px 0 0; }
 
-/* ---------- AplicaÃ§Ã£o ---------- */
+/* ---------- Aplicação ---------- */
 .app { display: flex; min-height: 100%; }
 
 .barra {
@@ -228,7 +228,7 @@ a { color: var(--vermelho-claro); }
 
 .ecra { padding: 20px 22px calc(30px + env(safe-area-inset-bottom)); }
 
-/* ---------- CartÃµes ---------- */
+/* ---------- Cartões ---------- */
 .cartao {
   background: var(--fundo-2);
   border: 1px solid var(--linha);
@@ -287,7 +287,7 @@ a { color: var(--vermelho-claro); }
 
 .miniatura { width: 56px; height: 40px; object-fit: cover; border-radius: 6px; background: var(--fundo-3); }
 
-/* ---------- FormulÃ¡rio em modal ---------- */
+/* ---------- Formulário em modal ---------- */
 .fundo-modal {
   position: fixed;
   inset: 0;
@@ -347,7 +347,7 @@ a { color: var(--vermelho-claro); }
 }
 @keyframes girar { to { transform: rotate(360deg); } }
 
-/* ---------- TelemÃ³vel ---------- */
+/* ---------- Telemóvel ---------- */
 @media (max-width: 780px) {
   .so-telemovel { display: inline-flex; }
   .barra {
@@ -367,7 +367,7 @@ a { color: var(--vermelho-claro); }
   .linha-dupla { grid-template-columns: 1fr; }
 }
 
-/* ---------- Fotos no formulÃ¡rio ---------- */
+/* ---------- Fotos no formulário ---------- */
 .campo-imagem .imagem-linha { display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; }
 .miniatura.grande { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--linha); }
 .separador { margin: 18px 0 4px; padding-top: 12px; border-top: 1px solid var(--linha); font-size: .95rem; }
@@ -375,7 +375,7 @@ a { color: var(--vermelho-claro); }
 .tabela-numeros td, .tabela-numeros th { white-space: nowrap; }
 .glossario th { width: 150px; text-transform: none; letter-spacing: 0; font-size: .9rem; color: var(--texto); }
 
-/* ---------- PrÃ©-visualizaÃ§Ã£o (telemÃ³vel) ---------- */
+/* ---------- Pré-visualização (telemóvel) ---------- */
 .telemovel { width: 280px; border: 10px solid #000; border-radius: 34px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,.5); margin: 0 auto; }
 .tm-ecra { background: #121418; border-radius: 24px; overflow: hidden; min-height: 500px; display: flex; flex-direction: column; color: #eee; font-size: 13px; line-height: 1.35; }
 .tm-barra { display: flex; justify-content: space-between; padding: 6px 16px 2px; font-size: 11px; color: #ccc; }
@@ -409,7 +409,7 @@ a { color: var(--vermelho-claro); }
   .azulejo .rot { font-size: .78rem; }
 }
 
-/* Entrada simples: botÃµes grandes */
+/* Entrada simples: botões grandes */
 .grandes { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .botao.grande { display: flex; align-items: center; justify-content: flex-start; white-space: normal; gap: 14px; text-align: left; padding: 16px 18px; min-height: 84px; border-radius: 14px; font-size: 1rem; }
 .botao.grande b { display: block; }
@@ -425,7 +425,7 @@ a { color: var(--vermelho-claro); }
 
 /* =====================================================================
    Toque claro: continua escuro, mas com brancos (barra lateral, topo,
-   nÃºmeros, botÃµes grandes e caixa de entrada) para ficar mais leve.
+   números, botões grandes e caixa de entrada) para ficar mais leve.
    ===================================================================== */
 :root {
   --fundo: #11141a;
@@ -455,22 +455,22 @@ a { color: var(--vermelho-claro); }
 .topo h2 { color: var(--escuro-texto); }
 .topo .suave { color: var(--escuro-suave); }
 .topo .botao { background: var(--claro-2); border-color: var(--claro-linha); color: var(--escuro-texto); }
-/* BotÃµes normais claros (o principal continua encarnado) */
+/* Botões normais claros (o principal continua encarnado) */
 .botao { background: var(--claro-2); border-color: var(--claro-2); color: var(--escuro-texto); }
 .botao:hover { background: #ffffff; border-color: #ffffff; }
 .botao.principal { color: #fff; }
 .botao.perigo { background: transparent; border-color: #7a2a2a; color: #ff9b9b; }
 .botao.perigo:hover { background: #3a1414; }
-/* NÃºmeros (azulejos) em cartÃµes brancos */
+/* Números (azulejos) em cartões brancos */
 .azulejo { background: var(--claro); border-color: var(--claro); color: var(--escuro-texto); }
 .azulejo .num { color: var(--vermelho); }
 .azulejo .rot { color: var(--escuro-suave); }
-/* BotÃµes grandes do "O que queres fazer?" em branco */
+/* Botões grandes do "O que queres fazer?" em branco */
 .botao.grande { background: var(--claro); border-color: var(--claro); color: var(--escuro-texto); box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
 .botao.grande:hover { background: #ffffff; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0, 0, 0, .3); }
 .botao.grande.principal { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
 .botao.grande .grande-sub { opacity: .7; }
-/* TÃ­tulos dos cartÃµes com uma linha encarnada */
+/* Títulos dos cartões com uma linha encarnada */
 .cartao > header { background: linear-gradient(90deg, rgba(255, 255, 255, .06), transparent); }
 .cartao > header h3 { color: #fff; border-left: 3px solid var(--vermelho); padding-left: 9px; }
 /* Caixa de entrada branca */
@@ -480,11 +480,11 @@ a { color: var(--vermelho-claro); }
 .entrar input { background: var(--claro-2); border-color: var(--claro-linha); color: var(--escuro-texto); }
 .entrar .ajuda { border-color: var(--claro-linha); }
 #entrar-local { background: transparent; border-color: var(--claro-linha); color: var(--escuro-texto); }
-/* Janelas (formulÃ¡rios) com cabeÃ§alho branco */
+/* Janelas (formulários) com cabeçalho branco */
 .modal > header { background: var(--claro); color: var(--escuro-texto); border-bottom-color: var(--claro-linha); border-radius: var(--raio) var(--raio) 0 0; }
 .modal > header h3 { color: var(--escuro-texto); }
 
-/* PrÃ©-visualizaÃ§Ã£o das sondagens, da versÃ£o da app e dos gestores */
+/* Pré-visualização das sondagens, da versão da app e dos gestores */
 .tm-opcao { display: block; text-align: center; border: 1px solid #4a515c; border-radius: 99px; padding: 7px 10px; margin-top: 6px; font-weight: 600; }
 .tm-res { position: relative; display: flex; justify-content: space-between; gap: 8px; background: #262b33; border-radius: 8px; padding: 7px 10px; margin-top: 6px; overflow: hidden; }
 .tm-res i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(212, 0, 0, .45); }
@@ -492,7 +492,7 @@ a { color: var(--vermelho-claro); }
 .tm-dialogo { background: #1d2128; border-radius: 18px; padding: 16px; margin: 0 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
 .modal-corpo > .telemovel + p + .telemovel, .prev-pequena .telemovel + p + .telemovel { margin-top: 18px; }
 
-/* ---------- Quadro tÃ¡tico ---------- */
+/* ---------- Quadro tático ---------- */
 .q-campo {
   border-radius: 18px; overflow: hidden; touch-action: none; user-select: none; max-width: 1100px;
   padding: 8px; background: radial-gradient(120% 90% at 50% 0%, #17241b, #0b120e 78%);
@@ -558,7 +558,7 @@ a { color: var(--vermelho-claro); }
 .q-ev-vermelho { background: linear-gradient(180deg, #2a1618, #201013); border-color: #4a2226; }
 .q-ev-vermelho .q-ev-min { color: #ff8b8b; background: rgba(255,80,80,.12); }
 @media (max-width: 900px) { .q-tempo-listas { grid-template-columns: 1fr; } }
-/* Convocados que nÃ£o entraram. */
+/* Convocados que não entraram. */
 .q-convocados { display: flex; flex-wrap: wrap; gap: 12px; }
 .q-convocado { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 92px; font-size: 12px; text-align: center; }
 .q-convocado small { color: var(--suave); }
@@ -572,7 +572,7 @@ a { color: var(--vermelho-claro); }
 }
 
 /* ---------- Tablet / dedos ---------- */
-/* Com o dedo, os alvos tÃªm de ser maiores (botÃµes, lista e menu). */
+/* Com o dedo, os alvos têm de ser maiores (botões, lista e menu). */
 @media (pointer: coarse) {
   .botao.pequeno { padding: .55em .85em; font-size: .95rem; min-height: 42px; }
   .menu a { padding: .75em .8em; }
@@ -581,15 +581,41 @@ a { color: var(--vermelho-claro); }
   .q-lateral > b { font-size: 12px; }
 }
 
-/* ---------- Quadro em ecrÃ£ inteiro (tablet) ---------- */
-/* O cartÃ£o do quadro passa a ocupar o ecrÃ£ todo: o relvado fica muito maior para arrastar. */
+/* ---------- Quadro em ecrã inteiro: só o campo, opções pequenas e lista ---------- */
 .cartao.q-cheio {
-  position: fixed; inset: 0; z-index: 90; margin: 0; border-radius: 0;
-  overflow: auto; background: var(--fundo); padding: 10px;
+  position: fixed; inset: 0; z-index: 90; margin: 0; border: 0; border-radius: 0;
+  background: var(--fundo); display: flex; flex-direction: column; overflow: hidden;
+  height: 100vh; height: 100dvh;
 }
-.cartao.q-cheio .q-lateral { display: none; }
-.cartao.q-cheio .q-layout { grid-template-columns: 1fr; }
-.cartao.q-cheio .q-campo { max-width: none; }
+.cartao.q-cheio > header { flex: 0 0 auto; padding: 6px 10px; }
+.cartao.q-cheio > header h3 { font-size: .95rem; }
+.cartao.q-cheio .cartao-corpo { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+/* Esconde o que não é campo, opções ou lista. */
+.cartao.q-cheio .q-estado,
+.cartao.q-cheio .q-lateral,
+.cartao.q-cheio .linha-acoes,
+.cartao.q-cheio label,
+.cartao.q-cheio [data-guardado],
+.cartao.q-cheio .q-principal > p.suave { display: none; }
+/* Opções pequenas no cabeçalho. */
+.cartao.q-cheio .q-barra { flex: 0 0 auto; margin: 0; padding: 3px; gap: 3px; }
+.cartao.q-cheio .q-barra .botao { padding: .3em .55em; font-size: .76rem; min-height: 32px; border-radius: 8px; }
+/* O campo ocupa o meio. */
+.cartao.q-cheio .q-layout { flex: 1; min-height: 0; display: block; margin: 0; }
+.cartao.q-cheio .q-principal { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 4px; }
+.cartao.q-cheio .q-campo { flex: 1; min-height: 0; max-width: none; display: flex; align-items: center; justify-content: center; padding: 3px; }
+.cartao.q-cheio .q-campo svg { width: 100%; height: 100%; }
+/* Ações pequenas. */
+.cartao.q-cheio .q-acoes-fixas { flex: 0 0 auto; margin: 0; gap: 4px; }
+.cartao.q-cheio .q-acoes-fixas .botao { padding: .3em .6em; font-size: .76rem; min-height: 32px; border-radius: 8px; }
+/* Substituições em lista, no rodapé. */
+.cartao.q-cheio .q-tempo { flex: 0 0 auto; margin: 0; padding-top: 6px; max-height: 34vh; overflow: auto; }
+.cartao.q-cheio .q-tempo-listas { grid-template-columns: 1fr; gap: 6px; }
+.cartao.q-cheio .q-tempo-lado > b { margin-bottom: 1px; }
+.cartao.q-cheio .q-ev { grid-template-columns: 44px minmax(0, 1fr); padding: 5px 8px; font-size: .8rem; }
+.cartao.q-cheio .q-tempo-topo { margin-bottom: 4px; gap: 6px; }
+.cartao.q-cheio .q-tempo-topo > .suave { display: none; }
+.cartao.q-cheio .q-ev-zero { padding: 6px 10px; font-size: .8rem; }
 
 /* ---------- Sondagens com fotos ---------- */
 .foto-redonda { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden;
