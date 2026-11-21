@@ -163,8 +163,10 @@ function aplicarTempo(estado, min) {
   return pontos;
 }
 
-/** Botões do tempo: um bloco por equipa, por ordem de minuto. */
-function htmlTempo(estado) {
+let QUADRO_TEMPO = null;    // null = automático (fechado em ecrã inteiro, aberto fora)
+
+/** Botões do tempo: uma barra com 1 substituição e, ao carregar, a lista completa. */
+function htmlTempo(estado, cheio) {
   const evs = (estado.eventos || []).slice().sort((a, b) => Number(a.min) - Number(b.min));
   if (!evs.length) {
     return `<div class="q-tempo"><div class="q-tempo-vazio">
@@ -172,6 +174,7 @@ function htmlTempo(estado) {
       <span class="suave">Ainda não há um jogo carregado neste quadro. Toca em <b>⚽ Benfica + adversário</b> (aqui em baixo) ou escolhe um jogo na lista ao lado — as substituições e expulsões aparecem aqui, por minuto.</span>
     </div></div>`;
   }
+  const aberto = QUADRO_TEMPO == null ? !cheio : !!QUADRO_TEMPO;
   const equipaB = ((estado.suplentes || {}).equipaB) || 'Adversário';
   const momento = estado.momento == null ? null : Number(estado.momento);
   const bloco = (lado, titulo) => {
@@ -186,12 +189,22 @@ function htmlTempo(estado) {
     }).join('');
     return `<div class="q-tempo-lado"><b>${esc(titulo)}</b>${linhas || '<span class="suave mini">Sem substituições.</span>'}</div>`;
   };
-  return `<div class="q-tempo">
-    <div class="q-tempo-topo">
+  const primeiro = evs[0];
+  const resumo = primeiro
+    ? `${primeiro.min}' · ${primeiro.tipo === 'vermelho' ? '🟥 ' + primeiro.sai : 'Sub 1 · ' + primeiro.entra + ' (sai ' + primeiro.sai + ')'}`
+    : '';
+  return `<div class="q-tempo ${aberto ? 'aberto' : ''}">
+    <div class="q-tempo-barra">
+      <button class="q-tempo-toggle" data-tempo-toggle>
+        <span>📋 Substituições <b>${evs.length}</b></span>
+        <span class="q-tempo-seta">${aberto ? '▴' : '▾'}</span>
+      </button>
       <button class="q-ev q-ev-zero ${momento == null ? 'ativo' : ''}" data-min="0">⏱ Min. 0</button>
-      <span class="suave mini">Carrega num momento para pôr o campo como estava nessa altura — substituições e expulsões, nas duas equipas.</span>
+      ${aberto ? '' : `<span class="q-tempo-resumo">${esc(resumo)}</span>`}
     </div>
-    <div class="q-tempo-listas">${bloco('v', 'Benfica')}${bloco('b', equipaB)}</div>
+    <div class="q-tempo-corpo">
+      <div class="q-tempo-listas">${bloco('v', 'Benfica')}${bloco('b', equipaB)}</div>
+    </div>
   </div>`;
 }
 
@@ -221,6 +234,7 @@ let QUADRO_CHEIO = false;   // editor em ecrã inteiro (melhor no tablet)
 
 function ecraQuadro(alvo) {
   QUADRO_CHEIO = false;
+  QUADRO_TEMPO = null;
   alvo.innerHTML = cartao('Quadro tático', '<p class="suave">A carregar…</p>');
   (async () => {
     if (!QUADRO) {
@@ -239,6 +253,42 @@ function ecraQuadro(alvo) {
     await sugerirOnzeAutomatico();
     desenharEditorQuadro(alvo);
   })();
+}
+
+/**
+ * Modo campo: ecrã inteiro a sério e, no telemóvel/tablet, o ecrã passa para a horizontal.
+ * Ao sair, desbloqueia a rotação e volta ao vertical.
+ */
+async function modoCheio(alvo, ligar) {
+  QUADRO_CHEIO = !!ligar;
+  QUADRO_TEMPO = null;
+  if (ligar) {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (e) { /* navegador sem Fullscreen API */ }
+    try {
+      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+    } catch (e) { /* iOS ou navegador sem bloqueio de orientação */ }
+  } else {
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) { }
+    try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) { }
+  }
+  desenharEditorQuadro(alvo);
+}
+
+// Se saírem do ecrã inteiro pelo Esc ou pelo botão do sistema, volta ao modo normal.
+if (typeof window !== 'undefined' && !window.__quadroFs) {
+  window.__quadroFs = true;
+  document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement || !QUADRO_CHEIO) return;
+    QUADRO_CHEIO = false;
+    QUADRO_TEMPO = null;
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) { }
+    const ecra = document.getElementById('ecra');
+    if (ecra && document.querySelector('.cartao.q-cheio')) desenharEditorQuadro(ecra);
+  });
 }
 
 /**
@@ -301,11 +351,14 @@ function desenharEditorQuadro(alvo) {
       </aside>
       <div class="q-principal">
         <div class="q-campo">${quadroSvg(q.estado)}</div>
-        <div class="q-acoes-fixas">
-          <button class="botao pequeno" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'}>↶ Desfazer</button>
-          <button class="botao pequeno perigo" data-limpar="tudo">🧹 Limpar o campo</button>
-          <button class="botao pequeno" data-limpar="linhas">Tirar riscos e setas</button>
-          <button class="botao pequeno" data-cheio>${QUADRO_CHEIO ? '✕ Sair do ecrã inteiro' : '⛶ Ecrã inteiro'}</button>
+        <div class="q-rodape">
+          <div class="q-acoes-fixas">
+            <button class="botao pequeno" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'}>↶ Desfazer</button>
+            <button class="botao pequeno perigo" data-limpar="tudo">🧹 Limpar o campo</button>
+            <button class="botao pequeno" data-limpar="linhas">Tirar riscos e setas</button>
+            <button class="botao pequeno" data-cheio>${QUADRO_CHEIO ? '✕ Sair do ecrã inteiro' : '⛶ Ecrã inteiro'}</button>
+          </div>
+          ${QUADRO_CHEIO ? htmlTempo(q.estado, true) : ''}
         </div>
         <p class="suave" style="margin:6px 0">
           Encarnados <b>${conta('v')}/11</b> · Brancos <b>${conta('b')}/11</b>.
@@ -317,7 +370,8 @@ function desenharEditorQuadro(alvo) {
         </p>
       </div>
     </div>
-    ${htmlTempo(q.estado)}
+    ${QUADRO_CHEIO ? '' : htmlTempo(q.estado, false)}
+    <div class="q-rodar">📱 Roda o telemóvel para a horizontal</div>
     <div class="linha-acoes">
       <span class="suave">Do último jogo:</span>
       <button class="botao pequeno principal" data-auto="ambos">⚽ Benfica + adversário</button>
@@ -389,7 +443,13 @@ function desenharEditorQuadro(alvo) {
     });
   }
   const bCheio = $('[data-cheio]', alvo);
-  if (bCheio) bCheio.addEventListener('click', () => { QUADRO_CHEIO = !QUADRO_CHEIO; desenharEditorQuadro(alvo); });
+  if (bCheio) bCheio.addEventListener('click', () => modoCheio(alvo, !QUADRO_CHEIO));
+  const bTempo = $('[data-tempo-toggle]', alvo);
+  if (bTempo) bTempo.addEventListener('click', () => {
+    const caixa = $('.q-tempo', alvo);
+    QUADRO_TEMPO = !(caixa && caixa.classList.contains('aberto'));
+    desenharEditorQuadro(alvo);
+  });
   const bOnze = $('[data-onze-novo]', alvo);
   if (bOnze) bOnze.addEventListener('click', () => {
     const d = QUADRO_SUGERIDO;
