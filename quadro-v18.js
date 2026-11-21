@@ -165,6 +165,17 @@ function aplicarTempo(estado, min) {
 
 let QUADRO_TEMPO = null;    // null = automático (fechado em ecrã inteiro, aberto fora)
 let FORA_TEMPO = null;      // fecha a lista ao tocar fora
+let PAINEL_QUADRO = null;   // 'taticas' = lista de táticas aberta
+
+/** Lista de táticas para escolher (abre por cima do campo, com ✕). */
+function painelTaticas() {
+  const linha = (lado, titulo) => `<div class="q-painel-linha"><b>${titulo}</b>${
+    Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="${lado}:${f}">${f}</button>`).join('')}</div>`;
+  return `<div class="q-painel">
+    <div class="q-painel-topo"><b>🎯 Táticas</b><button class="q-painel-x" data-painel-x title="Fechar">✕</button></div>
+    ${linha('v', '🔴 Benfica')}${linha('b', '⚪ Adversário')}
+  </div>`;
+}
 
 /** Botões do tempo: uma barra com 1 substituição e, ao carregar, a lista completa. */
 function htmlTempo(estado, cheio) {
@@ -261,6 +272,14 @@ const CSS_FOCO = `
 .cartao.q-cheio .q-tempo-toggle{padding:6px 10px!important;font-size:.8rem!important}
 .cartao.q-cheio .q-tempo-vazio{padding:6px 10px!important}
 .cartao.q-cheio .q-tempo-vazio .suave{display:none!important}
+.q-menus{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.q-menus .botao{padding:.25em .5em!important;font-size:.9rem!important;min-height:28px!important;border-radius:8px!important}
+.q-painel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:97;width:min(92vw,420px);max-height:80vh;overflow:auto;background:#12161c;border:1px solid #2b333d;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:10px}
+.q-painel-topo{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.q-painel-topo b{font-size:14px}
+.q-painel-x{background:#2a1215;border:1px solid #5a1e25;color:#ffb3b3;border-radius:8px;padding:4px 10px;font:inherit;font-weight:700;cursor:pointer}
+.q-painel-linha{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.q-painel-linha b{flex:1 1 100%;font-size:12px;color:#9aa4b2;text-transform:uppercase;letter-spacing:.05em}
 @media (max-height:520px){
  .cartao.q-cheio .q-tempo-resumo{display:none!important}
  .cartao.q-cheio .cartao-corpo{padding:3px 4px!important;gap:3px!important}
@@ -284,6 +303,7 @@ let QUADRO_CHEIO = false;   // editor em ecrã inteiro (melhor no tablet)
 function ecraQuadro(alvo) {
   QUADRO_CHEIO = false;   // abre sempre no modo normal; o ecrã inteiro é escolha do utilizador
   QUADRO_TEMPO = null;
+  PAINEL_QUADRO = null;
   document.body.classList.toggle('modo-campo', QUADRO_CHEIO);
   alvo.innerHTML = cartao('Quadro tático', '<p class="suave">A carregar…</p>');
   (async () => {
@@ -484,6 +504,12 @@ function desenharEditorQuadro(alvo) {
       <div class="q-principal">
         <div class="q-campo">${quadroSvg(q.estado)}</div>
         <div class="q-rodape">
+          ${QUADRO_CHEIO ? `<div class="q-menus">
+            <button class="botao pequeno" data-auto="ambos" title="Benfica + adversário">⚽+⚪</button>
+            <button class="botao pequeno" data-auto="benfica" title="Só o Benfica">🔴</button>
+            <button class="botao pequeno" data-convocados title="Convocados">📋</button>
+            <button class="botao pequeno" data-menu-taticas title="Táticas">🎯</button>
+          </div>` : ''}
           <div class="q-acoes-fixas">
             <button class="botao pequeno" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'}>↶ Desfazer</button>
             <button class="botao pequeno perigo" data-limpar="tudo">🧹 Limpar o campo</button>
@@ -515,6 +541,7 @@ function desenharEditorQuadro(alvo) {
       ${Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="v:${f}">🔴 ${f}</button>`).join('')}
       ${Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="b:${f}">⚪ ${f}</button>`).join('')}
     </div>
+    ${PAINEL_QUADRO === 'taticas' && QUADRO_CHEIO ? painelTaticas() : ''}
     <p class="suave" data-guardado>${q.guardadoTxt || ''}</p>`,
     q.visivel ? '<button class="botao pequeno perigo" data-visivel="0">Tirar da app</button>'
       : '<button class="botao pequeno principal" data-visivel="1">📡 Pôr na app</button>');
@@ -587,6 +614,10 @@ function desenharEditorQuadro(alvo) {
   });
   const bFechar = $('[data-tempo-fechar]', alvo);
   if (bFechar) bFechar.addEventListener('click', () => { QUADRO_TEMPO = false; desenharEditorQuadro(alvo); });
+  const bTat = $('[data-menu-taticas]', alvo);
+  if (bTat) bTat.addEventListener('click', () => { PAINEL_QUADRO = 'taticas'; desenharEditorQuadro(alvo); });
+  const bTatX = $('[data-painel-x]', alvo);
+  if (bTatX) bTatX.addEventListener('click', () => { PAINEL_QUADRO = null; desenharEditorQuadro(alvo); });
   // Tocar fora da lista também a fecha.
   if (FORA_TEMPO) { document.removeEventListener('pointerdown', FORA_TEMPO, true); FORA_TEMPO = null; }
   if (QUADRO_TEMPO === true) {
@@ -617,8 +648,7 @@ function desenharEditorQuadro(alvo) {
       : `Campo como estava aos ${min}' — substituições e expulsões até esse minuto, nas duas equipas.`);
   }));
   // Convocados que não entraram (só Benfica).
-  const bConv = $('[data-convocados]', alvo);
-  if (bConv) bConv.addEventListener('click', () => {
+  $$('[data-convocados]', alvo).forEach(bConv => bConv.addEventListener('click', () => {
     const banco = ((q.estado.suplentes || {}).v) || [];
     const usados = (q.estado.eventos || []).filter(e => e.equipa === 'v' && e.tipo === 'sub').map(e => e.entra);
     const restantes = banco.filter(s => !usados.some(u => mesmoNome(u, s.nome)));
@@ -627,9 +657,10 @@ function desenharEditorQuadro(alvo) {
       : '<p class="suave">Não há convocados por entrar (ou o quadro não veio de um jogo).</p>';
     if (typeof janelaPart === 'function') janelaPart('Convocados que não entraram · Benfica', html, 560);
     else document.body.insertAdjacentHTML('beforeend', `<div class="fundo-modal"><div class="modal"><header><h3>Convocados</h3></header><div class="modal-corpo">${html}</div></div></div>`);
-  });
+  }));
   $$('[data-form]', alvo).forEach(b => b.addEventListener('click', () => {
     const [c, f] = b.dataset.form.split(':');
+    PAINEL_QUADRO = null;
     mudar(() => {
       // Muda só as posições: mantém os jogadores que lá estão, com nomes e fotos.
       const atuais = q.estado.pontos.filter(p => p.c === c).slice().sort((a, b) => a.x - b.x || a.y - b.y);

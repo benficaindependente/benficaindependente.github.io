@@ -16,11 +16,12 @@ function janelaPart(titulo, html, largura) {
     fundo.className = 'fundo-modal';
     fundo.style.zIndex = 115;
     fundo.innerHTML = `<div class="modal" style="max-width:${largura || 560}px">
-      <header><h3>${esc(titulo)}</h3></header>
+      <header><h3>${esc(titulo)}</h3><button class="modal-x" data-fechar-x title="Fechar">✕</button></header>
       <div class="modal-corpo">${html}</div>
       <div class="modal-pe"><button class="botao principal" data-fechar>Fechar</button></div></div>`;
     document.body.appendChild(fundo);
     $('[data-fechar]', fundo).addEventListener('click', () => { fundo.remove(); resolve(); });
+    $('[data-fechar-x]', fundo).addEventListener('click', () => { fundo.remove(); resolve(); });
   });
 }
 
