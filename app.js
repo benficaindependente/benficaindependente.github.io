@@ -313,6 +313,10 @@ async function entrarComEmail() {
     await concluirEntradaEmail();
   } catch (e) { mostraErroEntrada(e.message || 'Não foi possível entrar.'); } finally { carregar(false); }
 }
+/** Entrar com a conta Google: o Google confirma o email; a lista de administradores (Supabase) decide quem pode. */
+function entrarComGoogle() {
+  location.href = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=' + encodeURIComponent(urlDeRetorno());
+}
 async function primeiroAcesso() {
   const v = await formulario('Primeiro acesso', [
     { nome: 'email', etiqueta: 'O teu email (o que o dono convidou)', tipo: 'email' },
@@ -2322,6 +2326,7 @@ function pronto() {
   $('#entrar-botao').addEventListener('click', entrarComGitHub);
   $('#entrar-email-botao').addEventListener('click', entrarComEmail);
   $('#entrar-primeiro').addEventListener('click', primeiroAcesso);
+  $('#entrar-google').addEventListener('click', entrarComGoogle);
   $('#entrar-esqueci').addEventListener('click', esqueciPalavra);
   $('#entrar-palavra').addEventListener('keydown', e => { if (e.key === 'Enter') entrarComEmail(); });
   $('#entrar-local').addEventListener('click', entrarLocal);
