@@ -306,25 +306,36 @@ function ecraQuadro(alvo) {
  * Modo campo: ecrã inteiro a sério e, no telemóvel/tablet, o ecrã passa para a horizontal.
  * Ao sair, desbloqueia a rotação e volta ao vertical.
  */
-async function modoCheio(alvo, ligar) {
+function modoCheio(alvo, ligar) {
   QUADRO_CHEIO = !!ligar;
   QUADRO_TEMPO = null;
   try { localStorage.setItem('bi.quadro.foco', ligar ? '1' : '0'); } catch (e) { }
   document.body.classList.toggle('modo-campo', !!ligar);
+  // PRIMEIRO o layout (não espera pelo fullscreen nem pela rotação: havia aparelhos
+  // em que essas promessas não respondiam e ficava tudo igual).
+  desenharEditorQuadro(alvo);
   if (ligar) {
     try {
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
+        const p = document.documentElement.requestFullscreen();
+        if (p && p.catch) p.catch(() => { });
       }
     } catch (e) { /* navegador sem Fullscreen API */ }
     try {
-      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+      if (screen.orientation && screen.orientation.lock) {
+        const p = screen.orientation.lock('landscape');
+        if (p && p.catch) p.catch(() => { });
+      }
     } catch (e) { /* iOS ou navegador sem bloqueio de orientação */ }
   } else {
     try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) { }
-    try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) { }
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        const p = document.exitFullscreen();
+        if (p && p.catch) p.catch(() => { });
+      }
+    } catch (e) { }
   }
-  desenharEditorQuadro(alvo);
 }
 
 // Se saírem do ecrã inteiro pelo Esc ou pelo botão do sistema, volta ao modo normal.
