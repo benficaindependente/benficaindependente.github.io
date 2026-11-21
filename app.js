@@ -116,6 +116,20 @@ function cabecalhos(json) {
   if (json) h['Content-Type'] = 'application/json';
   return h;
 }
+/**
+ * Pedido ao GitHub. Quem entrou com email não tem chave do GitHub: o pedido passa pelo Supabase
+ * (função bi_gh), que grava com a chave guardada lá. Só aceita `method` e `body`.
+ */
+async function ghFetch(url, init) {
+  init = init || {};
+  if (CFG.modo !== 'email') {
+    return fetch(url, Object.assign({ headers: cabecalhos(!!init.body) }, init));
+  }
+  const u = new URL(url);
+  const j = await rpcAdmin('bi_gh', { p_metodo: init.method || 'GET', p_caminho: u.pathname.slice(1) + u.search, p_corpo: init.body || null });
+  const semCorpo = [101, 204, 205, 304].includes(j.status);
+  return new Response(semCorpo ? null : j.corpo, { status: j.status });
+}
 function urlConteudo(repo, nome) {
   return `https://api.github.com/repos/${CFG.owner}/${repo}/contents/${PASTA}${nome}`;
 }
@@ -126,8 +140,7 @@ async function lerFicheiro(repo, nome) {
     const bruto = localStorage.getItem(PREFIXO_LOCAL + repo + '/' + nome);
     return bruto ? JSON.parse(bruto) : null;
   }
-  const r = await fetch(`${urlConteudo(repo, nome)}?ref=${encodeURIComponent(CFG.branch)}&t=${Date.now()}`,
-    { headers: cabecalhos(), cache: 'no-store' });
+  const r = await ghFetch(`${urlConteudo(repo, nome)}?ref=${encodeURIComponent(CFG.branch)}&t=${Date.now()}`, { cache: 'no-store' });
   if (r.status === 404) { delete SHAS[repo + '/' + nome]; return null; }
   if (!r.ok) throw new Error('GitHub ' + r.status + (r.status === 401 ? ' — chave inválida ou expirada.' : ''));
   const j = await r.json();
@@ -143,7 +156,7 @@ async function escreverFicheiro(repo, nome, valor, mensagem) {
   const chave = repo + '/' + nome;
   const corpo = { message: mensagem || `Plataforma: atualiza ${nome}`, content: b64enc(texto), branch: CFG.branch };
   if (SHAS[chave]) corpo.sha = SHAS[chave];
-  const r = await fetch(urlConteudo(repo, nome), { method: 'PUT', headers: cabecalhos(true), body: JSON.stringify(corpo) });
+  const r = await ghFetch(urlConteudo(repo, nome), { method: 'PUT', body: JSON.stringify(corpo) });
   if (r.status === 409 || r.status === 422) {
     const e = new Error('conflito'); e.conflito = true; throw e;
   }
@@ -203,7 +216,10 @@ async function alterarFicheiro(nome, alterar, mensagem) {
 }
 
 /* ---------------------------- Quem sou eu ---------------------------- */
-function admins() { const a = ler('admins'); return { donos: a.donos || [], admins: a.admins || [] }; }
+let EMAILS = null;   // administradores por email (quem entrou com email)
+function admins() {
+  if (CFG.modo === 'email' && EMAILS) return { donos: EMAILS.filter(e => e.dono).map(e => e.nome), admins: EMAILS.filter(e => !e.dono).map(e => e.nome) };
+  const a = ler('admins'); return { donos: a.donos || [], admins: a.admins || [] }; }
 function souDono() { return CFG.modo === 'local' || admins().donos.includes(CFG.login); }
 function souAdmin() { const a = admins(); return CFG.modo === 'local' || a.donos.includes(CFG.login) || a.admins.includes(CFG.login); }
 function totalAdmins() { const a = admins(); return new Set([...a.donos, ...a.admins]).size; }
@@ -245,7 +261,117 @@ async function entrarLocal() {
   await abrirApp();
 }
 
-function sair() { localStorage.removeItem(CHAVE_CONFIG); location.reload(); }
+function sair() { localStorage.removeItem(CHAVE_CONFIG); location.href = location.pathname; }
+
+/* ------------------- Entrada com email e palavra-passe (Supabase) ------------------- */
+async function authPedido(caminho, corpo, metodo, token) {
+  const h = { 'apikey': SUPABASE_CHAVE, 'Content-Type': 'application/json' };
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  const r = await fetch(SUPABASE_URL + '/auth/v1' + caminho, { method: metodo || 'POST', headers: h, body: corpo ? JSON.stringify(corpo) : undefined });
+  const t = await r.text();
+  let j = null;
+  try { j = t ? JSON.parse(t) : null; } catch (e) { /* ignora */ }
+  if (!r.ok) throw new Error(erroAuth(j, r.status));
+  return j;
+}
+function erroAuth(j, estado) {
+  const m = String((j && (j.msg || j.error_description || j.message || j.error)) || '');
+  if (/invalid login|invalid_credentials/i.test(m)) return 'Email ou palavra-passe errados. Se ainda não criaste a palavra-passe, usa "Primeiro acesso".';
+  if (/not confirmed/i.test(m)) return 'Ainda não confirmaste o email: abre a mensagem que te enviámos e carrega na ligação.';
+  if (/rate limit|over_email|too many/i.test(m) || estado === 429) return 'Foram pedidos emails a mais. Espera um pouco (até uma hora) e tenta outra vez.';
+  if (/password/i.test(m) && /(least|short|weak|characters)/i.test(m)) return 'A palavra-passe tem de ter pelo menos 8 caracteres.';
+  return m || ('Erro ' + estado);
+}
+function urlDeRetorno() { return location.origin + location.pathname; }
+function guardarSessaoEmail(j, email) {
+  CFG = Object.assign(CFG, { token: j.access_token, refresh: j.refresh_token, expira: Date.now() + (Number(j.expires_in) || 3600) * 1000, email: email || CFG.email, modo: 'email' });
+  guardarConfig();
+}
+async function renovarSessao() {
+  if (CFG.modo !== 'email' || Date.now() < (CFG.expira || 0) - 60000) return;
+  const j = await authPedido('/token?grant_type=refresh_token', { refresh_token: CFG.refresh });
+  guardarSessaoEmail(j, CFG.email);
+}
+/** Depois de ter sessão: confirma na lista de administradores e abre a plataforma. */
+async function concluirEntradaEmail() {
+  let eu;
+  try { eu = await rpcAdmin('bi_admin_eu'); }
+  catch (e) { CFG = Object.assign(CFG, { token: '', refresh: '', modo: 'github', login: '' }); guardarConfig(); throw e; }
+  if (!eu) throw new Error('Este email não está na lista de administradores.');
+  CFG = Object.assign(CFG, { login: eu.nome, nome: eu.nome, email: eu.email });
+  guardarConfig();
+  await abrirApp();
+}
+async function entrarComEmail() {
+  const email = $('#entrar-email').value.trim().toLowerCase(), palavra = $('#entrar-palavra').value;
+  if (!email || !palavra) { mostraErroEntrada('Escreve o email e a palavra-passe.'); return; }
+  mostraErroEntrada('');
+  carregar(true);
+  try {
+    const j = await authPedido('/token?grant_type=password', { email, password: palavra });
+    guardarSessaoEmail(j, email);
+    await concluirEntradaEmail();
+  } catch (e) { mostraErroEntrada(e.message || 'Não foi possível entrar.'); } finally { carregar(false); }
+}
+async function primeiroAcesso() {
+  const v = await formulario('Primeiro acesso', [
+    { nome: 'email', etiqueta: 'O teu email (o que o dono convidou)', tipo: 'email' },
+    { nome: 'palavra', etiqueta: 'Escolhe a tua palavra-passe (8 ou mais caracteres)', tipo: 'password' },
+    { nome: 'palavra2', etiqueta: 'Repete a palavra-passe', tipo: 'password' }
+  ], { email: ($('#entrar-email').value || '').trim() }, {
+    textoGuardar: 'Criar',
+    nota: 'Vamos enviar-te um email para confirmar que é mesmo o teu. Abre-o e carrega na ligação; depois entras aqui com o email e a palavra-passe.',
+    validar: x => {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x.email || '')) return 'Escreve um email válido.';
+      if ((x.palavra || '').length < 8) return 'A palavra-passe tem de ter pelo menos 8 caracteres.';
+      if (x.palavra !== x.palavra2) return 'As duas palavras-passe não são iguais.';
+      return '';
+    }
+  });
+  if (!v) return;
+  const email = v.email.trim().toLowerCase();
+  carregar(true);
+  try {
+    if (!(await rpc('bi_convite_existe', { p_email: email }))) throw new Error('Este email ainda não foi convidado. Pede ao dono para o acrescentar em Administradores.');
+    await authPedido('/signup?redirect_to=' + encodeURIComponent(urlDeRetorno()), { email, password: v.palavra });
+    await perguntar('Confirma o teu email', `<p>Enviámos uma mensagem para <b>${esc(email)}</b>. Abre-a e carrega na ligação para confirmar.</p>
+      <p class="suave">Se já tinhas criado a palavra-passe, não chega mensagem nenhuma: entra normalmente ou usa "Esqueci-me da palavra-passe". Vê também a pasta de spam.</p>`, 'Percebi', 'Fechar');
+  } catch (e) { mostraErroEntrada(e.message); } finally { carregar(false); }
+}
+async function esqueciPalavra() {
+  const email = ($('#entrar-email').value || '').trim().toLowerCase();
+  if (!email) { mostraErroEntrada('Escreve primeiro o teu email, em cima.'); return; }
+  carregar(true);
+  try {
+    await authPedido('/recover?redirect_to=' + encodeURIComponent(urlDeRetorno()), { email });
+    mostraErroEntrada('');
+    await perguntar('Verifica o teu email', `<p>Se <b>${esc(email)}</b> estiver na lista, enviámos uma mensagem com uma ligação para escolheres uma palavra-passe nova.</p>`, 'Percebi', 'Fechar');
+  } catch (e) { mostraErroEntrada(e.message); } finally { carregar(false); }
+}
+/** Ao abrir a página a partir da ligação do email (confirmação ou recuperação). */
+async function tratarLigacaoEmail() {
+  const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+  if (!h.get('access_token') && !h.get('error')) return false;
+  history.replaceState(null, '', location.pathname);
+  if (h.get('error')) { mostraErroEntrada('A ligação do email já não é válida (expirou ou já foi usada). Pede outra em "Esqueci-me da palavra-passe".'); return true; }
+  const j = { access_token: h.get('access_token'), refresh_token: h.get('refresh_token'), expires_in: h.get('expires_in') };
+  try {
+    if (h.get('type') === 'recovery') {
+      const v = await formulario('Nova palavra-passe', [
+        { nome: 'palavra', etiqueta: 'Escolhe a palavra-passe nova (8 ou mais caracteres)', tipo: 'password' },
+        { nome: 'palavra2', etiqueta: 'Repete', tipo: 'password' }
+      ], {}, { textoGuardar: 'Guardar', validar: x => (x.palavra || '').length < 8 ? 'Pelo menos 8 caracteres.' : x.palavra !== x.palavra2 ? 'As duas não são iguais.' : '' });
+      if (!v) return true;
+      carregar(true);
+      await authPedido('/user', { password: v.palavra }, 'PUT', j.access_token);
+      aviso('Palavra-passe guardada.');
+    }
+    guardarSessaoEmail(j, '');
+    carregar(true);
+    await concluirEntradaEmail();
+  } catch (e) { mostraErroEntrada(e.message); } finally { carregar(false); }
+  return true;
+}
 
 /* ------------------------------ Estrutura da UI ------------------------------ */
 function montaMenu() {
@@ -374,8 +500,8 @@ async function enviarImagem(ficheiro, maxLado) {
   if (CFG.modo === 'local') return { url: `data:${red.tipo};base64,${base64}`, resumo };
   const ext = red.tipo === 'image/webp' ? 'webp' : 'jpg';
   const caminho = `data/imagens/${new Date().toISOString().slice(0, 7)}/${idNovo()}.${ext}`;
-  const r = await fetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/contents/${caminho}`, {
-    method: 'PUT', headers: cabecalhos(true),
+  const r = await ghFetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/contents/${caminho}`, {
+    method: 'PUT',
     body: JSON.stringify({ message: `Plataforma (${CFG.login}): foto`, content: base64, branch: CFG.branch })
   });
   if (!r.ok) throw new Error('Não foi possível guardar a foto (GitHub ' + r.status + ').');
@@ -1361,7 +1487,40 @@ function relatorio(m, linhas, periodo) {
 }
 
 /* ---------------------------- Administradores ---------------------------- */
+function ecraAdminsEmail(alvo) {
+  const lista = EMAILS || [];
+  alvo.innerHTML = cartao('Quem pode gerir a app',
+    `<p class="suave">Cada pessoa entra com o seu <b>email</b> e uma palavra-passe só dela. Para acrescentar alguém, escreve o nome e o email. Essa pessoa abre a plataforma, carrega em <b>Primeiro acesso</b>, escolhe a palavra-passe e confirma o email (chega-lhe uma mensagem). Se se esquecer, usa <b>Esqueci-me da palavra-passe</b>.</p>
+     <table class="tabela"><tr><th>Nome</th><th>Email</th><th>Papel</th><th></th></tr>
+     ${lista.map(p => `<tr><td><b>${esc(p.nome)}</b></td><td>${esc(p.email)}</td>
+       <td>${p.dono ? '<span class="pilula ok">Dono</span>' : '<span class="pilula">Administrador</span>'}</td>
+       <td class="direita">${souDono() && p.nome !== CFG.login ? `<button class="botao pequeno perigo" data-remover-email="${esc(p.email)}">Remover</button>` : ''}</td></tr>`).join('')}
+     </table>
+     ${souDono() ? '' : '<p class="suave">Só um dono pode mudar esta lista.</p>'}
+     <p class="suave"><b>Donos</b> gerem tudo, incluindo esta lista. <b>Administradores</b> criam e publicam conteúdos.</p>`,
+    souDono() ? '<button class="botao pequeno principal" data-convidar>＋ Convidar</button>' : '');
+  const conv = $('[data-convidar]', alvo);
+  if (conv) conv.addEventListener('click', async () => {
+    const v = await formulario('Convidar administrador', [
+      { nome: 'nome', etiqueta: 'Nome', tipo: 'text', dica: 'Como aparece na plataforma' },
+      { nome: 'email', etiqueta: 'Email', tipo: 'email' },
+      { nome: 'dono', etiqueta: 'Dono', tipo: 'checkbox', ajuda: 'Também pode convidar e remover pessoas' }
+    ], {}, { textoGuardar: 'Convidar', validar: x => !x.nome || x.nome.trim().length < 2 ? 'Escreve o nome.' : !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x.email || '') ? 'Email inválido.' : '' });
+    if (!v) return;
+    try { carregar(true); await rpcAdmin('bi_admin_email_adicionar', { p_email: v.email, p_nome: v.nome, p_dono: !!v.dono }); EMAILS = await rpcAdmin('bi_admin_email_lista'); aviso('Convidado. Diz-lhe para carregar em "Primeiro acesso" na plataforma.'); }
+    catch (e) { aviso(e.message, true); } finally { carregar(false); }
+    redesenhar();
+  });
+  $$('[data-remover-email]', alvo).forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Remover esta pessoa? Deixa de poder entrar.')) return;
+    try { carregar(true); await rpcAdmin('bi_admin_email_remover', { p_email: b.dataset.removerEmail }); EMAILS = await rpcAdmin('bi_admin_email_lista'); aviso('Removido.'); }
+    catch (e) { aviso(e.message, true); } finally { carregar(false); }
+    redesenhar();
+  }));
+}
+
 function ecraAdmins(alvo) {
+  if (CFG.modo === 'email') return ecraAdminsEmail(alvo);
   const a = admins();
   const grupo = (titulo, lista, tipo, descricao) => `<tr><th style="width:170px">${esc(titulo)}<div class="mini" style="font-weight:400;text-transform:none">${esc(descricao)}</div></th>
     <td>${lista.length ? lista.map(e => `<span class="pilula info" style="margin:0 6px 6px 0">${esc(e)}
@@ -1438,7 +1597,7 @@ function ecraDefinicoes(alvo) {
   alvo.innerHTML = cartao('Sessão', `<table class="tabela">
       <tr><th style="width:170px">Conta</th><td>${esc(CFG.nome)} (${esc(CFG.login)})</td></tr>
       <tr><th>Papel</th><td>${souDono() ? 'Dono' : souAdmin() ? 'Administrador' : 'Sem acesso'}</td></tr>
-      <tr><th>Modo</th><td>${CFG.modo === 'local' ? 'Teste (sem internet — nada chega à app)' : 'GitHub'}</td></tr>
+      <tr><th>Modo</th><td>${CFG.modo === 'local' ? 'Teste (sem internet — nada chega à app)' : CFG.modo === 'email' ? 'Email ' + esc(CFG.email || '') : 'GitHub'}</td></tr>
     </table>`, '<button class="botao pequeno perigo" data-sair>Sair</button>');
   alvo.insertAdjacentHTML('beforeend', cartao('Repositórios',
     `<div class="formulario linha-dupla">
@@ -1474,9 +1633,11 @@ let CONVERSA_ABERTA = null;
 let GESTORES_CACHE = [];
 
 async function rpc(fn, args) {
+  const cab = { 'apikey': SUPABASE_CHAVE, 'Content-Type': 'application/json' };
+  if (CFG.modo === 'email' && CFG.token) { await renovarSessao(); cab['Authorization'] = 'Bearer ' + CFG.token; }
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: 'POST',
-    headers: { 'apikey': SUPABASE_CHAVE, 'Content-Type': 'application/json' },
+    headers: cab,
     body: JSON.stringify(args || {})
   });
   const t = await r.text();
@@ -1486,7 +1647,7 @@ async function rpc(fn, args) {
     const m = (j && j.message) || ('Supabase ' + r.status);
     if (m === 'sem acesso') throw new Error(CFG.modo === 'local' || !CFG.token
       ? 'Estás no modo de teste: nada é enviado para a app. Para publicar a sério, sai (Definições › Sair) e entra com a conta GitHub.'
-      : 'A tua conta GitHub não está na lista de administradores.');
+      : CFG.modo === 'email' ? 'O teu email não está na lista de administradores.' : 'A tua conta GitHub não está na lista de administradores.');
     throw new Error(m);
   }
   return j;
@@ -2052,7 +2213,7 @@ function ecraAtividade(alvo) {
     try {
       carregar(true);
       const [commits, sb] = await Promise.all([
-        fetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/commits?per_page=100`, { headers: cabecalhos() })
+        ghFetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/commits?per_page=100`)
           .then(r => r.ok ? r.json() : Promise.reject(new Error('GitHub ' + r.status))).catch(e => { falhas.push(e.message); return []; }),
         rpcAdmin('bi_admin_atividade').catch(e => { falhas.push(e.message); return []; })
       ]);
@@ -2104,7 +2265,7 @@ async function lerSeguro(nome) {
 async function lerRuns() {
   if (CFG.modo === 'local') { RUNS = null; return; }
   try {
-    const r = await fetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/actions/runs?per_page=12`, { headers: cabecalhos() });
+    const r = await ghFetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/actions/runs?per_page=12`);
     RUNS = r.ok ? ((await r.json()).workflow_runs || []).filter(x => x.status === 'completed') : false;
   } catch (e) { RUNS = false; }
 }
@@ -2112,7 +2273,7 @@ async function lerRuns() {
 async function verPrivado() {
   if (CFG.modo === 'local') { PRIVADO_OK = true; return; }
   try {
-    const r = await fetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repoPrivado}`, { headers: cabecalhos() });
+    const r = await ghFetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repoPrivado}`);
     PRIVADO_OK = r.ok;
   } catch (e) { PRIVADO_OK = false; }
 }
@@ -2121,12 +2282,13 @@ async function carregarDados() {
   carregar(true);
   try {
     PRIVADO_OK = true;   // os dados privados passaram para o Supabase
+    if (CFG.modo === 'email') { try { EMAILS = await rpcAdmin('bi_admin_email_lista'); } catch (e) { EMAILS = null; } }
     const nomes = Object.keys(FICHEIROS);
     await Promise.all(nomes.map(lerSeguro).concat([lerRuns(), contarMensagensNovas(), carregarPrivados(), contarSondagensPorAprovar()]));
     await calcularAlertasDinheiro();
     // Primeira vez: se ainda não há administradores, o dono do repositório fica como dono da plataforma.
     const a = admins();
-    if (CFG.modo !== 'local' && !a.donos.length && !a.admins.length && CFG.login.toLowerCase() === CFG.owner.toLowerCase()) {
+    if (CFG.modo === 'github' && !a.donos.length && !a.admins.length && CFG.login.toLowerCase() === CFG.owner.toLowerCase()) {
       await alterarFicheiro('admins', x => { x.donos = [CFG.login]; x.admins = x.admins || []; }, 'Plataforma: primeiro dono');
     }
   } finally {
@@ -2148,7 +2310,7 @@ async function abrirApp() {
   await carregarDados();
   $('#ecra-entrar').classList.add('escondido');
   $('#app').classList.remove('escondido');
-  $('#barra-modo').textContent = CFG.modo === 'local' ? 'teste' : 'github';
+  $('#barra-modo').textContent = CFG.modo === 'local' ? 'teste' : CFG.modo === 'email' ? 'email' : 'github';
   $('#barra-modo').classList.toggle('local', CFG.modo === 'local');
   $('#quem').textContent = CFG.nome || CFG.login;
   ECRAS_ATIVO = 'inicio';
@@ -2158,11 +2320,17 @@ async function abrirApp() {
 function pronto() {
   lerConfig();
   $('#entrar-botao').addEventListener('click', entrarComGitHub);
+  $('#entrar-email-botao').addEventListener('click', entrarComEmail);
+  $('#entrar-primeiro').addEventListener('click', primeiroAcesso);
+  $('#entrar-esqueci').addEventListener('click', esqueciPalavra);
+  $('#entrar-palavra').addEventListener('keydown', e => { if (e.key === 'Enter') entrarComEmail(); });
   $('#entrar-local').addEventListener('click', entrarLocal);
   $('#sair').addEventListener('click', sair);
   $('#menu-botao').addEventListener('click', () => $('.barra').classList.toggle('aberta'));
   $('#entrar-token').addEventListener('keydown', e => { if (e.key === 'Enter') entrarComGitHub(); });
-  if ((CFG.modo === 'local' || CFG.token) && CFG.login) abrirApp().catch(e => mostraErroEntrada(e.message));
+  tratarLigacaoEmail().then(tratada => {
+    if (!tratada && (CFG.modo === 'local' || CFG.token) && CFG.login) abrirApp().catch(e => mostraErroEntrada(e.message));
+  });
 }
 
 if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', pronto);

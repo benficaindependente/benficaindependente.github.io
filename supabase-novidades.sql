@@ -57,12 +57,40 @@ alter table public.perguntas_programa enable row level security;
 
 -- Os dados dos adeptos desaparecem passados 5 dias (perguntas: 30 dias).
 create or replace function public.bi_limpar_participacao() returns void
-language sql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public as $$
+begin
   delete from prognosticos where quando < now() - interval '5 days';
   delete from palpites_onze where quando < now() - interval '5 days';
   delete from jogos_real where fechado < now() - interval '10 days';
   delete from perguntas_programa where quando < now() - interval '30 days';
-$$;
+  perform bi_sincronizar_jogos();
+end $$;
+
+-- Resultado e onze inicial REAIS: o robô escreve-os em data/jogos_reais.json assim que o jogo acaba
+-- (os nomes já vêm convertidos para os do plantel). Aqui lê-se esse ficheiro de 5 em 5 minutos, no máximo.
+create table if not exists public.participacao_sync (id int primary key default 1, ultima timestamptz not null default 'epoch');
+insert into public.participacao_sync (id) values (1) on conflict do nothing;
+alter table public.participacao_sync enable row level security;
+
+create or replace function public.bi_sincronizar_jogos() returns void
+language plpgsql security definer set search_path = public, extensions as $$
+declare r extensions.http_response; j json;
+begin
+  if (select ultima from participacao_sync where id = 1) > now() - interval '5 minutes' then return; end if;
+  update participacao_sync set ultima = now() where id = 1;
+  begin
+    r := extensions.http_get('https://raw.githubusercontent.com/JoaoRebola/benfica-independente-dados/main/data/jogos_reais.json');
+    if r.status <> 200 then return; end if;
+    for j in select * from json_array_elements(r.content::json) loop
+      insert into jogos_real (jogo, titulo, golos_b, golos_r, onze, por)
+      values (left(j->>'jogo', 40), left(coalesce(j->>'titulo', ''), 120), (j->>'golos_b')::int, (j->>'golos_r')::int, coalesce((j->'onze')::jsonb, '[]'), 'automático')
+      on conflict (jogo) do update set titulo = excluded.titulo, golos_b = excluded.golos_b, golos_r = excluded.golos_r, onze = excluded.onze
+        where jogos_real.por = 'automático';
+    end loop;
+  exception when others then
+    null;  -- sem ficheiro ou formato estranho: tenta outra vez dentro de 5 minutos
+  end;
+end $$;
 
 -- ------------------------- Funções da app -------------------------
 create or replace function public.bi_prognostico_enviar(
@@ -86,6 +114,7 @@ create or replace function public.bi_prognostico_meu(p_jogo text, p_dispositivo 
 language plpgsql security definer set search_path = public as $$
 declare m prognosticos; r jogos_real; tot int; ac int;
 begin
+  perform bi_sincronizar_jogos();
   select * into m from prognosticos where jogo = p_jogo and dispositivo = p_dispositivo;
   select * into r from jogos_real where jogo = p_jogo;
   select count(*) into tot from prognosticos where jogo = p_jogo;
@@ -119,6 +148,7 @@ create or replace function public.bi_onze_meu(p_jogo text, p_dispositivo text) r
 language plpgsql security definer set search_path = public as $$
 declare m palpites_onze; r jogos_real; tot int; melhor int; acertos int;
 begin
+  perform bi_sincronizar_jogos();
   select * into m from palpites_onze where jogo = p_jogo and dispositivo = p_dispositivo;
   select * into r from jogos_real where jogo = p_jogo;
   select count(*) into tot from palpites_onze where jogo = p_jogo;
@@ -222,7 +252,13 @@ revoke execute on function public.bi_prognostico_enviar(text, text, text, text, 
   public.bi_onze_meu(text, text), public.bi_pergunta_enviar(text, text, text),
   public.bi_admin_participacao(text), public.bi_admin_prognosticos(text, text), public.bi_admin_onzes(text, text),
   public.bi_admin_jogo_fechar(text, text, text, int, int, json), public.bi_admin_perguntas(text),
-  public.bi_admin_pergunta_estado(text, bigint, text), public.bi_limpar_participacao() from public;
+  public.bi_admin_pergunta_estado(text, bigint, text), public.bi_limpar_participacao(), public.bi_sincronizar_jogos() from public, anon, authenticated;
+revoke execute on function public.bi_prognostico_enviar(text, text, text, text, int, int, text),
+  public.bi_prognostico_meu(text, text), public.bi_onze_enviar(text, text, text, text, json, text),
+  public.bi_onze_meu(text, text), public.bi_pergunta_enviar(text, text, text),
+  public.bi_admin_participacao(text), public.bi_admin_prognosticos(text, text), public.bi_admin_onzes(text, text),
+  public.bi_admin_jogo_fechar(text, text, text, int, int, json), public.bi_admin_perguntas(text),
+  public.bi_admin_pergunta_estado(text, bigint, text) from public;
 grant execute on function public.bi_prognostico_enviar(text, text, text, text, int, int, text),
   public.bi_prognostico_meu(text, text), public.bi_onze_enviar(text, text, text, text, json, text),
   public.bi_onze_meu(text, text), public.bi_pergunta_enviar(text, text, text),

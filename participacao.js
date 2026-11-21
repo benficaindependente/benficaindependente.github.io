@@ -55,45 +55,6 @@ async function verOnzes(j) {
        : '<p class="suave">Ainda ninguém enviou.</p>'}`, 640);
 }
 
-/** Fechar o jogo: o resultado real e os 11 que jogaram (para contar quem acertou). */
-function fecharJogo(j) {
-  return new Promise(async resolve => {
-    const todos = (await lerJogadores()).filter(p => p.equipa === 'Equipa principal');
-    const sel = new Set(j.resultado && j.resultado.onze ? j.resultado.onze : []);
-    const fundo = document.createElement('div');
-    fundo.className = 'fundo-modal';
-    fundo.style.zIndex = 115;
-    fundo.innerHTML = `<div class="modal" style="max-width:560px">
-      <header><h3>Fechar o jogo · ${esc(j.titulo || j.jogo)}</h3></header>
-      <div class="modal-corpo">
-        <p class="suave">Escreve o resultado final e marca os 11 jogadores do onze inicial. A partir daqui já se sabe quem acertou, e deixa de ser possível enviar prognósticos.</p>
-        <div class="linha-acoes">
-          <label>Golos do Benfica <input type="number" min="0" max="20" id="pj-gb" value="${j.resultado ? j.resultado.golos_b : ''}" style="width:70px"></label>
-          <label>Golos do adversário <input type="number" min="0" max="20" id="pj-gr" value="${j.resultado ? j.resultado.golos_r : ''}" style="width:70px"></label>
-        </div>
-        <p><b id="pj-n">0</b> de 11 marcados</p>
-        <div class="jog-lista" style="max-height:300px;overflow:auto">${todos.map(p => `<label class="jog-linha"><input type="checkbox" value="${esc(p.nome)}" ${sel.has(p.nome) ? 'checked' : ''}> ${esc(p.numero)} · ${esc(p.nome)}</label>`).join('<br>')}</div>
-      </div>
-      <div class="modal-pe"><button class="botao" data-nao>Cancelar</button><button class="botao principal" data-sim>Fechar o jogo</button></div></div>`;
-    document.body.appendChild(fundo);
-    const conta = () => { $('#pj-n', fundo).textContent = $$('input[type=checkbox]:checked', fundo).length; };
-    $$('input[type=checkbox]', fundo).forEach(c => c.addEventListener('change', conta));
-    conta();
-    $('[data-nao]', fundo).addEventListener('click', () => { fundo.remove(); resolve(false); });
-    $('[data-sim]', fundo).addEventListener('click', async () => {
-      const gb = parseInt($('#pj-gb', fundo).value, 10), gr = parseInt($('#pj-gr', fundo).value, 10);
-      const onze = $$('input[type=checkbox]:checked', fundo).map(c => c.value);
-      if (isNaN(gb) || isNaN(gr)) return aviso('Escreve os golos das duas equipas.', true);
-      if (onze.length !== 11) return aviso('Marca exatamente 11 jogadores (tens ' + onze.length + ').', true);
-      if (CFG.modo === 'local' || !CFG.token) { aviso('Modo de teste: não foi enviado.', true); return; }
-      try { carregar(true); await rpcAdmin('bi_admin_jogo_fechar', { p_jogo: j.jogo, p_titulo: j.titulo || '', p_gb: gb, p_gr: gr, p_onze: onze }); }
-      catch (e) { aviso(e.message, true); return; } finally { carregar(false); }
-      aviso('Jogo fechado: já se sabe quem acertou.');
-      fundo.remove(); resolve(true);
-    });
-  });
-}
-
 async function lerQuizPublico() {
   try {
     const r = await fetch(`https://raw.githubusercontent.com/${DONO_PADRAO}/${REPO_PADRAO}/main/data/quiz.json?t=${Date.now()}`);
@@ -117,15 +78,15 @@ function ecraParticipacao(alvo) {
       return;
     } finally { carregar(false); }
 
-    let html = cartao('Prognósticos e "Quem vai jogar?"', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico; no dia antes ou no dia do jogo são convidados a adivinhar o onze. Depois do jogo, <b>fecha o jogo</b> aqui (resultado e os 11 que jogaram) para ver quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
+    let html = cartao('Prognósticos e "Quem vai jogar?"', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico; no dia antes ou no dia do jogo são convidados a adivinhar o onze. Quando o jogo acaba, o resultado e o onze oficial entram <b>automaticamente</b> (vêm do robô) e aqui aparece logo quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
       ${jogos.length ? jogos.map((j, i) => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b>
           ${j.resultado ? `<span class="pilula ok">Fechado · ${j.resultado.golos_b}-${j.resultado.golos_r}</span>` : '<span class="pilula espera">Aberto</span>'}</div>
+        ${j.resultado ? '' : '<div class="mini">O resultado e o onze oficial entram sozinhos assim que o jogo acaba (até meia hora depois).</div>'}
         <div class="mini">${numero(j.progs)} prognósticos · ${numero(j.onzes)} onzes · último ${esc(dataCurta(j.ultimo))}</div>
         <div class="linha-acoes">
           <button class="botao pequeno" data-prog="${i}">📊 Ver prognósticos</button>
           <button class="botao pequeno" data-onze="${i}">📋 Ver onzes</button>
-          <button class="botao pequeno principal" data-fechar-jogo="${i}">${j.resultado ? 'Corrigir resultado' : '🏁 Fechar o jogo'}</button>
         </div></div>`).join('') : '<p class="suave">Ainda não há participações (ou já desapareceram).</p>'}`);
 
     const novas = perguntas.filter(p => p.estado === 'nova').length;
@@ -150,7 +111,6 @@ function ecraParticipacao(alvo) {
 
     $$('[data-prog]', alvo).forEach(b => b.addEventListener('click', () => verPrognosticos(jogos[b.dataset.prog])));
     $$('[data-onze]', alvo).forEach(b => b.addEventListener('click', () => verOnzes(jogos[b.dataset.onze])));
-    $$('[data-fechar-jogo]', alvo).forEach(b => b.addEventListener('click', async () => { if (await fecharJogo(jogos[b.dataset.fecharJogo])) redesenhar(); }));
     $$('[data-pe]', alvo).forEach(b => b.addEventListener('click', async () => {
       const [id, estado] = b.dataset.pe.split('|');
       if (estado === 'apagar' && !confirm('Apagar esta pergunta?')) return;
