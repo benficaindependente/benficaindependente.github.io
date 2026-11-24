@@ -2359,7 +2359,7 @@ function progClassificarYouTube(titulos) {
     const up = progPlano(t);
     let nome = null;
     PROG_YT.forEach(r => { if (!nome && r[1].some(p => up.indexOf(p) >= 0)) nome = r[0]; });
-    if (!nome && /\bEP\.?\s*\d+/.test(up)) nome = 'Podcast Benfica Independente';
+    if (!nome && /\bEP\.?\s*\d+/.test(up)) nome = 'Megafone';
     if (!nome) nome = 'Outros vídeos';
     cont[nome] = (cont[nome] || 0) + 1;
   });
@@ -2386,7 +2386,10 @@ async function progCarregar() {
   try { guardado = await lerFicheiro(CFG.repo, PROG_FICHEIRO); } catch (e) { guardado = null; }
   PROG_GUARDADO = { youtube: [], podcasts: [], artigos: [] };
   if (guardado) PROG_TIPOS.forEach(t => {
-    if (Array.isArray(guardado[t.chave])) PROG_GUARDADO[t.chave] = guardado[t.chave];
+    if (Array.isArray(guardado[t.chave])) PROG_GUARDADO[t.chave] = guardado[t.chave]
+      // Nome antigo do programa do podcast: passou a chamar-se Megafone.
+      .map(n => n === 'Podcast Benfica Independente' ? 'Megafone' : n)
+      .filter((n, i, arr) => arr.indexOf(n) === i);
   });
 
   const achados = { youtube: {}, podcasts: {}, artigos: {} };
@@ -2395,7 +2398,7 @@ async function progCarregar() {
   // O feed do YouTube só traz os últimos vídeos: as rubricas conhecidas ficam sempre
   // na lista (sem contagem), para não desaparecerem da app por não haver vídeos recentes.
   PROG_YT.forEach(r => { if (achados.youtube[r[0]] == null) achados.youtube[r[0]] = 0; });
-  ['Outros vídeos', 'Podcast Benfica Independente'].forEach(n => { if (achados.youtube[n] == null) achados.youtube[n] = 0; });
+  ['Outros vídeos', 'Megafone'].forEach(n => { if (achados.youtube[n] == null) achados.youtube[n] = 0; });
   try {
     (await progFeed(PROG_FEED_BLOGUE)).forEach(i => (i.categories || []).forEach(c => {
       achados.artigos[c] = (achados.artigos[c] || 0) + 1;

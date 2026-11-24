@@ -4,7 +4,7 @@
    a cópia guardada quando não há ligação. Nunca guarda pedidos ao GitHub. */
 'use strict';
 
-const CACHE = 'bi-plataforma-v19';
+const CACHE = 'bi-plataforma-v20';
 const FICHEIROS = ['./app-v19.js', './estilos-v18.css', './index.html', './estilos.css', './app.js', './quadro-v18.js', './participacao-v18.js', './jogadores.json', './icone.svg', './icone-192.png', './icone-512.png', './manifest.webmanifest'];
 
 self.addEventListener('install', ev => {
