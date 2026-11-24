@@ -1592,6 +1592,12 @@ function ecraDefinicoes(alvo) {
     '<button class="botao pequeno principal" data-guardar>Guardar</button>'));
   alvo.insertAdjacentHTML('beforeend', cartao('Instalar no telemóvel',
     `<p class="suave">Abre a plataforma no Chrome do telemóvel, menu ⋮ → <b>Adicionar ao ecrã principal</b> (no iPhone: Safari → Partilhar → <b>Adicionar ao ecrã principal</b>). Fica como uma app, sem Play Store nem App Store.</p>`));
+  if (souDono() && CFG.modo !== 'local') {
+    alvo.insertAdjacentHTML('beforeend', cartao('Cópia de segurança dos dados',
+      `<p class="suave">Descarrega um ficheiro com o que está no Supabase: conversas e mensagens, gestores, sondagens, anunciantes, receitas, estatísticas, lista de emails e registo de atividade. Guarda-o no teu Drive (faz isto de vez em quando, por exemplo ao domingo). O ficheiro tem dados pessoais: não o partilhes.</p>`,
+      '<button class="botao pequeno principal" data-copia>Descarregar cópia</button>'));
+    $('[data-copia]', alvo).addEventListener('click', exportarCopia);
+  }
   $('[data-sair]', alvo).addEventListener('click', sair);
   $('[data-guardar]', alvo).addEventListener('click', async () => {
     CFG.owner = $('#cfg-owner', alvo).value.trim() || DONO_PADRAO;
@@ -1603,6 +1609,34 @@ function ecraDefinicoes(alvo) {
     aviso('Guardado.');
     redesenhar();
   });
+}
+
+/** Cópia de segurança do Supabase (só admins; usa as mesmas funções do painel, sem chave secreta). */
+async function exportarCopia() {
+  carregar(true);
+  try {
+    const pedidos = {
+      conversas: ['bi_admin_conversas'], gestores: ['bi_admin_gestores'], sondagens: ['bi_admin_sondagens'],
+      hdj: ['bi_admin_hdj'], anunciantes: ['bi_admin_anunciantes'], receitas: ['bi_admin_receitas'],
+      estatisticas: ['bi_admin_estatisticas', { p_de: null }], emails: ['bi_admin_email_lista'], atividade: ['bi_admin_atividade']
+    };
+    const copia = { feito_em: new Date().toISOString(), projeto: SUPABASE_URL, dados: {}, falhas: {} };
+    await Promise.all(Object.entries(pedidos).map(async ([k, [fn, args]]) => {
+      try { copia.dados[k] = await rpcAdmin(fn, args); } catch (e) { copia.falhas[k] = e.message; }
+    }));
+    copia.dados.mensagens = {};
+    for (const c of (copia.dados.conversas || [])) {
+      try { copia.dados.mensagens[c.id] = await rpcAdmin('bi_admin_mensagens', { p_id: c.id }); }
+      catch (e) { copia.falhas['mensagens ' + c.id] = e.message; }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 1)], { type: 'application/json' }));
+    a.download = 'copia-benfica-independente-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    const nf = Object.keys(copia.falhas).length;
+    aviso(nf ? `Cópia descarregada, mas ${nf} parte(s) falharam (vê "falhas" no ficheiro).` : 'Cópia descarregada. Guarda-a no teu Drive.', !!nf);
+  } catch (e) { aviso(e.message, true); }
+  finally { carregar(false); }
 }
 
 /* ============================ Mensagens (Supabase) ============================ */
