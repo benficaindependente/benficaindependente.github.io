@@ -321,6 +321,8 @@ begin
         (select count(*) from idas_estadio i where i.user_id = pf.user_id and i.categoria = 'principal' and i.data >= (de at time zone 'Europe/Lisbon')::date) idas_principal,
         (select count(*) from idas_estadio i where i.user_id = pf.user_id and i.categoria = 'jovens_feminino' and i.data >= (de at time zone 'Europe/Lisbon')::date) idas_jovens,
         (select count(*) from idas_estadio i where i.user_id = pf.user_id and i.categoria = 'modalidades' and i.data >= (de at time zone 'Europe/Lisbon')::date) idas_modalidades,
+        (select count(*) from casas_visitadas cv where cv.user_id = pf.user_id and not cv.estrangeiro) casas_pt,
+        (select count(*) from casas_visitadas cv where cv.user_id = pf.user_id and cv.estrangeiro) casas_ext,
         (select count(*) from acessos_conta a where a.user_id = pf.user_id and a.dia >= (de at time zone 'Europe/Lisbon')::date) dias_ativos,
         coalesce((select sum(a.aberturas) from acessos_conta a where a.user_id = pf.user_id and a.dia >= (de at time zone 'Europe/Lisbon')::date), 0) aberturas,
         (select max(a.dia) from acessos_conta a where a.user_id = pf.user_id) ultimo_acesso,

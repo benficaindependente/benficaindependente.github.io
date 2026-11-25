@@ -114,6 +114,7 @@ const ecraAdeptosRankings = alvo => comAbas(alvo, 'a_rank', [
   { id: 'prognosticos', nome: 'Prognósticos da época', icone: 'star', desenhar: ecraRankingAdmin },
   { id: 'participam', nome: 'Quem mais participa', icone: 'chat', desenhar: ecraAtivos },
   { id: 'estadio', nome: 'Nos jogos', icone: 'live', desenhar: abaEstadio },
+  { id: 'casas', nome: 'Casas do Benfica', icone: 'contact', desenhar: abaCasas },
   { id: 'construir', nome: 'Construir rankings', icone: 'sliders', desenhar: abaRankings }
 ]);
 
@@ -484,11 +485,62 @@ async function abaEstadio(alvo) {
       .concat(lista.map(x => [x.nome, x.nome_real, x.pais, x.total, x.principal, x.jovens_feminino, x.modalidades, x.casa, x.fora, x.liga, x.taca, x.uefa, x.estrangeiro, x.uefa_casa, x.uefa_fora, x.liga_casa, x.liga_fora, x.tp_casa, x.tp_fora, x.tl_casa, x.tl_fora, x.supertaca, x.vitorias, x.empates, x.derrotas]))));
 }
 
+/* ---------------------------- Casas do Benfica: quem visitou mais e quais são as preferidas ---------------------------- */
+function exemploCasas() {
+  const nomes = ['Zé do Mocho', 'Rita', 'Aguia75', 'Manel', 'Joana', 'Tó', 'Luís', 'Sofia', 'Rui', 'Marta'];
+  let s = 4; const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const lista = nomes.map((nome, i) => { const pt = Math.floor(rnd() * 30), ext = Math.floor(rnd() * 6);
+    return { user_id: 'u' + i, nome, nome_real: '', alcunha: '', pais: i % 3 ? 'Portugal' : 'Suíça', localidade: i % 3 ? 'Leiria' : 'Genebra', total: pt + ext, portugal: pt, estrangeiro: ext }; })
+    .filter(x => x.total).sort((a, b) => b.total - a.total);
+  const casas = [['c37', 'Casa Benfica Genebra', 'Genebra', 'Suíça', true, 9, 4.6, 8], ['c100', 'Casa Benfica Zurique', 'Zurique', 'Suíça', true, 7, 4.2, 6],
+    ['c41', 'Casa Benfica Faro', 'Faro', 'Portugal', false, 6, 4.0, 5], ['c86', 'Casa Benfica Vila Nova de Foz Côa', 'Vila Nova de Foz Côa', 'Portugal', false, 4, 4.8, 4],
+    ['c17', 'Casa Benfica Cambridge', 'Cambridge', 'EUA', true, 3, 3.5, 2]].map(([casa, nome, cidade, pais, estrangeiro, n, media, votos]) => ({ casa, nome, cidade, pais, estrangeiro, n, media, votos }));
+  return { exemplo: true, lista, casas };
+}
+async function abaCasas(alvo) {
+  alvo.innerHTML = cartao('Casas do Benfica', '<p class="suave">A carregar…</p>');
+  let d;
+  try { carregar(true); d = CFG.modo === 'local' || !CFG.token ? exemploCasas() : await rpcAdmin('bi_admin_casas'); }
+  catch (e) { alvo.innerHTML = cartao('Casas do Benfica', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-casas.sql no Supabase.</p>`); return; }
+  finally { carregar(false); }
+  const lista = d.lista || [], casas = d.casas || [];
+  const visitas = lista.reduce((n, x) => n + Number(x.total || 0), 0);
+  const tabela = (tit, sub, campo, vazio) => {
+    const l = lista.filter(x => Number(x[campo]) > 0).sort((a, b) => b[campo] - a[campo] || b.total - a.total).slice(0, 15);
+    return cartao(tit, `<p class="suave" style="margin-top:0">${sub}</p><div class="tabela-rolar"><table class="tabela tabela-numeros">
+      <tr><th>#</th><th>Aparece como</th><th>País</th><th class="direita">Casas</th><th class="direita">Portugal</th><th class="direita">Estrangeiro</th></tr>
+      ${l.map((x, i) => `<tr><td><b>${i + 1}</b></td><td><b>${esc(x.nome)}</b>${x.localidade ? `<div class="mini">${esc(x.localidade)}</div>` : ''}</td><td>${esc(x.pais || '—')}</td>
+        <td class="direita"><b>${numero(x[campo])}</b></td><td class="direita">${numero(x.portugal)}</td><td class="direita">${numero(x.estrangeiro)}</td></tr>`).join('')
+        || `<tr><td colspan="6"><p class="suave">${vazio}</p></td></tr>`}</table></div>`);
+  };
+  const linhaCasa = (c, i, extra) => `<tr><td><b>${i + 1}</b></td><td><b>${esc(c.cidade || c.nome)}</b><div class="mini">${esc(c.pais || '')}${c.estrangeiro ? ' · estrangeiro' : ''}</div></td>${extra}</tr>`;
+  const maisVisitadas = casas.slice().sort((a, b) => b.n - a.n).slice(0, 15);
+  const preferidas = casas.filter(c => Number(c.votos) > 0).sort((a, b) => Number(b.media) - Number(a.media) || b.votos - a.votos).slice(0, 15);
+  alvo.innerHTML = (d.exemplo ? '<p class="aviso mau" style="margin:0 0 14px">Modo de teste: os números são de exemplo.</p>' : '') +
+    cartao('Um Benfiquista vai à Casa do Benfica', `<p class="suave">Cada pessoa com conta marca as Casas do Benfica onde já esteve e dá-lhes estrelas. Só entram contas com a participação associada.</p>
+      <div class="grelha">
+        ${azulejo(numero(lista.length), 'Pessoas que marcaram casas')}
+        ${azulejo(numero(visitas), 'Visitas marcadas')}
+        ${azulejo(numero(casas.length), 'Casas já visitadas por alguém')}
+      </div>`, '<button class="botao pequeno" data-csv-casas>⬇ Exportar (Excel)</button>') +
+    tabela('Totalizador — quem visitou mais casas', 'Todas as casas, em Portugal e no estrangeiro.', 'total', 'Ainda ninguém marcou casas.') +
+    tabela('Mais casas em Portugal', 'Quem mais casas visitou no país.', 'portugal', 'Ainda ninguém marcou casas em Portugal.') +
+    tabela('Mais casas no estrangeiro', 'Os que levam o Benfica pelo mundo.', 'estrangeiro', 'Ainda ninguém marcou casas no estrangeiro.') +
+    cartao('🏆 Casas mais visitadas', `<div class="tabela-rolar"><table class="tabela tabela-numeros"><tr><th>#</th><th>Casa</th><th class="direita">Visitas</th><th class="direita">Estrelas</th></tr>
+      ${maisVisitadas.map((c, i) => linhaCasa(c, i, `<td class="direita"><b>${numero(c.n)}</b></td><td class="direita">${c.votos > 0 ? '★ ' + String(c.media).replace('.', ',') : '—'}</td>`)).join('') || '<tr><td colspan="4"><p class="suave">Ainda sem dados.</p></td></tr>'}</table></div>`) +
+    cartao('⭐ Casas preferidas', `<p class="suave" style="margin-top:0">Pela média das estrelas que os benfiquistas lhes deram.</p><div class="tabela-rolar"><table class="tabela tabela-numeros"><tr><th>#</th><th>Casa</th><th class="direita">Estrelas</th><th class="direita">Votos</th></tr>
+      ${preferidas.map((c, i) => linhaCasa(c, i, `<td class="direita"><b>★ ${String(c.media).replace('.', ',')}</b></td><td class="direita">${numero(c.votos)}</td>`)).join('') || '<tr><td colspan="4"><p class="suave">Ainda sem estrelas.</p></td></tr>'}</table></div>`);
+  const csv = $('[data-csv-casas]', alvo);
+  if (csv) csv.addEventListener('click', () => descarregarCsv(`casas-do-benfica-${diaISO(new Date())}.csv`,
+    [['Aparece como', 'Nome', 'País', 'Casas', 'Portugal', 'Estrangeiro']].concat(lista.map(x => [x.nome, x.nome_real, x.pais, x.total, x.portugal, x.estrangeiro]))
+      .concat([[], ['Casa', 'Cidade', 'País', 'Visitas', 'Estrelas (média)', 'Votos']]).concat(casas.map(c => [c.nome, c.cidade, c.pais, c.n, c.media == null ? '' : c.media, c.votos]))));
+}
+
 /* ---------------------------- Construir rankings: cruza as medidas como quiseres ---------------------------- */
 const MEDIDAS = [
   ['participacoes', 'Participações'], ['sondagens', 'Sondagens'], ['mvp', 'MVP'], ['quiz_respostas', 'Quiz respondido'], ['quiz_certas', 'Quiz certo'],
   ['prognosticos', 'Prognósticos dados'], ['acertos_prog', 'Prognósticos certos'], ['dias_ativos', 'Dias ativos'], ['aberturas', 'Aberturas'],
-  ['idas_principal', 'Jogos vistos ao vivo (equipa principal)'], ['idas_jovens', 'Jogos vistos ao vivo (jovens e fut. feminino)'], ['idas_modalidades', 'Jogos vistos ao vivo (modalidades)']];
+  ['idas_principal', 'Jogos vistos ao vivo (equipa principal)'], ['idas_jovens', 'Jogos vistos ao vivo (jovens e fut. feminino)'], ['idas_modalidades', 'Jogos vistos ao vivo (modalidades)'], ['casas_pt', 'Casas do Benfica em Portugal'], ['casas_ext', 'Casas do Benfica no estrangeiro']];
 const faixaDe = i => i == null ? 'Sem data' : i < 18 ? 'Menos de 18' : i < 25 ? '18 a 24' : i < 35 ? '25 a 34' : i < 45 ? '35 a 44' : i < 55 ? '45 a 54' : i < 65 ? '55 a 64' : '65 ou mais';
 const PREDEFINICOES = {
   participativos: { nome: 'Mais participativos', ordem: 'participacoes', pesos: {} },
@@ -496,6 +548,8 @@ const PREDEFINICOES = {
   fieis: { nome: 'Mais fiéis (dias ativos)', ordem: 'dias_ativos', pesos: {} },
   prognosticos: { nome: 'Melhores prognosticadores', ordem: 'acertos_prog', pesos: {} },
   estadio: { nome: 'Mais vão ao estádio', ordem: 'idas_principal', pesos: {} },
+  casas: { nome: 'Mais casas do Benfica (Portugal)', ordem: 'casas_pt', pesos: {} },
+  casasext: { nome: 'Mais casas do Benfica (estrangeiro)', ordem: 'casas_ext', pesos: {} },
   equilibrado: { nome: 'Pontuação equilibrada', ordem: 'pontuacao', pesos: { sondagens: 1, mvp: 1, quiz_respostas: 1, quiz_certas: 2, prognosticos: 1, acertos_prog: 3, dias_ativos: 0.5 } }
 };
 let RK = { periodo: 'epoca', pais: '', faixa: '', agrupar: 'pessoa', ordem: 'participacoes', pesos: {}, top: 25, media: false };
