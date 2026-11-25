@@ -776,9 +776,10 @@ function formulario(titulo, campos, valores, opcoes) {
       <header><h3>${esc(titulo)}</h3></header>
       <div class="modal-corpo formulario">${opcoes.aoVivo ? '<div class="prev-viva"><div class="prev-viva-etq">Assim aparece na app (muda enquanto escreves)</div><div data-vivo></div></div>' : ''}${opcoes.nota ? `<p class="suave">${opcoes.nota}</p>` : ''}${campos.map(c => campoHtml(c, valores[c.nome])).join('')}</div>
       <div class="modal-pe">
+        ${opcoes.previsualizar ? '<span class="pe-aviso" data-aviso-prev>👁 Vê primeiro a pré-visualização para poderes publicar.</span>' : ''}
         <button class="botao" data-cancelar>Cancelar</button>
-        ${opcoes.previsualizar ? '<button class="botao" data-previsualizar>👁 Pré-visualizar</button>' : ''}
-        <button class="botao principal" data-guardar>${esc(opcoes.textoGuardar || 'Guardar')}</button>
+        ${opcoes.previsualizar ? '<button class="botao principal" data-previsualizar>👁 Pré-visualizar</button>' : ''}
+        <button class="botao principal" data-guardar ${opcoes.previsualizar ? 'disabled title="Vê primeiro a pré-visualização"' : ''}>${esc(opcoes.textoGuardar || 'Guardar')}</button>
       </div>
     </div>`;
     document.body.appendChild(fundo);
@@ -804,6 +805,22 @@ function formulario(titulo, campos, valores, opcoes) {
         el.style.display = ok ? '' : 'none';
       });
     };
+    // Só se pode publicar depois de ver a pré-visualização; se se mudar algo, é preciso voltar a ver.
+    let previsto = null;
+    const bGuardar = $('[data-guardar]', fundo), bPrev = $('[data-previsualizar]', fundo), avisoPrev = $('[data-aviso-prev]', fundo);
+    const verificarPrev = () => {
+      if (!opcoes.previsualizar || !bGuardar) return;
+      const ok = previsto !== null && JSON.stringify(recolher()) === previsto;
+      bGuardar.disabled = !ok;
+      bGuardar.title = ok ? '' : 'Vê primeiro a pré-visualização';
+      if (bPrev) bPrev.classList.toggle('principal', !ok);
+      if (avisoPrev) {
+        avisoPrev.style.display = ok ? 'none' : '';
+        avisoPrev.textContent = previsto === null ? '👁 Vê primeiro a pré-visualização para poderes publicar.' : '✏️ Mudaste algo: volta a pré-visualizar para poderes publicar.';
+      }
+    };
+    fundo.addEventListener('input', verificarPrev);
+    fundo.addEventListener('change', verificarPrev);
     // Pré-visualização ao vivo (um "mini editor"): muda a cada letra ou escolha.
     const atualizarVivo = () => { const c = $('[data-vivo]', fundo); if (c && opcoes.aoVivo) c.innerHTML = opcoes.aoVivo(recolher()); };
     fundo.addEventListener('change', aplicarVisiveis);
@@ -825,7 +842,7 @@ function formulario(titulo, campos, valores, opcoes) {
         info.textContent = r.resumo;
         const mini = $(`[data-mini="${inp.dataset.para}"]`, fundo);
         mini.src = r.url; mini.style.display = '';
-        atualizarVivo();
+        atualizarVivo(); verificarPrev();
       } catch (e) {
         info.textContent = '';
         aviso(e.message, true);
@@ -839,14 +856,20 @@ function formulario(titulo, campos, valores, opcoes) {
       $(`[name="${n}"]`, fundo).value = '';
       const mini = $(`[data-mini="${n}"]`, fundo); mini.removeAttribute('src'); mini.style.display = 'none';
       $(`[data-info="${n}"]`, fundo).textContent = '';
-      atualizarVivo();
+      atualizarVivo(); verificarPrev();
     }));
     const fechar = r => { fundo.remove(); resolve(r); };
     $('[data-cancelar]', fundo).addEventListener('click', () => fechar(null));
-    const bPrev = $('[data-previsualizar]', fundo);
-    if (bPrev) bPrev.addEventListener('click', () => mostrarPrevisualizacao(opcoes.previsualizar(recolher())));
-    $('[data-guardar]', fundo).addEventListener('click', async () => {
+    if (bPrev) bPrev.addEventListener('click', () => {
+      const v = recolher();
+      mostrarPrevisualizacao(opcoes.previsualizar(v));
+      previsto = JSON.stringify(v);
+      verificarPrev();
+    });
+    verificarPrev();
+    bGuardar.addEventListener('click', async () => {
       const saida = recolher();
+      if (opcoes.previsualizar && JSON.stringify(saida) !== previsto) { aviso('Vê primeiro a pré-visualização antes de publicar.', true); return; }
       if (opcoes.validar) { const erro = opcoes.validar(saida); if (erro) { aviso(erro, true); return; } }
       if (opcoes.confirmar) {
         const c = opcoes.confirmar(saida);

@@ -442,6 +442,51 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
 .objetivo-barra { height: 10px; border-radius: 10px; background: rgba(255, 255, 255, .08); overflow: hidden; margin-bottom: 8px; }
 .objetivo-barra i { display: block; height: 100%; border-radius: 10px; background: var(--grad-vermelho); }
 
+
+/* ============ Janelas de preenchimento: claras, em duas colunas no computador, sem rolar ============ */
+.fundo-modal { align-items: center; padding: 18px; background: rgba(10, 14, 22, .62); }
+.modal { display: flex; flex-direction: column; max-height: calc(100vh - 36px); background: #ffffff; color: #1b2232; border: 1px solid #d5dbe6; border-radius: 18px; box-shadow: 0 24px 60px rgba(0, 0, 0, .45); }
+.modal > header { flex: 0 0 auto; background: linear-gradient(90deg, #fff0f1, #ffffff 70%); color: #1b2232; border-bottom: 1px solid #e3e8f0; border-radius: 18px 18px 0 0; }
+.modal > header h3 { color: #1b2232; font-size: 1.1rem; }
+.modal-corpo { flex: 1 1 auto; overflow: auto; min-height: 0; }
+.modal-pe { flex: 0 0 auto; align-items: center; background: #f3f5f9; border-top: 1px solid #e3e8f0; border-radius: 0 0 18px 18px; }
+.pe-aviso { margin-right: auto; font-size: .84rem; color: #8a5a00; font-weight: 600; }
+.modal .suave, .modal .mini, .modal .rotulo { color: #5a6578; }
+.modal .formulario label, .modal.formulario label, .modal label, .formulario .rotulo { color: #2f394d; }
+.modal input:not([type=checkbox]):not([type=radio]):not([type=file]), .modal textarea, .modal select {
+  background: #ffffff; color: #1b2232; border: 1px solid #b9c2d2; }
+.modal input::placeholder, .modal textarea::placeholder { color: #8a94a6; }
+.modal input:focus, .modal textarea:focus, .modal select:focus { border-color: var(--vermelho); box-shadow: 0 0 0 3px rgba(229, 23, 46, .16); }
+.modal .botao { background: #eef1f7; color: #1b2232; border-color: #cbd3e1; }
+.modal .botao:hover { background: #e3e8f2; border-color: #b4bfd3; }
+.modal .botao.principal { background: var(--grad-vermelho); color: #fff; border-color: transparent; }
+.modal .botao.perigo { background: #fff; color: #c0192b; border-color: #e2a9b0; }
+.modal .botao:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.4); }
+.modal .grupo-caixas label { color: #1b2232; }
+.modal details.ajuda, .modal .ajuda { border-color: #d5dbe6; }
+.modal .separador { border-top-color: #e3e8f0; color: #1b2232; }
+.modal .miniatura.grande { border-color: #c9d1de; }
+.modal .prev-viva { background: linear-gradient(180deg, #fff6f7, #ffffff); border-bottom-color: #e3e8f0; box-shadow: 0 8px 16px -12px rgba(0, 0, 0, .35); }
+.modal .prev-viva-etq, .modal .prev-viva-nota { color: #5a6578; }
+.modal .tabela th { color: #5a6578; } .modal .tabela td, .modal .tabela th { border-bottom-color: #e3e8f0; }
+.modal .pilula { background: #eef1f7; color: #3a4458; border-color: #d5dbe6; }
+.modal .aviso { margin: 0 0 12px; }
+@media (min-width: 900px) {
+  .modal:has(.formulario) { max-width: min(1080px, 96vw); }
+  .modal-corpo.formulario { display: grid; grid-template-columns: 1fr 1fr; gap: 0 32px; align-content: start; }
+  .modal-corpo.formulario > .prev-viva, .modal-corpo.formulario > p, .modal-corpo.formulario > h4, .modal-corpo.formulario > label:has(textarea),
+  .modal-corpo.formulario > .campo-imagem, .modal-corpo.formulario > .campo:has([data-jogadores]) { grid-column: 1 / -1; }
+  .modal-corpo.formulario > label, .modal-corpo.formulario > .campo { margin-bottom: 8px; }
+  .modal-corpo.formulario { padding: 12px 20px 8px; }
+  .modal-corpo.formulario label input:not([type=checkbox]), .modal-corpo.formulario label select, .modal-corpo.formulario label textarea { margin-top: 3px; min-height: 36px; padding-top: .4em; padding-bottom: .4em; }
+  .modal-corpo.formulario textarea { min-height: 76px; }
+  .modal-corpo.formulario .separador { margin: 8px 0 2px; padding-top: 8px; }
+  .modal-corpo.formulario .prev-viva { padding: 8px 20px 10px; margin-bottom: 10px; }
+  .modal-corpo.formulario .prev-viva-nota { margin-top: 4px; }
+  .modal-corpo.formulario > label > .suave { font-size: .74rem; line-height: 1.25; }
+  .modal-corpo.formulario > .prev-viva { margin-left: -20px; margin-right: -20px; }
+}
+
 /* ============ Específico (quadro tático, pré-visualizações, sondagens com fotos) ============ */
 
 /* ---------- Pré-visualização (telemóvel) ---------- */
