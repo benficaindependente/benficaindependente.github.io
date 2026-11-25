@@ -1,8 +1,5 @@
--- =====================================================================
 -- Benfica Independente — TUDO de uma vez: contas, ranking, participação, idades, dispositivos, horas e "jogos que vi".
 -- Cola isto no SQL Editor do Supabase e carrega em Run (pode correr-se mais de uma vez).
--- Já inclui: supabase-ranking.sql, supabase-participantes.sql e supabase-estadio.sql (nesta ordem).
--- =====================================================================
 
 -- =====================================================================
 -- Benfica Independente — ranking de prognósticos da época (com contas de email).
@@ -117,7 +114,7 @@ begin
     null, null)::extensions.http_request);
   if r.status <> 200 then raise exception 'sem acesso'; end if;
   l := (r.content::json) ->> 'login';
-  r := extensions.http_get('https://raw.githubusercontent.com/JoaoRebola/benfica-independente-dados/main/data/admins.json');
+  r := extensions.http_get('https://raw.githubusercontent.com/benficaindependente/benfica-independente-dados/main/data/admins.json');
   if r.status = 404 then
     a := '{"donos": ["JoaoRebola"], "admins": []}'::json;
   elsif r.status <> 200 then

@@ -15,7 +15,7 @@
 
 const SUPABASE_URL = "https://rpqqucqxgjkisoimstfh.supabase.co";
 const CHAVE_PUBLICA = "sb_publishable_InvgB931-Wc8vFs65WWXxw_KVpMLGhH";
-const DADOS = "https://raw.githubusercontent.com/JoaoRebola/benfica-independente-dados/main/data/";
+const DADOS = "https://raw.githubusercontent.com/benficaindependente/benfica-independente-dados/main/data/";
 const GEMINI = Deno.env.get("GEMINI_API_KEY") ?? "";
 
 const CORS = {

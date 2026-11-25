@@ -18,7 +18,7 @@
 /* ----------------------------- Constantes ----------------------------- */
 const CHAVE_CONFIG = 'bi.plataforma.v2';
 const PREFIXO_LOCAL = 'bi.local.';
-const DONO_PADRAO = 'JoaoRebola';
+const DONO_PADRAO = 'benficaindependente';
 const REPO_PADRAO = 'benfica-independente-dados';
 const REPO_PRIVADO_PADRAO = 'benfica-independente-gestao';
 const RAMO_PADRAO = 'main';
@@ -228,6 +228,7 @@ function totalAdmins() { const a = admins(); return new Set([...a.donos, ...a.ad
 function guardarConfig() { localStorage.setItem(CHAVE_CONFIG, JSON.stringify(CFG)); }
 function lerConfig() {
   try { const b = localStorage.getItem(CHAVE_CONFIG); if (b) CFG = Object.assign(CFG, JSON.parse(b)); } catch (e) { /* ignora */ }
+  if (CFG.owner === 'JoaoRebola') CFG.owner = DONO_PADRAO;   // o repositório passou para a organização
 }
 function mostraErroEntrada(texto) { $('#entrar-erro').textContent = texto || ''; }
 

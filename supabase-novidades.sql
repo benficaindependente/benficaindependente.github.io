@@ -70,7 +70,7 @@ begin
   if (select ultima from participacao_sync where id = 1) > now() - interval '5 minutes' then return; end if;
   update participacao_sync set ultima = now() where id = 1;
   begin
-    r := extensions.http_get('https://raw.githubusercontent.com/JoaoRebola/benfica-independente-dados/main/data/jogos_reais.json');
+    r := extensions.http_get('https://raw.githubusercontent.com/benficaindependente/benfica-independente-dados/main/data/jogos_reais.json');
     if r.status <> 200 then return; end if;
     for j in select * from json_array_elements(r.content::json) loop
       insert into jogos_real (jogo, titulo, golos_b, golos_r, onze, por)

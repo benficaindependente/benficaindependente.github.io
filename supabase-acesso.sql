@@ -49,7 +49,7 @@ begin
     null, null)::extensions.http_request);
   if r.status <> 200 then raise exception 'sem acesso'; end if;
   l := (r.content::json) ->> 'login';
-  r := extensions.http_get('https://raw.githubusercontent.com/JoaoRebola/benfica-independente-dados/main/data/admins.json');
+  r := extensions.http_get('https://raw.githubusercontent.com/benficaindependente/benfica-independente-dados/main/data/admins.json');
   if r.status = 404 then
     a := '{"donos": ["JoaoRebola"], "admins": []}'::json;
   elsif r.status <> 200 then
@@ -123,7 +123,7 @@ language plpgsql security definer set search_path = public, extensions as $$
 declare l text := bi_quem(p_gh); tok text; r extensions.http_response; m text := upper(coalesce(p_metodo, 'GET'));
 begin
   if m not in ('GET', 'PUT') then raise exception 'Pedido não permitido.'; end if;
-  if p_caminho !~ '^repos/JoaoRebola/(benfica-independente-dados|benfica-independente-gestao)(/|\?|$)' or p_caminho like '%..%' then
+  if p_caminho !~ '^repos/(benficaindependente|JoaoRebola)/(benfica-independente-dados|benfica-independente-gestao)(/|\?|$)' or p_caminho like '%..%' then
     raise exception 'Pedido não permitido.';
   end if;
   select valor into tok from segredos where chave = 'github';
