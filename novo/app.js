@@ -608,6 +608,7 @@ const GRUPOS = [
   { chave: 'direto', nome: 'Direto', icone: 'live', ajuda: 'Tudo o que se usa durante o programa' },
   { chave: 'conteudos', nome: 'Conteúdos', icone: 'edit', ajuda: 'Notícias, destaques, fotos e anúncios' },
   { chave: 'agendado', nome: 'Agendado', icone: 'calendar', ajuda: 'O que vai sair e quando' },
+  { chave: 'adeptos', nome: 'Participantes', icone: 'users', ajuda: 'Números, acessos, origem, idades e rankings dos participantes' },
   { chave: 'gestao', nome: 'Gestão', icone: 'gear', ajuda: 'Definições, equipa e números' }
 ];
 
@@ -1536,7 +1537,7 @@ function ecraPainel(alvo) {
   })();
 }
 
-const ALIAS_ECRAS = { anuncios: 'banner', votacoes: 'sondagens', participacao: 'perguntas' };
+const ALIAS_ECRAS = { anuncios: 'banner', votacoes: 'sondagens', participacao: 'perguntas', participantes: 'a_resumo', ativos: 'a_rankings' };
 function irPara(ecra) {
   ecra = ALIAS_ECRAS[ecra] || ecra;
   ECRAS_ATIVO = ecra;
@@ -2818,8 +2819,13 @@ ECRAS = [
   { chave: 'agendado', nome: 'O que vai sair', grupo: 'agendado', desenhar: ecraAgendado },
   // ⚙ Gestão
   { chave: 'painel', nome: 'Aprovações e alertas', grupo: 'gestao', desenhar: ecraPainel },
-  { chave: 'estatisticas', nome: 'Estatísticas da app', grupo: 'gestao', desenhar: ecraEstatisticasApp },
-  { chave: 'participantes', nome: 'Participantes', grupo: 'gestao', desenhar: ecraParticipantes },
+  // 👥 Participantes: números, acessos, origem e idades, rankings
+  { chave: 'a_resumo', nome: 'Resumo', grupo: 'adeptos', desenhar: ecraAdeptosResumo },
+  { chave: 'a_quando', nome: 'Acessos', grupo: 'adeptos', desenhar: ecraAdeptosQuando },
+  { chave: 'a_quem', nome: 'Origem e idades', grupo: 'adeptos', desenhar: ecraAdeptosQuem },
+  { chave: 'a_rankings', nome: 'Rankings', grupo: 'adeptos', desenhar: ecraAdeptosRankings },
+  { chave: 'estatisticas', nome: 'Uso da app', grupo: 'adeptos', desenhar: ecraEstatisticasApp },
+  // ⚙ Gestão
   { chave: 'monetizacao', nome: 'Monetização', grupo: 'gestao', desenhar: ecraMonetizacao },
   { chave: 'admins', nome: 'Administradores', grupo: 'gestao', desenhar: ecraAdmins },
   { chave: 'versoes', nome: 'Versões da app', grupo: 'gestao', desenhar: ecraVersoes },
@@ -2899,6 +2905,7 @@ function ecraDireto(alvo) {
     <div class="mosaicos">
       ${mosaico('data-ir="ajuda"', 'spark', 'Perguntar à IA', 'Explica como se faz qualquer coisa')}
       ${mosaico('data-ir="agendado"', 'calendar', 'Ver o que está agendado', 'Avisos, sondagens, destaques e quiz')}
+      ${mosaico('data-ir="a_quando"', 'chart', 'Ver os acessos à app', 'Calendário dia a dia e hora a hora')}
     </div>`;
   $$('[data-ir]', alvo).forEach(b => b.addEventListener('click', () => {
     if (b.dataset.aba) { const [k, v] = b.dataset.aba.split(':'); ABA_ATIVA[k] = v; }

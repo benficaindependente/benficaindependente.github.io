@@ -224,7 +224,8 @@ language sql stable as $$
 $$;
 
 -- Classificação da época (público) + a minha posição e o meu histórico (se tiver sessão iniciada).
-create or replace function public.bi_ranking(p_limite int default 50) returns json
+-- Quem tem conta vê só os 10 primeiros e o seu próprio lugar (nunca mais do que isso).
+create or replace function public.bi_ranking(p_limite int default 10) returns json
 language plpgsql security definer set search_path = public as $$
 declare ini timestamptz := bi_epoca_inicio(); uid uuid := auth.uid();
 begin
@@ -243,7 +244,7 @@ begin
       'epoca', extract(year from ini)::int,
       'participantes', (select count(*) from nomes),
       'lista', coalesce((select json_agg(json_build_object('pos', pos, 'nome', nome, 'pontos', pontos, 'acertos', acertos, 'jogos', jogos, 'eu', coalesce(user_id = uid, false)) order by pos, nome)
-                         from (select * from nomes order by pos, nome limit greatest(1, least(coalesce(p_limite, 50), 200))) t), '[]'::json),
+                         from (select * from nomes order by pos, nome limit greatest(1, least(coalesce(p_limite, 10), 10))) t), '[]'::json),
       'meu', (select json_build_object('pos', pos, 'nome', nome, 'pontos', pontos, 'acertos', acertos, 'jogos', jogos) from nomes where user_id = uid),
       'historico', case when uid is null then '[]'::json else coalesce((
         select json_agg(json_build_object('titulo', rp.titulo, 'prog_b', rp.golos_b, 'prog_r', rp.golos_r, 'real_b', rj.golos_b, 'real_r', rj.golos_r,
@@ -315,6 +316,8 @@ begin
         (select count(*) from participacao_conta c where c.user_id = pf.user_id and c.tipo = 'quiz' and c.quando >= de) quiz_respostas,
         (select count(*) from participacao_conta c where c.user_id = pf.user_id and c.tipo = 'quiz' and c.certa and c.quando >= de) quiz_certas,
         (select count(*) from ranking_prognosticos r where r.user_id = pf.user_id and r.quando >= de) prognosticos,
+        (select count(*) from ranking_prognosticos r join ranking_jogos j on j.jogo = r.jogo
+          where r.user_id = pf.user_id and j.data >= de and j.golos_b = r.golos_b and j.golos_r = r.golos_r) acertos_prog,
         (select count(*) from acessos_conta a where a.user_id = pf.user_id and a.dia >= (de at time zone 'Europe/Lisbon')::date) dias_ativos,
         coalesce((select sum(a.aberturas) from acessos_conta a where a.user_id = pf.user_id and a.dia >= (de at time zone 'Europe/Lisbon')::date), 0) aberturas,
         (select max(a.dia) from acessos_conta a where a.user_id = pf.user_id) ultimo_acesso,

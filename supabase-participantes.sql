@@ -106,10 +106,25 @@ begin
         from (select coalesce(nullif(trim(pais), ''), 'Não indicado') pais, count(*) n, count(distinct nullif(lower(trim(localidade)), '')) loc from perfis group by 1) p), '[]'::json),
     'localidades_contas', coalesce((select json_agg(json_build_object('pais', pais, 'localidade', loc, 'n', n) order by n desc)
         from (select coalesce(nullif(trim(pais), ''), 'Não indicado') pais, trim(localidade) loc, count(*) n from perfis where trim(localidade) <> '' group by 1, 2 order by 3 desc limit 60) l), '[]'::json),
+    'evolucao', coalesce((select json_agg(json_build_object('dia', d.dia, 'novos', coalesce(n.c, 0), 'contas', coalesce(c.c, 0), 'participacoes', coalesce(p.c, 0) + coalesce(r.c, 0)) order by d.dia)
+        from (select hoje - g as dia from generate_series(0, 179) g) d
+        left join (select primeiro dia, count(*) c from dispositivos group by 1) n on n.dia = d.dia
+        left join (select (criado at time zone 'Europe/Lisbon')::date dia, count(*) c from perfis group by 1) c on c.dia = d.dia
+        left join (select dia, count(*) c from participacao_conta group by 1) p on p.dia = d.dia
+        left join (select (quando at time zone 'Europe/Lisbon')::date dia, count(*) c from ranking_prognosticos group by 1) r on r.dia = d.dia), '[]'::json),
     'dia_hora', coalesce((select json_agg(json_build_object('dow', dow, 'hora', hora, 'n', n))
         from (select extract(isodow from dia)::int dow, hora, sum(aberturas) n from acessos_hora where dia >= hoje - 89 group by 1, 2) m), '[]'::json)
   );
 end $$;
 
-revoke execute on function public.bi_abrir(text, text, text), public.bi_horas_arr(date, date), public.bi_admin_participantes(text) from public;
-grant execute on function public.bi_abrir(text, text, text), public.bi_admin_participantes(text) to anon, authenticated;
+-- Aberturas por dia e por hora entre duas datas (para o calendário da plataforma).
+create or replace function public.bi_admin_acessos_periodo(p_gh text, p_de date, p_ate date) returns json
+language plpgsql security definer set search_path = public as $$
+declare l text := bi_quem(p_gh);
+begin
+  if p_de is null or p_ate is null or p_ate < p_de or p_ate - p_de > 120 then raise exception 'Período inválido.'; end if;
+  return coalesce((select json_agg(json_build_object('dia', dia, 'hora', hora, 'n', aberturas) order by dia, hora) from acessos_hora where dia between p_de and p_ate), '[]'::json);
+end $$;
+
+revoke execute on function public.bi_abrir(text, text, text), public.bi_horas_arr(date, date), public.bi_admin_participantes(text), public.bi_admin_acessos_periodo(text, date, date) from public;
+grant execute on function public.bi_abrir(text, text, text), public.bi_admin_participantes(text), public.bi_admin_acessos_periodo(text, date, date) to anon, authenticated;
