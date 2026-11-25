@@ -164,28 +164,31 @@ function cartaoQuiz(perguntas, cfg) {
     ${blocos || '<p class="suave">Ainda não há perguntas: a próxima execução do robô cria-as.</p>'}`);
 }
 
-function ecraParticipacao(alvo) {
+function ecraParticipacao(alvo, quais) {
   if (CFG.modo === 'local' || !CFG.token) {
-    alvo.innerHTML = cartao('Participação dos adeptos', '<p class="suave">Só funciona ao entrar com a conta GitHub (não no modo de teste).</p>');
+    alvo.innerHTML = cartao(TITULOS_PART[quais], '<p class="suave">Só funciona ao entrar com a conta (não no modo de teste).</p>');
     return;
   }
-  alvo.innerHTML = cartao('Participação dos adeptos', '<p class="suave">A carregar…</p>');
+  alvo.innerHTML = cartao(TITULOS_PART[quais], '<p class="suave">A carregar…</p>');
   (async () => {
     let jogos, perguntas, quiz, envioQuiz;
     try {
       carregar(true);
       [jogos, perguntas, quiz, envioQuiz] = await Promise.all([
-        rpcAdmin('bi_admin_participacao'), rpcAdmin('bi_admin_perguntas'), lerQuizPublico(), lerQuizEnvio()
+        quais === 'prognosticos' ? rpcAdmin('bi_admin_participacao') : [],
+        quais === 'perguntas' ? rpcAdmin('bi_admin_perguntas') : [],
+        quais === 'quiz' ? lerQuizPublico() : [],
+        quais === 'quiz' ? lerQuizEnvio() : {}
       ]);
     } catch (e) {
-      alvo.innerHTML = cartao('Participação dos adeptos', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-novidades.sql no Supabase.</p>`);
+      alvo.innerHTML = cartao(TITULOS_PART[quais], `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-novidades.sql no Supabase.</p>`);
       return;
     } finally { carregar(false); }
 
     // No envio automático, as perguntas que o robô criar depois ficam logo com data — sem
     // ninguém ter de voltar a mexer aqui. Na primeira vez cria a agenda (a partir de agora),
     // para que as perguntas seguintes não saiam a qualquer hora.
-    if (envioQuiz.modo !== 'manual') {
+    if (quais === 'quiz' && envioQuiz.modo !== 'manual') {
       const agenda = agendaQuiz(envioQuiz, quiz);
       const antes = envioQuiz.envios || {};
       const mudou = Object.keys(agenda).length !== Object.keys(antes).length ||
@@ -196,7 +199,7 @@ function ecraParticipacao(alvo) {
       }
     }
 
-    let html = cartao('Prognósticos', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico. Quando o jogo acaba, o resultado oficial entra <b>automaticamente</b> (vem do robô) e aqui aparece logo quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
+    let html = quais !== 'prognosticos' ? '' : cartao('Prognósticos', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico. Quando o jogo acaba, o resultado oficial entra <b>automaticamente</b> (vem do robô) e aqui aparece logo quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
       ${jogos.length ? jogos.map((j, i) => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b>
           ${j.resultado ? `<span class="pilula ok">Fechado · ${j.resultado.golos_b}-${j.resultado.golos_r}</span>` : '<span class="pilula espera">Aberto</span>'}</div>
@@ -207,7 +210,7 @@ function ecraParticipacao(alvo) {
         </div></div>`).join('') : '<p class="suave">Ainda não há participações (ou já desapareceram).</p>'}`);
 
     const novas = perguntas.filter(p => p.estado === 'nova').length;
-    html += cartao('Perguntas ao programa', `<p class="suave">Perguntas e sugestões dos adeptos para o próximo direto. Marca as que vais usar (ficam no topo) e apaga o que não serve. Desaparecem sozinhas ao fim de 30 dias. <b>${novas}</b> por ler.</p>
+    if (quais === 'perguntas') html += cartao('Perguntas ao programa', `<p class="suave">Perguntas e sugestões dos adeptos para o próximo direto. Marca as que vais usar (ficam no topo) e apaga o que não serve. Desaparecem sozinhas ao fim de 30 dias. <b>${novas}</b> por ler.</p>
       ${perguntas.length ? perguntas.map(p => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(p.nome)}</b>
           <span class="pilula ${p.estado === 'escolhida' ? 'ok' : p.estado === 'nova' ? 'espera' : ''}">${p.estado === 'escolhida' ? 'Escolhida' : p.estado === 'lida' ? 'Lida' : 'Nova'}</span></div>
@@ -218,7 +221,7 @@ function ecraParticipacao(alvo) {
           <button class="botao pequeno perigo" data-pe="${p.id}|apagar">Apagar</button>
         </div></div>`).join('') : '<p class="suave">Ainda não há perguntas.</p>'}`);
 
-    html += cartaoQuiz(quiz, envioQuiz);
+    if (quais === 'quiz') html += cartaoQuiz(quiz, envioQuiz);
     alvo.innerHTML = html;
 
     // Quiz: modo, horário do envio automático e data de cada pergunta.
@@ -283,3 +286,9 @@ function ecraParticipacao(alvo) {
     }));
   })();
 }
+
+/* Três ecrãs separados: cada um mostra só o que lhe diz respeito. */
+const TITULOS_PART = { perguntas: 'Perguntas ao programa', prognosticos: 'Prognósticos', quiz: 'Quiz' };
+const ecraPerguntas = alvo => ecraParticipacao(alvo, 'perguntas');
+const ecraPrognosticos = alvo => ecraParticipacao(alvo, 'prognosticos');
+const ecraQuiz = alvo => ecraParticipacao(alvo, 'quiz');

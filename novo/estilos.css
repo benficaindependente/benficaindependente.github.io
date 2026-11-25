@@ -363,6 +363,42 @@ body {
 .pilula { background: rgba(255, 255, 255, .06); }
 input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), textarea, select { background: #141922; border-color: #38435a; }
 
+
+/* ============ Abas, banner de publicidade ============ */
+.abas { display: flex; gap: 4px; padding: 4px; margin-bottom: 18px; background: rgba(255, 255, 255, .05); border: 1px solid var(--linha); border-radius: 16px; overflow-x: auto; scrollbar-width: none; }
+.abas::-webkit-scrollbar { display: none; }
+.aba { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--suave); font: inherit; font-weight: 700; font-size: .92rem; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+.aba:hover { color: var(--texto); background: rgba(255, 255, 255, .06); }
+.aba.ativa { background: var(--grad-vermelho); color: #fff; box-shadow: var(--brilho-vermelho); }
+.aba .marca { background: #fff; color: #b30f22; }
+.promo { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px; background: #2b3345; color: #fff; font-size: .8rem; line-height: 1.2; overflow: hidden; }
+.promo-patreon { background: var(--grad-vermelho); }
+.promo-etq { font-size: .58rem; font-weight: 800; letter-spacing: .08em; color: #b8c0cf; flex: 0 0 auto; }
+.promo-patreon .promo-etq { color: #fff; }
+.promo-txt { flex: 1; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.promo-ico { flex: 0 0 auto; font-size: 1.05em; }
+.promo-seta { flex: 0 0 auto; color: #b8c0cf; font-size: 1.2em; }
+.promo-logo { width: 22px; height: 22px; border-radius: 5px; object-fit: cover; flex: 0 0 auto; }
+.promo-logo-exemplo { display: grid; place-items: center; background: #fff; color: #222; font-size: .5rem; font-weight: 800; }
+.promo-imagem { position: relative; padding: 0; background: #1c2230; }
+.promo-imagem img { width: 100%; aspect-ratio: 9 / 1; object-fit: cover; display: block; }
+.promo-img { width: 100%; aspect-ratio: 9 / 1; display: grid; place-items: center; background: repeating-linear-gradient(45deg, #2b3345, #2b3345 10px, #252d3e 10px, #252d3e 20px); color: #9aa4b2; font-weight: 700; font-size: .75rem; }
+.promo-canto { position: absolute; right: 6px; bottom: 3px; font-size: .5rem; font-weight: 800; letter-spacing: .08em; color: #fff; text-shadow: 0 1px 3px #000; }
+.formatos { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 14px; }
+.formato { background: rgba(255, 255, 255, .04); border: 1px solid var(--linha); border-radius: 14px; padding: 14px; }
+.formato b { display: block; margin-bottom: 10px; }
+.formato .promo { margin-bottom: 10px; }
+.formato p { margin: 0; }
+.rotacao { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.tm-ecra .promo { border-radius: 8px; font-size: 11px; padding: 6px 10px; }
+.tm-ecra .promo-imagem { padding: 0; }
+
+.prev-viva { position: sticky; top: 0; z-index: 3; margin: -6px -20px 16px; padding: 12px 20px 14px; background: linear-gradient(180deg, #232b3a, #1d2431); border-bottom: 1px solid var(--linha); box-shadow: 0 10px 18px -12px rgba(0, 0, 0, .6); }
+.prev-viva-etq { font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); margin-bottom: 8px; }
+.prev-viva .promo { font-size: .9rem; }
+.prev-viva-nota { margin-top: 8px; font-size: .8rem; color: var(--suave); }
+
 /* ============ Específico (quadro tático, pré-visualizações, sondagens com fotos) ============ */
 
 /* ---------- Pré-visualização (telemóvel) ---------- */

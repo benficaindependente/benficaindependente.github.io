@@ -409,6 +409,63 @@ function icone(nome, classe) {
   return `<svg class="ico ${classe || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[nome] || ''}</svg>`;
 }
 
+/* ---------------------------- Banner de publicidade ---------------------------- */
+const ICONES_BANNER = [['', 'Nenhum'], ['🔥', '🔥 Em destaque'], ['⭐', '⭐ Estrela'], ['🎁', '🎁 Oferta'], ['📢', '📢 Novidade'], ['⚽', '⚽ Futebol'],
+  ['🍽️', '🍽️ Restaurante'], ['🍺', '🍺 Bebida'], ['🏆', '🏆 Troféu'], ['💰', '💰 Desconto'], ['🛒', '🛒 Compras'], ['🎟️', '🎟️ Bilhetes'],
+  ['🚗', '🚗 Carros'], ['🏠', '🏠 Casa'], ['💪', '💪 Ginásio'], ['📞', '📞 Contacto'], ['➡️', '➡️ Seta'], ['👉', '👉 Aponta'], ['❤️', '❤️ Coração'], ['🔴', '🔴 Benfica']];
+
+/** A barra por cima do menu, tal como aparece na app (usada nas pré-visualizações). */
+function promoBar(v) {
+  const f = v.formato || (v.imagem ? 'logo' : 'texto');
+  if (f === 'imagem') {
+    return `<div class="promo promo-imagem">${imagemValida(v.imagem) ? `<img src="${esc(v.imagem)}" alt="">` : '<div class="promo-img">Imagem 1080 × 120 px</div>'}<span class="promo-canto">PUBLICIDADE</span></div>`;
+  }
+  const antes = f === 'texto' && v.iconeAntes ? `<span class="promo-ico">${esc(v.iconeAntes)}</span>` : '';
+  const depois = f === 'texto' && v.iconeDepois ? `<span class="promo-ico">${esc(v.iconeDepois)}</span>` : '';
+  const logo = f === 'logo' && imagemValida(v.imagem) ? `<img class="promo-logo" src="${esc(v.imagem)}" alt="">` : '';
+  return `<div class="promo">${logo}<span class="promo-etq">PUBLICIDADE</span>${antes}<span class="promo-txt">${esc(v.texto || 'Texto do anúncio')}</span>${depois}<span class="promo-seta">›</span></div>`;
+}
+
+function ecraBanner(alvo) {
+  const ativos = (ler('anuncios') || []).filter(x => x.ativo !== false);
+  const formato = (n, titulo, barra, texto) => `<div class="formato"><b>${n} · ${esc(titulo)}</b>${barra}<p class="suave">${texto}</p></div>`;
+  alvo.innerHTML = cartao('Como funciona', `
+    <p>Esta é a <b>barra vermelha por cima do menu da app</b>, visível em todos os ecrãs. Vai alternando, de 5 em 5 segundos, entre o <b>Patreon</b> e os anúncios de quem paga para aparecer. Quanto maior a <i>frequência</i> (1 a 5), mais vezes o anúncio aparece.</p>
+    <div class="formatos">
+      ${formato(1, 'Texto com ícones', promoBar({ formato: 'texto', texto: 'Restaurante O Águia — 10% para sócios', iconeAntes: '🍽️', iconeDepois: '➡️' }), 'Escreves a frase e escolhes um ícone antes, depois ou os dois.')}
+      ${formato(2, 'Logótipo e texto', promoBar({ formato: 'logo', texto: 'Ginásio Leão — 1.º mês grátis' }).replace('<span class="promo-etq">', '<span class="promo-logo promo-logo-exemplo">LOGO</span><span class="promo-etq">'), 'Um logótipo pequeno e quadrado (ex.: 300 × 300 px) antes do texto.')}
+      ${formato(3, 'Imagem a toda a largura', promoBar({ formato: 'imagem' }), '<b>Formato: 1080 × 120 píxeis</b> (9:1, larga e baixa). A imagem ocupa a barra inteira e pode levar a tua arte, já com texto e cores.')}
+    </div>`);
+  const resto = document.createElement('div');
+  alvo.appendChild(resto);
+  ecraConteudo('anuncios')(resto);
+  // Ordem real da rotação (como a pessoa a vê na app)
+  if (ativos.length) {
+    const rot = cartao('O que está a rodar agora', `<p class="suave">Assim aparecem, por esta ordem (o Patreon entra sempre).</p>
+      <div class="rotacao"><div class="promo promo-patreon"><span class="promo-etq">PATREON</span><span class="promo-txt">Apoia o Benfica Independente no Patreon</span><span class="promo-seta">›</span></div>
+      ${ativos.map(x => promoBar(x)).join('')}</div>`);
+    alvo.insertBefore(Object.assign(document.createElement('div'), { innerHTML: rot }).firstElementChild, resto);
+  }
+}
+
+/* ---------------------------- Abas dentro de um ecrã ---------------------------- */
+const ABA_ATIVA = {};
+/** Mostra abas ("separadores") grandes e claras. abas = [{ id, nome, icone, desenhar(div) }] */
+function comAbas(alvo, chave, abas) {
+  const atual = abas.find(a => a.id === ABA_ATIVA[chave]) || abas[0];
+  alvo.innerHTML = `<div class="abas" role="tablist">${abas.map(a => `<button role="tab" class="aba ${a.id === atual.id ? 'ativa' : ''}" data-aba="${esc(a.id)}">
+      ${a.icone ? icone(a.icone) : ''}<span>${esc(a.nome)}</span>${a.n ? `<span class="marca">${a.n}</span>` : ''}</button>`).join('')}</div><div class="aba-corpo"></div>`;
+  $$('.aba', alvo).forEach(b => b.addEventListener('click', () => { ABA_ATIVA[chave] = b.dataset.aba; comAbas(alvo, chave, abas); }));
+  atual.desenhar($('.aba-corpo', alvo));
+}
+
+function ecraSondagens(alvo) {
+  comAbas(alvo, 'sond', [
+    { id: 'simples', nome: 'Simples (texto)', icone: 'poll', desenhar: d => ecraVotacoes(d, 'simples') },
+    { id: 'fotos', nome: 'Com fotos dos jogadores', icone: 'image', desenhar: d => ecraVotacoes(d, 'fotos') }
+  ]);
+}
+
 /* ---------------------------- Estrutura: 4 áreas ---------------------------- */
 const GRUPOS = [
   { chave: 'direto', nome: 'Direto', icone: 'live', ajuda: 'Tudo o que se usa durante o programa' },
@@ -458,7 +515,7 @@ function porAprovarPorMim(tipo) {
 function marcaDoMenu(chave) {
   if (TIPOS[chave]) return porAprovarPorMim(chave) || '';
   if (chave === 'painel') return alertas().filter(a => a.mau).length || '';
-  if (chave === 'votacoes') return SOND_POR_APROVAR || '';
+  if (chave === 'sondagens') return SOND_POR_APROVAR || '';
   if (chave === 'mensagens') return MSG_NOVAS || '';
   return '';
 }
@@ -579,7 +636,7 @@ function formulario(titulo, campos, valores, opcoes) {
     fundo.className = 'fundo-modal';
     fundo.innerHTML = `<div class="modal">
       <header><h3>${esc(titulo)}</h3></header>
-      <div class="modal-corpo formulario">${opcoes.nota ? `<p class="suave">${opcoes.nota}</p>` : ''}${campos.map(c => campoHtml(c, valores[c.nome])).join('')}</div>
+      <div class="modal-corpo formulario">${opcoes.aoVivo ? '<div class="prev-viva"><div class="prev-viva-etq">Assim aparece na app (muda enquanto escreves)</div><div data-vivo></div></div>' : ''}${opcoes.nota ? `<p class="suave">${opcoes.nota}</p>` : ''}${campos.map(c => campoHtml(c, valores[c.nome])).join('')}</div>
       <div class="modal-pe">
         <button class="botao" data-cancelar>Cancelar</button>
         ${opcoes.previsualizar ? '<button class="botao" data-previsualizar>👁 Pré-visualizar</button>' : ''}
@@ -609,8 +666,13 @@ function formulario(titulo, campos, valores, opcoes) {
         el.style.display = ok ? '' : 'none';
       });
     };
+    // Pré-visualização ao vivo (um "mini editor"): muda a cada letra ou escolha.
+    const atualizarVivo = () => { const c = $('[data-vivo]', fundo); if (c && opcoes.aoVivo) c.innerHTML = opcoes.aoVivo(recolher()); };
     fundo.addEventListener('change', aplicarVisiveis);
+    fundo.addEventListener('input', atualizarVivo);
+    fundo.addEventListener('change', atualizarVivo);
     aplicarVisiveis();
+    atualizarVivo();
     // Escolher foto: reduz e carrega logo.
     $$('input[type="file"][data-para]', fundo).forEach(inp => inp.addEventListener('change', async () => {
       const f = inp.files && inp.files[0];
@@ -625,6 +687,7 @@ function formulario(titulo, campos, valores, opcoes) {
         info.textContent = r.resumo;
         const mini = $(`[data-mini="${inp.dataset.para}"]`, fundo);
         mini.src = r.url; mini.style.display = '';
+        atualizarVivo();
       } catch (e) {
         info.textContent = '';
         aviso(e.message, true);
@@ -638,6 +701,7 @@ function formulario(titulo, campos, valores, opcoes) {
       $(`[name="${n}"]`, fundo).value = '';
       const mini = $(`[data-mini="${n}"]`, fundo); mini.removeAttribute('src'); mini.style.display = 'none';
       $(`[data-info="${n}"]`, fundo).textContent = '';
+      atualizarVivo();
     }));
     const fechar = r => { fundo.remove(); resolve(r); };
     $('[data-cancelar]', fundo).addEventListener('click', () => fechar(null));
@@ -794,23 +858,36 @@ const TIPOS = {
       'No topo do Início' + (v.de || v.ate ? ` (${v.de ? dataDia(v.de) : 'já'} → ${v.ate ? dataDia(v.ate) : 'sem fim'})` : ''))
   },
   anuncios: {
-    nome: 'Anúncios', singular: 'anúncio', icone: '💰',
-    descricao: 'Publicidade na barra por cima do menu da app, em todos os ecrãs. Alterna com o Patreon de 5 em 5 segundos.',
+    nome: 'Banner de publicidade', singular: 'anúncio', icone: '💰',
+    descricao: 'A barra vermelha por cima do menu da app, em todos os ecrãs. Alterna com o Patreon de 5 em 5 segundos e mostra, por turnos, quem paga para aparecer.',
     titulo: x => x.texto, resumo: x => x.link,
     campos: [
-      { nome: 'texto', etiqueta: 'Texto do anúncio (curto)', tipo: 'text', dica: 'Ex.: Restaurante O Águia — 10% para sócios' },
-      { nome: 'imagem', etiqueta: 'Logótipo (opcional)', tipo: 'imagem', maxLado: 300, ajuda: 'Logótipo quadrado. É reduzido automaticamente.' },
+      { nome: 'formato', etiqueta: 'Como queres o banner?', tipo: 'select', valor: 'texto', opcoes: [
+        ['texto', 'Texto com ícones (antes e/ou depois)'],
+        ['logo', 'Logótipo e texto'],
+        ['imagem', 'Imagem a toda a largura (1080 × 120 px)']] },
+      { nome: 'texto', etiqueta: 'Texto do anúncio (curto)', tipo: 'text', dica: 'Ex.: Restaurante O Águia — 10% para sócios', ajuda: 'No banner só com imagem, serve de nome do anúncio (não aparece).' },
+      { nome: 'iconeAntes', etiqueta: 'Ícone antes do texto', tipo: 'select', so: 'formato:texto', valor: '', opcoes: ICONES_BANNER },
+      { nome: 'iconeDepois', etiqueta: 'Ícone depois do texto', tipo: 'select', so: 'formato:texto', valor: '', opcoes: ICONES_BANNER },
+      { nome: 'imagem', etiqueta: 'Imagem', tipo: 'imagem', maxLado: 1080, so: 'formato:logo,imagem',
+        ajuda: 'Logótipo: quadrado (ex.: 300 × 300). Imagem do banner: 1080 × 120 píxeis (9:1, larga e baixa). É reduzida automaticamente.' },
       { nome: 'link', etiqueta: 'Para onde leva ao tocar', tipo: 'url', dica: 'https://...' },
       { nome: 'peso', etiqueta: 'Frequência (1 a 5)', tipo: 'number', valor: 1, min: 1, max: 5, ajuda: '1 = normal, 2 = aparece o dobro das vezes' },
       ...DATAS, ATIVO
     ],
     privados: PAGO,
-    valido: v => !v.texto ? 'O anúncio precisa de um texto.' : (v.link && !urlSegura(v.link) ? 'A ligação tem de começar por https://' : ''),
+    aoVivo: v => promoBar(v) + (v.formato === 'imagem'
+      ? '<div class="prev-viva-nota"><b>Formato da imagem: 1080 × 120 píxeis</b> (9:1, larga e baixa). Se for diferente, é cortada ao centro.</div>'
+      : v.formato === 'logo' ? '<div class="prev-viva-nota">Logótipo quadrado, de preferência 300 × 300 píxeis.</div>'
+      : '<div class="prev-viva-nota">Escolhe um ícone antes, depois ou os dois (ou nenhum).</div>'),
+    valido: v => !v.texto ? 'O anúncio precisa de um texto.'
+      : (v.formato === 'imagem' && !v.imagem ? 'Escolhe a imagem do banner (1080 × 120 px).'
+      : (v.link && !urlSegura(v.link) ? 'A ligação tem de começar por https://' : '')),
     previsualizar: v => telemovel(
       `<div class="tm-p tm-suave">(conteúdo do ecrã)</div><div style="flex:1"></div>
-       <div class="tm-anuncio">${tmImagem(v.imagem, 'tm-logo')}<span>${esc(v.texto || 'Texto do anúncio')}</span><em>PUBLICIDADE</em></div>
+       ${promoBar(v)}
        <div class="tm-menu"><span>Início</span><span>Artigos</span><span>Podcasts</span><span>Vídeos</span><span>Benfica</span></div>`,
-      'Na barra por cima do menu, em todos os ecrãs')
+      'Na barra por cima do menu, em todos os ecrãs' + (v.formato === 'imagem' ? ' · imagem: 1080 × 120 px' : ''))
   },
   publicacoes: {
     nome: 'Publicações', singular: 'publicação', icone: '🖼',
@@ -966,6 +1043,7 @@ async function editarConteudo(tipo, id, modelo) {
   const atual = id ? (ler(tipo) || []).find(x => x.id === id) : null;
   // Se já há uma alteração pendente, parte dela. Um modelo pronto preenche o formulário.
   const base = atual ? Object.assign({}, atual, atual.proposta && atual.proposta.campos ? atual.proposta.campos : {}) : Object.assign({ ativo: true }, modelo || {});
+  if (tipo === 'anuncios' && !base.formato) base.formato = base.imagem ? 'logo' : 'texto';
   const privAtuais = atual ? (PRIV[atual.id] || {}) : {};
   const campos = T.campos.concat(T.privados || []);
   const publicado = atual && atual.estado === 'publicado';
@@ -973,6 +1051,7 @@ async function editarConteudo(tipo, id, modelo) {
     textoGuardar: 'Publicar',
     nota: publicado ? 'Enquanto a alteração não for aprovada, a app continua a mostrar a versão atual.' : '',
     previsualizar: T.previsualizar,
+    aoVivo: T.aoVivo,
     validar: x => T.valido(x)
       || (x.link && !urlSegura(x.link) ? 'As ligações têm de começar por https://' : '')
       || (x.imagem && !imagemValida(x.imagem) ? 'A imagem tem de ser uma foto escolhida ou um endereço https://' : ''),
@@ -1316,7 +1395,9 @@ function ecraPainel(alvo) {
   })();
 }
 
+const ALIAS_ECRAS = { anuncios: 'banner', votacoes: 'sondagens', participacao: 'perguntas' };
 function irPara(ecra) {
+  ecra = ALIAS_ECRAS[ecra] || ecra;
   ECRAS_ATIVO = ecra;
   document.body.dataset.ecra = ecra;
   CONVERSA_ABERTA = null;
@@ -2112,17 +2193,22 @@ async function novaSondagem() {
     await rpcAdmin('bi_admin_sondagem_criar', { p_pergunta: v.pergunta, p_opcoes: opcoes, p_fecha: v.fecha ? new Date(v.fecha).toISOString() : null });
     aviso(TESTE ? 'Sondagem publicada.' : 'Sondagem enviada. Falta a aprovação de outro administrador.');
   } catch (e) { aviso(e.message, true); } finally { carregar(false); }
-  if (ECRAS_ATIVO === 'votacoes') redesenhar();
+  if (ECRAS_ATIVO === 'sondagens') redesenhar();
 }
 
-function ecraVotacoes(alvo) {
+function ecraVotacoes(alvo, modo) {
+  if (CFG.modo === 'local' && modo === 'mvp') {
+    alvo.innerHTML = cartao('Homem do jogo (MVP)', '<p class="aviso mau">Estás no <b>modo de teste</b>: a votação do Homem do jogo só funciona com a conta de administrador.</p>');
+    return;
+  }
   if (CFG.modo === 'local') {
-    alvo.innerHTML = cartao('Sondagens e Homem do jogo', `<p class="aviso mau">Estás no <b>modo de teste</b>: as sondagens não são enviadas para a app.
+    alvo.innerHTML = cartao('Sondagens', `<p class="aviso mau">Estás no <b>modo de teste</b>: as sondagens não são enviadas para a app.
       Para publicar a sério, sai (Definições › Sair) e entra com a conta GitHub.</p>
       <p class="suave">Podes na mesma experimentar o formulário e ver como a sondagem fica na app.</p>`,
-      '<button class="botao pequeno principal" data-nova>＋ Experimentar uma sondagem</button> <button class="botao pequeno principal" data-nova-fotos>📸 Experimentar com fotos</button>');
-    $('[data-nova]', alvo).addEventListener('click', novaSondagem);
-    $('[data-nova-fotos]', alvo).addEventListener('click', novaSondagemFotos);
+      modo === 'fotos' ? '<button class="botao pequeno principal" data-nova-fotos>📸 Experimentar com fotos</button>'
+        : '<button class="botao pequeno principal" data-nova>＋ Experimentar uma sondagem</button>');
+    $('[data-nova]', alvo)?.addEventListener('click', novaSondagem);
+    $('[data-nova-fotos]', alvo)?.addEventListener('click', novaSondagemFotos);
     return;
   }
   alvo.innerHTML = cartao('Sondagens', '<p class="suave">A carregar…</p>');
@@ -2146,8 +2232,9 @@ function ecraVotacoes(alvo) {
       if (fim && agora < fim + horas * 3600e3) return `<span class="pilula ok">Terminada · resultado no Início até ${esc(dataCurta(new Date(fim + horas * 3600e3).toISOString()))}</span>`;
       return '<span class="pilula">No histórico (menu ⋮ da app)</span>';
     };
-    let html = cartao('Sondagens', `<p class="suave">Enquanto está aberta, a sondagem aparece no topo do Início da app, no lugar da foto do BI (várias ficam empilhadas). Quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois passa para o "Histórico de sondagens" (menu ⋮ da app). Um voto por telemóvel.</p>
-      ${sond.length ? sond.map(s => `<div class="sondagem">
+    const lista = modo === 'fotos' ? sond.filter(s => s.fotos) : sond.filter(s => !s.fotos);
+    let html = modo === 'mvp' ? '' : cartao(modo === 'fotos' ? 'Sondagens com fotos' : 'Sondagens simples', `<p class="suave">Enquanto está aberta, a sondagem aparece no topo do Início da app, no lugar da foto do BI (várias ficam empilhadas). Quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois passa para o "Histórico de sondagens" (menu ⋮ da app). Um voto por telemóvel.</p>
+      ${lista.length ? lista.map(s => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(s.pergunta)}</b> ${estado(s)}</div>
         <div class="mini">Criada por ${esc(s.criada_por)} · ${esc(dataCurta(s.criada))}${s.aprovada_por ? ` · aprovada por ${esc(s.aprovada_por)}` : ''}${s.fecha ? ` · fecha ${esc(dataCurta(s.fecha))}` : ''}</div>
         ${s.fotos ? `<div class="linha-acoes">${s.opcoes.map((o, i) => fotoRedonda(s.fotos[i], o, 38)).join('')}</div>` : ''}
@@ -2158,14 +2245,14 @@ function ecraVotacoes(alvo) {
           ${!s.aprovada_por && s.criada_por === CFG.login ? '<span class="mini">Espera por outro administrador</span>' : ''}
           ${s.aprovada_por && !s.fechada ? `<button class="botao pequeno" data-fechar-s="${s.id}">Fechar votação</button>` : ''}
           <button class="botao pequeno perigo" data-apagar-s="${s.id}">Apagar</button>
-        </div></div>`).join('') : '<p class="suave">Ainda não há sondagens.</p>'}`,
-      '<button class="botao pequeno principal" data-nova>＋ Nova sondagem</button> <button class="botao pequeno principal" data-nova-fotos>📸 Com fotos</button>');
+        </div></div>`).join('') : '<p class="suave">Ainda não há sondagens deste tipo.</p>'}`,
+      modo === 'fotos' ? '<button class="botao pequeno principal" data-nova-fotos>📸 Nova sondagem com fotos</button>' : '<button class="botao pequeno principal" data-nova>＋ Nova sondagem</button>');
     // Estado da votação de cada jogo: aberta (24 horas a contar do fim do jogo) ou terminada por um administrador.
     const hdjAberta = j => !j.fechado && j.aberto && Date.now() < new Date(j.aberto).getTime() + 24 * 3600e3;
     const hdjEstado = j => j.fechado
       ? `<span class="pilula">Terminada ${esc(dataCurta(j.fechado))}${j.por ? ' por ' + esc(j.por) : ''}</span>`
       : hdjAberta(j) ? '<span class="pilula ok">Aberta · a decorrer na app</span>' : '<span class="pilula">Terminada (24 horas)</span>';
-    html += cartao('Homem do jogo (MVP)', `<p class="suave">Automático: quando o jogo da equipa principal acaba, a votação abre na app (no Início e no ecrã do jogo) e fecha sozinha ao fim de 24 horas. Se estás a fazer o direto, podes <b>terminá-la já</b> com o botão abaixo: a app deixa de aceitar votos e mostra logo o pódio com os 3 mais votados, com percentagem e número de votos. O resultado fica 1 hora no Início e depois só na ficha do jogo.</p>
+    if (modo === 'mvp') html += cartao('Homem do jogo (MVP)', `<p class="suave">Automático: quando o jogo da equipa principal acaba, a votação abre na app (no Início e no ecrã do jogo) e fecha sozinha ao fim de 24 horas. Se estás a fazer o direto, podes <b>terminá-la já</b> com o botão abaixo: a app deixa de aceitar votos e mostra logo o pódio com os 3 mais votados, com percentagem e número de votos. O resultado fica 1 hora no Início e depois só na ficha do jogo.</p>
       ${hdj.length ? hdj.map(j => `<div class="sondagem">
           <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b> ${hdjEstado(j)}</div>
           <div class="mini">${numero(j.total)} ${j.total == 1 ? 'votante' : 'votantes'}${j.ultimo ? ` · último registo ${esc(dataCurta(j.ultimo))}` : ''}</div>
@@ -2173,8 +2260,8 @@ function ecraVotacoes(alvo) {
           ${hdjAberta(j) ? `<div class="linha-acoes"><button class="botao pequeno principal" data-fechar-hdj="${esc(j.jogo)}" data-titulo="${esc(j.titulo || j.jogo)}">🏁 Terminar votação agora</button></div>` : ''}</div>`).join('')
         : '<p class="suave">Ainda não houve votações. O jogo aparece aqui assim que acabar e a votação abrir na app.</p>'}`);
     alvo.innerHTML = html;
-    $('[data-nova]', alvo).addEventListener('click', novaSondagem);
-    $('[data-nova-fotos]', alvo).addEventListener('click', novaSondagemFotos);
+    $('[data-nova]', alvo)?.addEventListener('click', novaSondagem);
+    $('[data-nova-fotos]', alvo)?.addEventListener('click', novaSondagemFotos);
     const prevDe = x => x.fotos ? prevSondagemFotos(x.pergunta, (x.opcoes || []).map((o, i) => ({ nome: o, foto: x.fotos[i] || '' })), x.fecha, x.votos)
       : prevSondagem(x.pergunta, x.opcoes || [], x.fecha, x.votos);
     const acao = async (fn, id, ok) => {
@@ -2575,12 +2662,16 @@ ECRAS = [
   // 🔴 Direto
   { chave: 'direto', nome: 'Painel do direto', grupo: 'direto', desenhar: ecraDireto },
   { chave: 'quadro', nome: 'Quadro tático', grupo: 'direto', desenhar: ecraQuadro },
-  { chave: 'votacoes', nome: 'Sondagens e MVP', grupo: 'direto', desenhar: ecraVotacoes },
-  { chave: 'participacao', nome: 'Perguntas e prognósticos', grupo: 'direto', desenhar: ecraParticipacao },
+  { chave: 'sondagens', nome: 'Sondagens', grupo: 'direto', desenhar: ecraSondagens },
+  { chave: 'mvp', nome: 'Homem do jogo (MVP)', grupo: 'direto', desenhar: a => ecraVotacoes(a, 'mvp') },
+  { chave: 'perguntas', nome: 'Perguntas ao programa', grupo: 'direto', desenhar: ecraPerguntas },
+  { chave: 'prognosticos', nome: 'Prognósticos', grupo: 'direto', desenhar: ecraPrognosticos },
   { chave: 'mensagens', nome: 'Mensagens', grupo: 'direto', desenhar: ecraMensagens },
   { chave: 'notificacoes', nome: 'Enviar aviso', grupo: 'direto', desenhar: ecraConteudo('notificacoes') },
   // ✍ Conteúdos
-  ...['noticias', 'destaques', 'publicacoes', 'anuncios'].map(t => ({ chave: t, nome: TIPOS[t].nome, grupo: 'conteudos', desenhar: ecraConteudo(t) })),
+  ...['noticias', 'destaques', 'publicacoes'].map(t => ({ chave: t, nome: TIPOS[t].nome, grupo: 'conteudos', desenhar: ecraConteudo(t) })),
+  { chave: 'banner', nome: 'Banner de publicidade', grupo: 'conteudos', desenhar: ecraBanner },
+  { chave: 'quiz', nome: 'Quiz', grupo: 'conteudos', desenhar: ecraQuiz },
   { chave: 'programas', nome: 'Programas na app', grupo: 'conteudos', desenhar: ecraProgramas },
   // 📅 Agendado
   { chave: 'agendado', nome: 'O que vai sair', grupo: 'agendado', desenhar: ecraAgendado },
@@ -2647,31 +2738,41 @@ function cartaoJogo(g) {
 }
 
 function ecraDireto(alvo) {
-  const mosaico = (acao, ico, titulo, sub, n) => `<button class="mosaico" ${acao}>
+  const mosaico = (acao, ico, titulo, sub, id) => `<button class="mosaico" ${acao}>
       <span class="mosaico-ico">${icone(ico)}</span>
-      <span class="mosaico-txt"><b>${esc(titulo)}</b><span>${esc(sub)}</span></span>
-      ${n ? `<span class="marca">${n}</span>` : ''}</button>`;
+      <span class="mosaico-txt"><b>${esc(titulo)}</b><span ${id ? `id="${id}"` : ''}>${esc(sub)}</span></span></button>`;
   alvo.innerHTML = `<div id="jogo-hoje">${cartaoJogo(undefined).replace('Sem jogo marcado', 'A procurar o jogo…')}</div>
     <h3 class="seccao-titulo">Durante o direto</h3>
     <div class="mosaicos">
       ${mosaico('data-ir="quadro"', 'board', 'Quadro tático', 'Mostra a tática aos adeptos, ao vivo')}
-      ${mosaico('data-ir="votacoes" data-nova-sondagem', 'poll', 'Sondagem rápida', 'Os adeptos votam na app')}
-      ${mosaico('data-ir="votacoes"', 'star', 'Homem do jogo (MVP)', 'Ver os votos e terminar a votação')}
-      ${mosaico('data-ir="participacao"', 'chat', 'Perguntas e prognósticos', 'Escolhe as perguntas que vais ler')}
-      ${mosaico('data-ir="mensagens"', 'mail', 'Mensagens', MSG_NOVAS ? `${MSG_NOVAS} por responder` : 'Sem mensagens novas', MSG_NOVAS)}
+      ${mosaico('data-ir="sondagens" data-aba="sond:simples" data-nova-sondagem', 'poll', 'Sondagem rápida', 'Os adeptos votam na app')}
+      ${mosaico('data-ir="sondagens" data-aba="sond:fotos" data-nova-fotos', 'image', 'Sondagem com fotos', 'Escolhe jogadores, com foto e nome')}
+      ${mosaico('data-ir="mvp"', 'star', 'Homem do jogo (MVP)', 'Ver os votos e terminar a votação')}
+      ${mosaico('data-ir="perguntas"', 'chat', 'Perguntas dos adeptos', 'Escolhe as que vais ler no direto', 'sub-perguntas')}
+      ${mosaico('data-ir="prognosticos"', 'chart', 'Prognósticos', 'Ver quem acertou no resultado')}
+      ${mosaico('data-ir="mensagens"', 'mail', 'Mensagens', MSG_NOVAS ? `${MSG_NOVAS} por responder` : 'Sem mensagens novas')}
       ${mosaico('data-criar="notificacoes"', 'bell', 'Enviar um aviso', 'Notificação para os telemóveis, agora')}
     </div>
     <h3 class="seccao-titulo">Precisas de ajuda?</h3>
     <div class="mosaicos">
       ${mosaico('data-ir="ajuda"', 'spark', 'Perguntar à IA', 'Explica como se faz qualquer coisa')}
-      ${mosaico('data-ir="agendado"', 'calendar', 'Ver o que está agendado', 'Avisos, sondagens e destaques')}
+      ${mosaico('data-ir="agendado"', 'calendar', 'Ver o que está agendado', 'Avisos, sondagens, destaques e quiz')}
     </div>`;
   $$('[data-ir]', alvo).forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.aba) { const [k, v] = b.dataset.aba.split(':'); ABA_ATIVA[k] = v; }
     irPara(b.dataset.ir);
     if (b.hasAttribute('data-nova-sondagem')) novaSondagem();
+    if (b.hasAttribute('data-nova-fotos')) novaSondagemFotos();
   }));
   $$('[data-criar]', alvo).forEach(b => b.addEventListener('click', () => { irPara(b.dataset.criar); editarConteudo(b.dataset.criar, null); }));
   lerJogoDeHoje().then(g => { const c = $('#jogo-hoje', alvo); if (c) c.innerHTML = cartaoJogo(g); });
+  // Quantas perguntas novas há (sem bloquear o ecrã)
+  if (CFG.modo !== 'local') {
+    rpcAdmin('bi_admin_perguntas').then(l => {
+      const n = (l || []).filter(p => p.estado === 'nova').length, c = $('#sub-perguntas', alvo);
+      if (c) c.textContent = n ? `${n} ${n === 1 ? 'nova' : 'novas'} por ler` : 'Escolhe as que vais ler no direto';
+    }).catch(() => {});
+  }
 }
 
 /* ---------------------------- Agendado: o que vai sair e quando ---------------------------- */
@@ -2685,42 +2786,65 @@ function rotuloDia(d) {
   return d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-async function ecraAgendado(alvo) {
-  alvo.innerHTML = cartao('', '<p class="suave">A procurar o que está agendado…</p>');
-  const agora = new Date();
-  const itens = [];
-  const nomeTipo = { notificacoes: 'Aviso', noticias: 'Notícia', destaques: 'Destaque', publicacoes: 'Foto e texto', anuncios: 'Anúncio' };
+/** Reúne tudo o que tem data marcada: avisos, destaques, banner, sondagens, quiz… */
+async function recolherAgendados() {
+  const agora = new Date(), itens = [];
+  const grupoDe = { notificacoes: 'avisos', destaques: 'destaques', anuncios: 'banner', noticias: 'outros', publicacoes: 'outros' };
+  const nomeTipo = { notificacoes: 'Aviso', noticias: 'Notícia', destaques: 'Destaque', publicacoes: 'Foto e texto', anuncios: 'Banner' };
   Object.keys(TIPOS).forEach(t => (ler(t) || []).filter(x => x.ativo !== false).forEach(x => {
-    const de = quandoDe(x.de), ate = quandoDe(x.ate);
-    const titulo = TIPOS[t].titulo(x) || '(sem título)';
-    if (de && de > agora) itens.push({ quando: de, ico: t === 'notificacoes' ? 'bell' : 'calendar', tipo: nomeTipo[t] || t, texto: (t === 'notificacoes' ? 'Sai: ' : 'Começa: ') + titulo, ecra: t });
-    if (ate && ate > agora) itens.push({ quando: ate, ico: 'calendar', tipo: nomeTipo[t] || t, texto: 'Termina: ' + titulo, ecra: t });
+    const de = quandoDe(x.de), ate = quandoDe(x.ate), titulo = TIPOS[t].titulo(x) || '(sem título)';
+    const base = { grupo: grupoDe[t] || 'outros', tipo: nomeTipo[t] || t, ecra: t, ico: t === 'notificacoes' ? 'bell' : t === 'anuncios' ? 'euro' : 'star' };
+    if (de && de > agora) itens.push(Object.assign({ quando: de, texto: (t === 'notificacoes' ? 'Sai: ' : 'Começa: ') + titulo }, base));
+    if (ate && ate > agora) itens.push(Object.assign({ quando: ate, texto: 'Termina: ' + titulo }, base));
   }));
   if (CFG.modo !== 'local') {
     try {
       (await rpcAdmin('bi_admin_sondagens')).filter(s => s.aprovada_por && !s.fechada && s.fecha && quandoDe(s.fecha) > agora)
-        .forEach(s => itens.push({ quando: quandoDe(s.fecha), ico: 'poll', tipo: 'Sondagem', texto: 'Termina: ' + s.pergunta, ecra: 'votacoes' }));
-    } catch (e) { /* sem sondagens: segue */ }
+        .forEach(s => itens.push({ grupo: 'sondagens', quando: quandoDe(s.fecha), ico: 'poll', tipo: 'Sondagem', texto: 'Termina: ' + s.pergunta, ecra: 'sondagens' }));
+    } catch (e) { /* sem sondagens */ }
+    try {
+      const [quiz, env] = await Promise.all([lerQuizPublico(), lerQuizEnvio()]);
+      Object.entries((env && env.envios) || {}).forEach(([id, quando]) => {
+        const q = (quiz || []).find(x => String(x.id) === String(id)), d = quandoDe(quando);
+        if (q && d && d > agora) itens.push({ grupo: 'quiz', quando: d, ico: 'chat', tipo: 'Quiz', texto: 'Sai: ' + (q.pergunta || 'pergunta do quiz'), ecra: 'quiz' });
+      });
+    } catch (e) { /* sem quiz */ }
   }
-  itens.sort((a, b) => a.quando - b.quando);
-  let html = '';
-  if (!itens.length) {
-    html = cartao('', `<div class="vazio-grande">${icone('calendar')}<b>Nada agendado</b>
-      <p class="suave">Quando agendares um aviso, um destaque ou uma sondagem com data, aparece aqui por ordem.</p>
-      <button class="botao principal" data-agendar>${icone('bell')} Agendar um aviso</button></div>`);
-  } else {
-    const grupos = {};
-    itens.forEach(i => { (grupos[rotuloDia(i.quando)] = grupos[rotuloDia(i.quando)] || []).push(i); });
-    html = Object.keys(grupos).map(dia => `<h3 class="seccao-titulo">${esc(dia)}</h3>
-      <div class="linha-tempo">${grupos[dia].map(i => `<button class="evento" data-ir="${esc(i.ecra)}">
-        <span class="evento-hora">${i.quando.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>
-        <span class="evento-ico">${icone(i.ico)}</span>
-        <span class="evento-txt"><b>${esc(i.texto)}</b><span>${esc(i.tipo)}</span></span></button>`).join('')}</div>`).join('');
-    html += `<div style="margin-top:14px"><button class="botao" data-agendar>${icone('plus')} Agendar um aviso</button></div>`;
-  }
-  alvo.innerHTML = html;
-  $$('[data-ir]', alvo).forEach(b => b.addEventListener('click', () => irPara(b.dataset.ir)));
-  $$('[data-agendar]', alvo).forEach(b => b.addEventListener('click', () => { irPara('notificacoes'); editarConteudo('notificacoes', null); }));
+  return itens.sort((a, b) => a.quando - b.quando);
+}
+
+function desenharLinhaTempo(d, itens) {
+  if (!itens.length) return '<p class="suave" style="margin:14px 0 0">Ainda não há nada agendado aqui.</p>';
+  const grupos = {};
+  itens.forEach(i => { (grupos[rotuloDia(i.quando)] = grupos[rotuloDia(i.quando)] || []).push(i); });
+  return Object.keys(grupos).map(dia => `<h3 class="seccao-titulo">${esc(dia)}</h3>
+    <div class="linha-tempo">${grupos[dia].map(i => `<button class="evento" data-ir="${esc(i.ecra)}">
+      <span class="evento-hora">${i.quando.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>
+      <span class="evento-ico">${icone(i.ico)}</span>
+      <span class="evento-txt"><b>${esc(i.texto)}</b><span>${esc(i.tipo)}</span></span></button>`).join('')}</div>`).join('');
+}
+
+async function ecraAgendado(alvo) {
+  alvo.innerHTML = cartao('', '<p class="suave">A procurar o que está agendado…</p>');
+  const itens = await recolherAgendados();
+  const abaDe = (grupo, meta) => d => {
+    const lista = grupo ? itens.filter(i => i.grupo === grupo) : itens;
+    d.innerHTML = cartao(meta.titulo, `<p>${meta.oque}</p>
+      ${meta.botao ? `<button class="botao principal" data-acao>${icone(meta.ico || 'plus')} ${esc(meta.botao)}</button>` : ''}`) +
+      (grupo ? `<h3 class="seccao-titulo">Agendado</h3>` : '') + desenharLinhaTempo(d, lista);
+    $$('[data-ir]', d).forEach(b => b.addEventListener('click', () => irPara(b.dataset.ir)));
+    const bt = $('[data-acao]', d);
+    if (bt) bt.addEventListener('click', meta.acao);
+  };
+  const n = g => itens.filter(i => i.grupo === g).length;
+  comAbas(alvo, 'agendado', [
+    { id: 'tudo', nome: 'Tudo', icone: 'list', n: itens.length || '', desenhar: abaDe(null, { titulo: 'Tudo o que vai sair', oque: 'Todos os avisos, destaques, sondagens, quiz e anúncios que têm dia e hora marcados, por ordem. Escolhe uma aba para agendar algo novo.' }) },
+    { id: 'avisos', nome: 'Avisos', icone: 'bell', n: n('avisos') || '', desenhar: abaDe('avisos', { titulo: 'Avisos agendados', oque: 'Uma <b>notificação</b> que chega aos telemóveis no dia e hora que escolheres (por exemplo, "Hoje há jogo às 20h45"). Em "Enviar no dia e hora" do aviso, escolhe quando sai.', botao: 'Agendar um aviso', ico: 'bell', acao: () => { irPara('notificacoes'); editarConteudo('notificacoes', null); } }) },
+    { id: 'destaques', nome: 'Destaques', icone: 'star', n: n('destaques') || '', desenhar: abaDe('destaques', { titulo: 'Destaques do Início', oque: 'O <b>cartão grande no topo do Início</b> da app. Escolhes de que dia a que dia aparece (um evento, uma campanha, uma notícia importante).', botao: 'Novo destaque', ico: 'star', acao: () => { irPara('destaques'); editarConteudo('destaques', null); } }) },
+    { id: 'sondagens', nome: 'Sondagens', icone: 'poll', n: n('sondagens') || '', desenhar: abaDe('sondagens', { titulo: 'Sondagens a terminar', oque: 'As sondagens abertas e o dia e hora em que fecham. Cria uma nova na área Direto › Sondagens.', botao: 'Ir para as sondagens', ico: 'poll', acao: () => irPara('sondagens') }) },
+    { id: 'quiz', nome: 'Quiz', icone: 'chat', n: n('quiz') || '', desenhar: abaDe('quiz', { titulo: 'Quiz agendado', oque: 'As perguntas do quiz já têm dia e hora para sair. Podes mudar a data de cada uma ou enviar já, no ecrã do Quiz.', botao: 'Gerir o quiz', ico: 'chat', acao: () => irPara('quiz') }) },
+    { id: 'banner', nome: 'Banner', icone: 'euro', n: n('banner') || '', desenhar: abaDe('banner', { titulo: 'Banner de publicidade', oque: 'Os anúncios da barra vermelha por cima do menu da app, com as datas em que começam e terminam.', botao: 'Novo anúncio', ico: 'euro', acao: () => { irPara('banner'); editarConteudo('anuncios', null); } }) }
+  ]);
 }
 
 async function lerSeguro(nome) {
