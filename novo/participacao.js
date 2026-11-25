@@ -290,5 +290,58 @@ function ecraParticipacao(alvo, quais) {
 /* Três ecrãs separados: cada um mostra só o que lhe diz respeito. */
 const TITULOS_PART = { perguntas: 'Perguntas ao programa', prognosticos: 'Prognósticos', quiz: 'Quiz' };
 const ecraPerguntas = alvo => ecraParticipacao(alvo, 'perguntas');
-const ecraPrognosticos = alvo => ecraParticipacao(alvo, 'prognosticos');
 const ecraQuiz = alvo => ecraParticipacao(alvo, 'quiz');
+
+/* ---------------------------- Prognósticos: jogos e ranking da época ---------------------------- */
+function ecraPrognosticos(alvo) {
+  comAbas(alvo, 'prog', [
+    { id: 'jogos', nome: 'Jogos', icone: 'chart', desenhar: d => ecraParticipacao(d, 'prognosticos') },
+    { id: 'ranking', nome: 'Ranking da época', icone: 'star', desenhar: ecraRankingAdmin }
+  ]);
+}
+
+async function ecraRankingAdmin(alvo) {
+  if (CFG.modo === 'local' || !CFG.token) {
+    alvo.innerHTML = cartao('Ranking da época', '<p class="suave">Só funciona ao entrar com a conta (não no modo de teste).</p>');
+    return;
+  }
+  alvo.innerHTML = cartao('Ranking da época', '<p class="suave">A carregar…</p>');
+  let r;
+  try { carregar(true); r = await rpcAdmin('bi_admin_ranking'); }
+  catch (e) { alvo.innerHTML = cartao('Ranking da época', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-ranking.sql no Supabase.</p>`); return; }
+  finally { carregar(false); }
+  const lista = r.lista || [], jogos = r.jogos || [];
+  const comJogos = lista.filter(x => x.jogos > 0);
+  let pos = 0, ult = null;
+  const linhas = comJogos.map((x, i) => { if (!ult || x.acertos !== ult.acertos || x.jogos !== ult.jogos) pos = i + 1; ult = x; return Object.assign({ pos }, x); });
+  let html = cartao(`Ranking da época ${r.epoca}/${String(Number(r.epoca) + 1).slice(2)}`, `
+    <p class="suave">Cada resultado <b>exato</b> vale <b>3 pontos</b>. A época vai de 1 de julho a 30 de junho. Só entra quem criou conta na app e deu prognósticos com ela. Aqui vês o nome e a alcunha de cada pessoa; na app só aparece o que ela escolheu mostrar.</p>
+    <div class="grelha">
+      ${azulejo(numero(lista.length), 'Contas criadas')}
+      ${azulejo(numero(comJogos.length), 'Já com jogos terminados')}
+      ${azulejo(numero(jogos.length), 'Jogos com resultado')}
+      ${azulejo(linhas[0] ? numero(linhas[0].pontos) : '—', 'Pontos do 1.º lugar')}
+    </div>`, '<button class="botao pequeno" data-csv-rank>⬇ Exportar (Excel)</button>');
+  html += cartao('Classificação', `<div class="tabela-rolar"><table class="tabela tabela-numeros">
+    <tr><th>#</th><th>Aparece como</th><th>Nome</th><th>Alcunha</th><th class="direita">Pontos</th><th class="direita">Acertos</th><th class="direita">Jogos</th><th></th></tr>
+    ${linhas.map(x => `<tr><td><b>${x.pos}</b></td><td><b>${esc(x.nome)}</b></td><td>${esc(x.nome_real || '—')}</td><td>${esc(x.alcunha || '—')}</td>
+      <td class="direita"><b>${numero(x.pontos)}</b></td><td class="direita">${numero(x.acertos)}</td><td class="direita">${numero(x.jogos)}</td>
+      <td class="direita"><button class="botao pequeno perigo" data-tirar-rank="${esc(x.user_id)}" data-nome="${esc(x.nome)}">Tirar</button></td></tr>`).join('')
+      || '<tr><td colspan="8"><p class="suave">Ainda ninguém tem jogos terminados com conta.</p></td></tr>'}
+  </table></div>`);
+  html += cartao('Jogos da época', `<div class="tabela-rolar"><table class="tabela tabela-numeros">
+    <tr><th>Jogo</th><th class="direita">Resultado</th><th class="direita">Prognósticos</th><th class="direita">Acertaram</th></tr>
+    ${jogos.map(j => `<tr><td>${esc(j.titulo || j.jogo)}<div class="mini">${esc(dataCurta(j.data))}</div></td><td class="direita"><b>${j.golos_b} - ${j.golos_r}</b></td>
+      <td class="direita">${numero(j.prognosticos)}</td><td class="direita">${numero(j.acertos)}</td></tr>`).join('') || '<tr><td colspan="4"><p class="suave">Ainda não há jogos com resultado.</p></td></tr>'}
+  </table></div>`);
+  alvo.innerHTML = html;
+  $$('[data-tirar-rank]', alvo).forEach(b => b.addEventListener('click', async () => {
+    if (!await perguntar('Tirar do ranking?', `<p><b>${esc(b.dataset.nome)}</b> deixa de aparecer no ranking e os prognósticos dessa conta são apagados. A pessoa pode voltar a participar.</p>`, 'Sim, tirar', 'Cancelar')) return;
+    try { carregar(true); await rpcAdmin('bi_admin_ranking_remover', { p_user: b.dataset.tirarRank }); aviso('Tirado do ranking.'); }
+    catch (e) { aviso(e.message, true); } finally { carregar(false); }
+    ecraRankingAdmin(alvo);
+  }));
+  const csv = $('[data-csv-rank]', alvo);
+  if (csv) csv.addEventListener('click', () => descarregarCsv(`ranking-${diaISO(new Date())}.csv`,
+    [['Pos', 'Aparece como', 'Nome', 'Alcunha', 'Pontos', 'Acertos', 'Jogos']].concat(linhas.map(x => [x.pos, x.nome, x.nome_real, x.alcunha, x.pontos, x.acertos, x.jogos]))));
+}
