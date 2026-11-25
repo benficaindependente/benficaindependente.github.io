@@ -2103,12 +2103,18 @@ function ecraVotacoes(alvo) {
           <button class="botao pequeno perigo" data-apagar-s="${s.id}">Apagar</button>
         </div></div>`).join('') : '<p class="suave">Ainda não há sondagens.</p>'}`,
       '<button class="botao pequeno principal" data-nova>＋ Nova sondagem</button> <button class="botao pequeno principal" data-nova-fotos>📸 Com fotos</button>');
-    html += cartao('Homem do jogo', `<p class="suave">Automático: no fim de cada jogo da equipa principal aparece no topo do Início com os jogadores que jogaram; a votação abre logo que o jogo acaba e fica 24 horas aberta, com os resultados provisórios e o número de votantes à vista; o vencedor fica 48 horas no Início e depois fica na ficha do jogo. Não é preciso fazer nada.</p>
+    // Estado da votação de cada jogo: aberta (24 horas a contar do fim do jogo) ou terminada por um administrador.
+    const hdjAberta = j => !j.fechado && j.aberto && Date.now() < new Date(j.aberto).getTime() + 24 * 3600e3;
+    const hdjEstado = j => j.fechado
+      ? `<span class="pilula">Terminada ${esc(dataCurta(j.fechado))}${j.por ? ' por ' + esc(j.por) : ''}</span>`
+      : hdjAberta(j) ? '<span class="pilula ok">Aberta · a decorrer na app</span>' : '<span class="pilula">Terminada (24 horas)</span>';
+    html += cartao('Homem do jogo (MVP)', `<p class="suave">Automático: quando o jogo da equipa principal acaba, a votação abre na app (no Início e no ecrã do jogo) e fecha sozinha ao fim de 24 horas. Se estás a fazer o direto, podes <b>terminá-la já</b> com o botão abaixo: a app deixa de aceitar votos e mostra logo o pódio com os 3 mais votados, com percentagem e número de votos. O resultado fica 1 hora no Início e depois só na ficha do jogo.</p>
       ${hdj.length ? hdj.map(j => `<div class="sondagem">
-          <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b>
-          <span class="mini">último voto ${esc(dataCurta(j.ultimo))} · ${numero(j.total)} ${j.total == 1 ? 'votante' : 'votantes'}</span></div>
-          ${barrasVotos((j.votos || []).map((t, i) => (['🥇 ', '🥈 ', '🥉 '][i] || '') + t.jogador), (j.votos || []).map(t => t.n))}</div>`).join('')
-        : '<p class="suave">Ainda não houve votações.</p>'}`);
+          <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b> ${hdjEstado(j)}</div>
+          <div class="mini">${numero(j.total)} ${j.total == 1 ? 'votante' : 'votantes'}${j.ultimo ? ` · último registo ${esc(dataCurta(j.ultimo))}` : ''}</div>
+          ${barrasVotos((j.votos || []).map((t, i) => (['🥇 ', '🥈 ', '🥉 '][i] || '') + t.jogador), (j.votos || []).map(t => t.n))}
+          ${hdjAberta(j) ? `<div class="linha-acoes"><button class="botao pequeno principal" data-fechar-hdj="${esc(j.jogo)}" data-titulo="${esc(j.titulo || j.jogo)}">🏁 Terminar votação agora</button></div>` : ''}</div>`).join('')
+        : '<p class="suave">Ainda não houve votações. O jogo aparece aqui assim que acabar e a votação abrir na app.</p>'}`);
     alvo.innerHTML = html;
     $('[data-nova]', alvo).addEventListener('click', novaSondagem);
     $('[data-nova-fotos]', alvo).addEventListener('click', novaSondagemFotos);
@@ -2129,6 +2135,15 @@ function ecraVotacoes(alvo) {
         `<p>Com a tua aprovação a sondagem <b>aparece logo no topo do Início</b> da app${x.fecha ? ` e fica aberta até <b>${esc(fimTexto(x.fecha))}</b>` : ''}.</p>
          <div class="prev-pequena">${prevDe(x)}</div>`, 'Sim, publicar', 'Cancelar');
       if (ok) acao('bi_admin_sondagem_aprovar', b.dataset.aprovarS, 'Aprovada: já está na app.');
+    }));
+    $$('[data-fechar-hdj]', alvo).forEach(b => b.addEventListener('click', async () => {
+      const ok = await perguntar('Terminar a votação?',
+        `<p>A votação do Homem do jogo <b>${esc(b.dataset.titulo)}</b> fecha <b>já</b>. A app deixa de aceitar votos e passa a mostrar o pódio com o resultado. Não dá para a reabrir.</p>`,
+        'Sim, terminar', 'Cancelar');
+      if (!ok) return;
+      try { carregar(true); await rpcAdmin('bi_admin_hdj_fechar', { p_jogo: b.dataset.fecharHdj }); aviso('Votação terminada. A app mostra o resultado em menos de um minuto.'); }
+      catch (e) { aviso(e.message, true); } finally { carregar(false); }
+      redesenhar();
     }));
     $$('[data-fechar-s]', alvo).forEach(b => b.addEventListener('click', () => {
       if (confirm('Fechar a votação? Os resultados continuam visíveis na app durante uns dias.')) acao('bi_admin_sondagem_fechar', b.dataset.fecharS, 'Votação fechada.');
