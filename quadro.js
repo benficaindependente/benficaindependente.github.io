@@ -57,8 +57,15 @@ function relvadoSvg() {
 
 /** Desenho completo (relvado + riscos + jogadores) para o editor e para as pré-visualizações. */
 /** Cores dos jogadores. Sem cor escolhida: encarnado (Benfica), branco (adversário) e o guarda-redes de amarelo. */
-const CORES_Q = { vermelho: '#e0121f', branco: '#f4f6f8', amarelo: '#ffd400', azul: '#1e6bff', verde: '#18b45a', laranja: '#ff7a00', preto: '#1b1b1b', rosa: '#ff5fa2' };
+const CORES_Q = { vermelho: '#e0121f', branco: '#f4f6f8', amarelo: '#ffd400', laranja: '#ff7a00', preto: '#1b1b1b', rosa: '#ff5fa2' };
 const CORES_CLARAS_Q = new Set(['branco', 'amarelo', 'rosa']);
+/** O que se escreve debaixo do jogador: o apelido, para os nomes não se pisarem. */
+function etiquetaJogador(nome) {
+  const n = String(nome || '').trim();
+  if (n.length <= 9 || !n.includes(' ')) return n;
+  const ult = n.split(/\s+/).pop();
+  return ult.length >= 3 ? ult : n;
+}
 function corJogador(p) {
   if (p.cor && CORES_Q[p.cor]) return { fundo: CORES_Q[p.cor], claro: CORES_CLARAS_Q.has(p.cor), especial: true };
   const guarda = !p.cor && (p.c === 'b' ? p.x > 0.91 : p.x < 0.09);
@@ -75,7 +82,7 @@ function quadroSvg(estado, extra) {
   const pontos = (e.pontos || []).map((p, i) => {
     const k = corJogador(p);
     const v = !k.claro;
-    const R = 2.75;
+    const R = 3.3;
     const x = Math.round(p.x * RL * 1000) / 1000;
     const y = Math.round(p.y * RW * 1000) / 1000;
     const foto = /^https:\/\//i.test(String(p.foto || '')) ? p.foto : '';
@@ -85,18 +92,18 @@ function quadroSvg(estado, extra) {
       ? `<defs><clipPath id="${clip}"><circle cx="${x}" cy="${y}" r="${R}"/></clipPath></defs>
          <image href="${esc(foto)}" xlink:href="${esc(foto)}" x="${cx}" y="${cy}" width="${R * 2}" height="${R * 2}" clip-path="url(#${clip})" preserveAspectRatio="xMidYMid slice"/>`
       : `<circle cx="${x}" cy="${y}" r="${R}" fill="${k.fundo}"/>`;
-    const nome = String(p.nome || '');
-    const larg = Math.min(20, Math.max(4.6, nome.length * 1.08 + 2.0));
+    const nome = etiquetaJogador(p.nome);
+    const larg = Math.min(15, Math.max(3.6, nome.length * 0.78 + 1.6));
     const pill = nome
-      ? `<rect x="${Math.round((x - larg / 2) * 100) / 100}" y="${Math.round((y + R + 0.25) * 100) / 100}" width="${Math.round(larg * 100) / 100}" height="3.5" rx="1.75" fill="rgba(3,10,6,.74)"/>
-         <text x="${x}" y="${Math.round((y + R + 2.75) * 100) / 100}" text-anchor="middle" font-size="2.1" font-weight="700" font-family="Arial, sans-serif" fill="#ffffff">${esc(nome)}</text>`
+      ? `<rect x="${Math.round((x - larg / 2) * 100) / 100}" y="${Math.round((y + R + 0.25) * 100) / 100}" width="${Math.round(larg * 100) / 100}" height="2.7" rx="1.35" fill="rgba(3,10,6,.78)"/>
+         <text x="${x}" y="${Math.round((y + R + 2.3) * 100) / 100}" text-anchor="middle" font-size="1.5" font-weight="700" font-family="Arial, sans-serif" fill="#ffffff">${esc(nome)}</text>`
       : '';
     return `<g data-ponto="${i}" class="q-ponto">
       <circle cx="${x}" cy="${y}" r="${R * 2.1}" fill="#fff" fill-opacity="0"/>
       <ellipse cx="${x}" cy="${Math.round((y + R * 0.8) * 100) / 100}" rx="${R * 0.95}" ry="${R * 0.5}" fill="rgba(0,0,0,.35)"/>
       ${circulo}
       <circle cx="${x}" cy="${y}" r="${R}" fill="none" stroke="${foto && k.especial ? k.fundo : (v ? 'rgba(255,255,255,.98)' : 'rgba(8,14,10,.9)')}" stroke-width="${foto && k.especial ? '.95' : '.5'}"/>
-      ${p.n && !foto ? `<text x="${x}" y="${y + .68}" text-anchor="middle" font-size="2.6" font-weight="800" fill="${v ? '#fff' : '#141414'}" font-family="Arial, sans-serif">${esc(p.n)}</text>` : ''}
+      ${p.n && !foto ? `<text x="${x}" y="${y + .68}" text-anchor="middle" font-size="3.1" font-weight="800" fill="${v ? '#fff' : '#141414'}" font-family="Arial, sans-serif">${esc(p.n)}</text>` : ''}
       ${pill}</g>`;
   }).join('');
   let bola = '';
@@ -255,13 +262,13 @@ function prevQuadro(estado, titulo) {
 /** Formações por linhas: [quantos jogadores, posição ao comprimento (0 = a própria baliza)].
  *  Dentro de cada linha, os jogadores espalham-se pela largura e os dos extremos ficam sempre nas alas. */
 const FORMACOES_LINHAS = {
-  '4-3-3':   [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [3, .34, [.3, .5, .7]], [3, .46, [.14, .5, .86]]],
-  '4-4-2':   [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [4, .35, [.1, .38, .62, .9]], [2, .46, [.4, .6]]],
-  '4-2-3-1': [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [2, .31, [.4, .6]], [3, .40, [.15, .5, .85]], [1, .47, [.5]]],
-  '4-1-4-1': [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [1, .29, [.5]], [4, .38, [.1, .38, .62, .9]], [1, .47, [.5]]],
-  '3-5-2':   [[1, .04, [.5]], [3, .20, [.25, .5, .75]], [5, .34, [.08, .3, .5, .7, .92]], [2, .46, [.4, .6]]],
-  '3-4-3':   [[1, .04, [.5]], [3, .20, [.25, .5, .75]], [4, .34, [.1, .38, .62, .9]], [3, .46, [.15, .5, .85]]],
-  '5-3-2':   [[1, .04, [.5]], [5, .21, [.08, .29, .5, .71, .92]], [3, .35, [.3, .5, .7]], [2, .46, [.4, .6]]]
+  '4-3-3':   [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [3, .34, [.3, .5, .7]], [3, .43, [.14, .5, .86]]],
+  '4-4-2':   [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [4, .35, [.1, .38, .62, .9]], [2, .43, [.4, .6]]],
+  '4-2-3-1': [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [2, .31, [.4, .6]], [3, .40, [.15, .5, .85]], [1, .44, [.5]]],
+  '4-1-4-1': [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [1, .29, [.5]], [4, .38, [.1, .38, .62, .9]], [1, .44, [.5]]],
+  '3-5-2':   [[1, .04, [.5]], [3, .20, [.25, .5, .75]], [5, .34, [.08, .3, .5, .7, .92]], [2, .43, [.4, .6]]],
+  '3-4-3':   [[1, .04, [.5]], [3, .20, [.25, .5, .75]], [4, .34, [.1, .38, .62, .9]], [3, .43, [.15, .5, .85]]],
+  '5-3-2':   [[1, .04, [.5]], [5, .21, [.08, .29, .5, .71, .92]], [3, .35, [.3, .5, .7]], [2, .43, [.4, .6]]]
 };
 /** Posições a que cada linha chega, de 0 a 1 na largura (os extremos ficam junto às linhas laterais). */
 function larguraLinha(n) {
@@ -311,6 +318,35 @@ const CSS_BANCA = `
 .qb-ev b{color:#ffb3b3}
 .qb-ev.ativo{background:#e21227;border-color:#ff6070;color:#fff}.qb-ev.ativo b{color:#fff}
 .qb-ev.verm{border-color:#7a1e26}
+.qb.palco{grid-template-columns:minmax(0,1fr) 148px}
+.qb.palco.fs{position:fixed;inset:0;z-index:95;height:100vh!important;height:100dvh!important;min-height:0;padding:8px 10px;background:#0b0d11;gap:8px}
+.qb.palco .qb-topo{gap:6px;flex-wrap:nowrap}
+.qb.palco .qb-titulo{min-width:70px;padding:8px 10px}
+.qb.palco .qb-topo .botao{min-height:44px;padding:0 12px;flex:0 0 auto}
+.qb.palco .qb-abre{flex-direction:column;gap:1px;padding:0 10px;font-size:11px}
+.qb.palco .qb-abre .qb-ic{font-size:17px;line-height:1}
+.qb.palco .qb-abre.ativo{background:#e21227;border-color:#ff6070;color:#fff}
+.qb-trilho{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr);gap:8px;min-height:0;align-content:stretch}
+.qb-trilho .qb-ferr{min-height:0;height:100%;border-radius:14px;font-size:12.5px}
+.qb-trilho .qb-ferr .qb-ic{font-size:24px}
+.qb-cores.trilho{grid-column:1/3;gap:6px}
+.qb-cores.trilho .qb-cor{width:38px;height:38px}
+.qb.palco .qb-minutos{padding:6px 10px;gap:4px}
+.qb.palco .qb-min-evs{flex-wrap:wrap;overflow:visible;max-height:84px;overflow-y:hidden}
+.qb.palco .qb-ev{min-height:34px;font-size:12px}
+.qb.palco .qb-momentos{flex-wrap:wrap;overflow:visible}
+.qb-fundo{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:14px}
+.qb-folha{width:min(720px,100%);max-height:calc(100dvh - 28px);background:#12161c;border:1px solid #3a4452;border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden}
+.qb-folha-topo{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #2b333d;font-size:16px}
+.qb-folha-corpo{padding:14px;display:flex;flex-direction:column;gap:14px;overflow:auto}
+.qb-grelha.q4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.qb-grelha.q3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.qb-folha .qb-grelha .botao{min-height:48px;font-size:.95rem}
+.qb-jogos2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qb-jogo-btn{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 12px;border-radius:12px;border:1px solid #2b333d;background:#1d232b;color:#e8edf3;font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+.qb-jogo-btn b{color:#9aa4b2;font-weight:700}.qb-jogo-btn i{margin-left:auto;font-style:normal;font-weight:800;color:#ffb3b3}
+.qb-jogo-btn.ativo{background:#e21227;border-color:#ff6070;color:#fff}.qb-jogo-btn.ativo b,.qb-jogo-btn.ativo i{color:#fff}
+@media (max-width:1100px){.qb.palco .qb-abre .tx{display:none}.qb.palco .qb-abre{padding:0 12px}.qb.palco{grid-template-columns:minmax(0,1fr) 128px}}
 .qb-topo .botao{padding:.4em .7em;min-height:36px}
 .qb .q-campo{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0;max-width:none;margin:0}
 .qb .q-campo svg{width:100%;height:100%;max-height:100%;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -447,6 +483,8 @@ function guardarMomentos() {
 
 
 /* ------------------------------ Jogadas: gravar o movimento e pôr em play/loop ------------------------------ */
+let QUADRO_PALCO = null;   // null = automático (ecrãs táteis), true/false = escolha da pessoa
+let QUADRO_FS = null;      // ecrã inteiro (só no modo tablet); null = automático nos ecrãs táteis
 let QUADRO_SEM_PAINEL = false;   // campo em largura total (menu escondido)
 let QUADRO_GRAV = null;   // { base, amostras, t0, nome } enquanto se grava
 let QUADRO_PLAY = null;   // { j, raf, t } enquanto uma jogada passa
@@ -701,6 +739,8 @@ function desenharEditorQuadro(alvo) {
   const q = QUADRO;
   q.estado.pontos = q.estado.pontos || [];
   q.estado.linhas = q.estado.linhas || [];
+  // A bola começa no meio do campo (null = a pessoa tirou-a de propósito).
+  if (q.estado.bola === undefined && q.estado.pontos.length) { q.estado.bola = { x: 0.5, y: 0.5 }; guardarQuadroEmBreve(); }
   let ferramenta = alvo.dataset.ferramenta || 'mover';
   const conta = c => q.estado.pontos.filter(p => (p.c === 'b') === (c === 'b')).length;
   const partir = t => { const i = t.indexOf(' '); return i < 0 ? ['', t] : [t.slice(0, i), t.slice(i + 1)]; };
@@ -794,10 +834,11 @@ function desenharEditorQuadro(alvo) {
         ? '📡 <b>Na app, em direto.</b> O que mexeres aqui mexe nos telemóveis em 1 a 2 segundos.'
         : '⏸ <b>Não está na app.</b> Prepara à vontade; quando estiver pronto carrega em "Pôr na app".'}</div></div>
     <button class="botao qb-grande ${q.visivel ? 'perigo' : 'principal'}" data-visivel="${q.visivel ? 0 : 1}">${q.visivel ? 'Tirar da app' : '📡 Pôr na app'}</button>
-    <button class="botao qb-grande" data-cheio>${document.fullscreenElement ? '✕ Sair do ecrã inteiro' : '⛶ Ecrã inteiro'}</button>
+    <button class="botao qb-grande" data-cheio>${document.fullscreenElement ? '✕ Sair do ecrã inteiro' : '⛶ Ecrã inteiro do navegador'}</button>
+    <button class="botao qb-grande" data-palco-toggle>${QUADRO_PALCO === false ? '📱 Modo tablet (campo grande)' : '🖥 Modo PC (painel à direita)'}</button>
     <p class="suave qb-ajuda" data-guardado>${q.guardadoTxt || ''}</p>`;
   const corpoAba = aba === 'jogo' ? tabJogo : aba === 'guardar' ? tabGuardar : aba === 'jogadas' ? tabJogadas : aba === 'app' ? tabApp : tabCampo;
-  alvo.innerHTML = `
+  const htmlNormal = `
     ${CFG.modo === 'local' ? '<p class="aviso mau" style="margin:0 0 8px"><b>Modo de teste:</b> podes experimentar, mas nada aparece na app. Para usar a sério entra com a conta GitHub.</p>' : ''}
     <div class="qb ${QUADRO_SEM_PAINEL ? 'sem-painel' : ''}">
       <section class="qb-campo-col">
@@ -819,11 +860,61 @@ function desenharEditorQuadro(alvo) {
         <div class="qb-corpo">${corpoAba}</div>
       </aside>
     </div>`;
+
+  // ------------------------------------------------ modo tablet ("palco"): campo grande, ferramentas em botões, o resto em janelas
+  const palco = QUADRO_PALCO == null ? !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) : QUADRO_PALCO;
+  const cheio = palco && (QUADRO_FS == null ? !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) : QUADRO_FS);
+  const folha = palco ? (alvo.dataset.folha || '') : '';
+  const tile = (f, t) => botaoF(f, t);
+  const abrirF = (id, t) => { const [ic, tx] = partir(t); return `<button class="botao qb-abre ${folha === id ? 'ativo' : ''}" data-folha="${id}" title="${tx}"><span class="qb-ic">${ic}</span><span class="tx">${tx}</span></button>`; };
+  const jogosGrelha = (ULTIMOS.lista || []).slice(0, 10).map(j => `<button class="qb-jogo-btn ${String((q.estado.jogo && q.estado.jogo.id) || '') === String(j.id) ? 'ativo' : ''}" data-jogo="${esc(j.id)}">
+      <b>${esc(dataCurtaJogo(j.data))}</b> ${j.casa ? 'vs' : 'em'} ${esc(j.adversario)} <i>${esc(j.golosN)}-${esc(j.golosA)}</i></button>`).join('') || '<span class="suave">A carregar os jogos…</span>';
+  const folhas = {
+    taticas: ['🎯 Táticas', `<div class="qb-sec"><b>🔴 Benfica</b><div class="qb-grelha q4">${formacoes('v')}</div></div>
+      <div class="qb-sec"><b>⚪ Adversário</b><div class="qb-grelha q4">${formacoes('b')}</div></div>`],
+    jogo: ['⚽ Jogo', `${QUADRO_SUGERIDO ? `<div class="q-estado">🆕 Já há o onze de <b>${esc(QUADRO_SUGERIDO.jogo.nome)}</b>. <button class="botao pequeno principal" data-onze-novo>Atualizar</button></div>` : ''}
+      <div class="qb-grelha q3"><button class="botao principal" data-auto="ambos">⚽ Benfica + adversário</button><button class="botao" data-auto="benfica">🔴 Só o Benfica</button><button class="botao" data-convocados>📋 Convocados</button></div>
+      <div class="qb-sec"><b>Últimos jogos</b><div class="qb-jogos2">${jogosGrelha}</div></div>`],
+    guardar: ['💾 Guardar', tabGuardar],
+    jogadas: ['🎬 Jogadas', tabJogadas],
+    app: ['📡 App', tabApp]
+  };
+  const folhaHtml = folha && folhas[folha] ? `<div class="qb-fundo" data-folha-fundo><div class="qb-folha">
+      <div class="qb-folha-topo"><b>${folhas[folha][0]}</b><button class="botao" data-folha-x>✕ Fechar</button></div>
+      <div class="qb-folha-corpo">${folhas[folha][1]}</div></div></div>` : '';
+  const trilho = `<aside class="qb-trilho">
+      ${tile('mover', '✋ Mover')}${tile('manual', '🔁 Trocar')}${tile('v', '🔴 Pôr')}${tile('b', '⚪ Pôr')}${tile('bola', '⚽ Bola')}
+      ${tile('linha', '／ Risco')}${tile('seta', '➚ Seta')}${tile('cor', '🎨 Cor')}${tile('apagar', '🗑 Tirar')}
+      ${ferramenta === 'cor' ? `<div class="qb-cores trilho">${Object.keys(CORES_Q).map(c => `<button class="qb-cor ${alvo.dataset.cor === c ? 'ativa' : ''}" data-cor="${c}" style="background:${CORES_Q[c]}"></button>`).join('')}<button class="qb-cor padrao ${alvo.dataset.cor === 'padrao' ? 'ativa' : ''}" data-cor="padrao">↺</button></div>` : ''}
+    </aside>`;
+  const htmlPalco = `
+    ${CFG.modo === 'local' ? '<p class="aviso mau" style="margin:0 0 6px"><b>Modo de teste:</b> nada aparece na app.</p>' : ''}
+    <div class="qb palco ${cheio ? 'fs' : ''}">
+      <section class="qb-campo-col">
+        <div class="qb-topo">
+          ${cheio ? '<button class="botao" data-fs-sair title="Sair do ecrã inteiro">✕</button>' : ''}
+          <span class="qb-pill ${QUADRO_GRAV ? 'gravar' : q.visivel ? 'ok' : ''}">${QUADRO_GRAV ? '⏺ A gravar' : q.visivel ? '📡 Na app' : '⏸ Fora da app'}</span>
+          <input class="qb-titulo" data-titulo maxlength="80" value="${esc(q.titulo)}" placeholder="Título (opcional)">
+          <button class="botao" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'} title="Desfazer">↶</button>
+          <button class="botao" data-refazer ${QUADRO_REFAZER.length ? '' : 'disabled'} title="Refazer">↷</button>
+          ${abrirF('taticas', '🎯 Táticas')}${abrirF('jogo', '⚽ Jogo')}${abrirF('guardar', '💾 Guardar')}${abrirF('jogadas', '🎬 Jogadas')}
+          <button class="botao ${q.visivel ? 'perigo' : 'principal'}" data-visivel="${q.visivel ? 0 : 1}">${q.visivel ? 'Tirar da app' : '📡 Pôr na app'}</button>
+          ${cheio ? '' : '<button class="botao" data-fs-entrar title="Ecrã inteiro">⛶</button>'}
+        </div>
+        <div class="q-campo">${quadroSvg(q.estado)}</div>
+        ${barraMinutos}
+        <div class="qb-momentos"><b>Momentos</b>${botoesMom}</div>
+        ${jogadas.length ? `<div class="qb-momentos"><b>Jogadas</b>${botoesJog}${QUADRO_PLAY ? '<button class="qb-jog-btn" data-jog-parar>⏹ Parar</button>' : ''}</div>` : ''}
+      </section>
+      ${trilho}
+    </div>
+    ${folhaHtml}`;
+  alvo.innerHTML = palco ? htmlPalco : htmlNormal;
   alvo.dataset.ferramenta = ferramenta;
   // Ecrã inteiro: o cartão ocupa a janela toda (relvado maior para trabalhar no tablet).
   document.body.classList.remove('modo-campo');
   const caixa = $('.qb', alvo);
-  const ajustar = () => { if (caixa && caixa.isConnected) caixa.style.height = Math.max(460, window.innerHeight - caixa.getBoundingClientRect().top - 46) + 'px'; };
+  const ajustar = () => { if (caixa && caixa.isConnected && !caixa.classList.contains('fs')) caixa.style.height = Math.max(460, window.innerHeight - caixa.getBoundingClientRect().top - 46) + 'px'; };
   ajustar();
   if (QUADRO_AJUSTE) window.removeEventListener('resize', QUADRO_AJUSTE);
   QUADRO_AJUSTE = ajustar;
@@ -893,6 +984,23 @@ function desenharEditorQuadro(alvo) {
       mudar(() => { q.estado.pontos = aplicarTempo(q.estado, min === 0 ? null : min); q.estado.momento = min === 0 ? null : min; });
     });
   }
+  $$('[data-folha]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.folha = alvo.dataset.folha === b.dataset.folha ? '' : b.dataset.folha; desenharEditorQuadro(alvo); }));
+  $$('[data-folha-x]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.folha = ''; desenharEditorQuadro(alvo); }));
+  const fundoFolha = $('[data-folha-fundo]', alvo);
+  if (fundoFolha) fundoFolha.addEventListener('click', ev => { if (ev.target === fundoFolha) { alvo.dataset.folha = ''; desenharEditorQuadro(alvo); } });
+  const bFsE = $('[data-fs-entrar]', alvo);
+  if (bFsE) bFsE.addEventListener('click', () => {
+    QUADRO_FS = true;
+    try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { /* sem ecrã inteiro do navegador */ }
+    desenharEditorQuadro(alvo);
+  });
+  const bFsS = $('[data-fs-sair]', alvo);
+  if (bFsS) bFsS.addEventListener('click', () => {
+    QUADRO_FS = false;
+    try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* ignora */ }
+    desenharEditorQuadro(alvo);
+  });
+  $$('[data-palco-toggle]', alvo).forEach(b => b.addEventListener('click', () => { const atual = QUADRO_PALCO == null ? !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) : QUADRO_PALCO; QUADRO_PALCO = !atual; QUADRO_FS = QUADRO_PALCO ? QUADRO_FS : false; alvo.dataset.folha = ''; desenharEditorQuadro(alvo); }));
   $$('[data-menu-toggle]', alvo).forEach(b => b.addEventListener('click', () => { QUADRO_SEM_PAINEL = !QUADRO_SEM_PAINEL; desenharEditorQuadro(alvo); }));
   $$('[data-aba]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.aba = b.dataset.aba; desenharEditorQuadro(alvo); }));
   const bCheio = $('[data-cheio]', alvo);
