@@ -408,6 +408,11 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
 .aviso-faixa { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 18px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(135deg, rgba(240, 180, 41, .22), rgba(240, 180, 41, .08)); border: 1px solid rgba(240, 180, 41, .4); color: #ffe6a0; }
 .aviso-faixa .ico { margin-top: 2px; }
 
+.objetivo { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--linha); }
+.objetivo-topo { display: flex; justify-content: space-between; gap: 10px; font-size: .88rem; margin-bottom: 8px; flex-wrap: wrap; }
+.objetivo-barra { height: 10px; border-radius: 10px; background: rgba(255, 255, 255, .08); overflow: hidden; margin-bottom: 8px; }
+.objetivo-barra i { display: block; height: 100%; border-radius: 10px; background: var(--grad-vermelho); }
+
 /* ============ Específico (quadro tático, pré-visualizações, sondagens com fotos) ============ */
 
 /* ---------- Pré-visualização (telemóvel) ---------- */

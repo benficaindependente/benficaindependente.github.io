@@ -441,8 +441,8 @@ const PRAZO_ALERTA = 7;   // avisa quando faltam 7 dias ou menos para a campanha
 function ecraBannerAnalytics(alvo) {
   alvo.innerHTML = cartao('Resultados do banner', '<p class="suave">A carregar…</p>');
   (async () => {
-    let linhas;
-    try { carregar(true); [linhas] = await Promise.all([lerEstatisticas(BAN_DIAS), carregarPrivados()]); }
+    let linhas, linhasTodas;
+    try { carregar(true); [linhas, linhasTodas] = await Promise.all([lerEstatisticas(BAN_DIAS), lerEstatisticas(0), carregarPrivados()]); }
     catch (e) { alvo.innerHTML = cartao('Resultados do banner', `<p class="erro">${esc(e.message)}</p>`); return; }
     finally { carregar(false); }
     const periodo = BAN_DIAS ? `últimos ${BAN_DIAS} dias` : 'desde sempre';
@@ -466,6 +466,30 @@ function ecraBannerAnalytics(alvo) {
     const viva = m => { const e = estado(m.p.item)[1]; return e === 'A decorrer' || /^Termina em/.test(e); };
     const ativas = ms.filter(m => m.pr.pago && viva(m)).length;
     const aTerminar = ms.filter(m => m.pr.pago && /Termina em/.test(estado(m.p.item)[1]));
+
+    /** Progresso de um objetivo acordado (desde o início da campanha) e se, ao ritmo atual, chega a tempo. */
+    const objetivo = (m, rotulo, alvoN, campo) => {
+      const meta = Number(alvoN || 0);
+      if (!meta) return '';
+      const id = m.p.id, tot = somar(linhasTodas, id);
+      const feito = campo === 'imp' ? tot.imp : tot.cli;
+      const pc = Math.min(100, Math.round(feito / meta * 100));
+      const desde = diasAtras(6);
+      const s7 = somar(linhasTodas.filter(l => l.peca === id && String(l.dia).slice(0, 10) >= desde), id);
+      const ritmo = (campo === 'imp' ? s7.imp : s7.cli) / 7;
+      let nota;
+      if (feito >= meta) nota = '<span style="color:#7ee6ae">✔ Objetivo cumprido.</span>';
+      else if (ritmo <= 0) nota = 'Sem dados recentes para estimar o fim.';
+      else {
+        const dias = Math.ceil((meta - feito) / ritmo), fim = m.p.item.ate ? diasAte(m.p.item.ate) : null;
+        const quando = new Date(Date.now() + dias * 86400e3).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' });
+        nota = fim != null && dias > fim
+          ? `<span style="color:#ffd66b">⚠ Ao ritmo dos últimos 7 dias só chega ao objetivo por ${esc(quando)}, depois do fim da campanha. Aumenta a <b>frequência</b> do anúncio (1 a 5) para o cumprir.</span>`
+          : `Ao ritmo dos últimos 7 dias chega ao objetivo por volta de ${esc(quando)}.`;
+      }
+      return `<div class="objetivo"><div class="objetivo-topo"><span>${esc(rotulo)}</span><b>${numero(feito)} / ${numero(meta)} (${pc}%)</b></div>
+        <div class="objetivo-barra"><i style="width:${pc}%"></i></div><div class="mini">${nota}</div></div>`;
+    };
 
     let html = cartao('Resumo do banner — ' + periodo, `
       <div style="margin-bottom:14px">${[7, 30, 90, 365, 0].map(d => `<button class="botao pequeno ${d === BAN_DIAS ? 'principal' : ''}" data-dias="${d}">${d ? d + ' dias' : 'Sempre'}</button>`).join(' ')}</div>
@@ -503,6 +527,7 @@ function ecraBannerAnalytics(alvo) {
           <div class="mini">${m.pr.anunciante ? esc(m.pr.anunciante) + ' · ' : ''}${m.pr.pago ? esc(MODELOS[m.pr.modelo] || 'Valor fixo') + ' · ' + euros(m.pr.preco) + (orc ? ' · máx. ' + euros(orc) : '') : 'Não é paga'}</div></div>
           <div class="campanha-estado">${atingido ? '<span class="pilula mau">Orçamento atingido</span>' : ''}<span class="pilula ${cl}">${esc(texto)}</span></div></div>
         ${promoBar(m.p.item)}
+        ${objetivo(m, 'Visualizações acordadas', m.pr.objImpressoes, 'imp')}${objetivo(m, 'Cliques acordados', m.pr.objCliques, 'cli')}
         <div class="grelha">
           ${azulejo(numero(m.s.imp), 'Visualizações')}${azulejo(numero(m.s.alc), 'Pessoas')}${azulejo(numero(m.s.cli), 'Cliques')}${azulejo(m.ctr, 'CTR')}
           ${m.pr.pago ? azulejo(euros(m.rec), 'Receita') + azulejo(m.cpm, 'CPM') + azulejo(m.cpc, 'CPC') + azulejo(numero(m.conv), 'Vendas') : ''}
@@ -920,6 +945,10 @@ const PAGO = [
     ajuda: 'Valor fixo: o total da campanha. CPM: € por cada 1000 visualizações. CPC: € por clique. CPA: € por venda/inscrição.' },
   { nome: 'orcamento', etiqueta: 'Máximo a cobrar em € (opcional)', tipo: 'number', min: 0, passo: 0.01, so: 'pago:true',
     ajuda: 'Quando o valor ganho chega aqui, a plataforma avisa para desligar a campanha.' },
+  { nome: 'objImpressoes', etiqueta: 'Objetivo acordado: visualizações (opcional)', tipo: 'number', min: 0, so: 'pago:true',
+    ajuda: 'Ex.: 50000 visualizações garantidas ao anunciante. A campanha mostra o progresso e avisa se, ao ritmo atual, não vai chegar a tempo.' },
+  { nome: 'objCliques', etiqueta: 'Objetivo acordado: cliques (opcional)', tipo: 'number', min: 0, so: 'pago:true',
+    ajuda: 'Ex.: 500 cliques. Serve para acompanhar o contrato; não desliga o anúncio sozinho.' },
   { nome: 'conversoes', etiqueta: 'Vendas/inscrições conseguidas', tipo: 'number', min: 0, so: 'pago:true',
     ajuda: 'O anunciante diz-nos quantas vendas ou inscrições vieram da app (vê no site dele pelas visitas marcadas "benficaindependente").' },
   { nome: 'notas', etiqueta: 'Notas internas', tipo: 'textarea', so: 'pago:true' }
@@ -1317,7 +1346,7 @@ function exemploEstatisticas(dias) {
   pecas.forEach((p, i) => {
     let s = 7 + i * 13;
     const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-    for (let d = Math.min(dias, 60) - 1; d >= 0; d--) {
+    for (let d = Math.min(dias || 60, 60) - 1; d >= 0; d--) {
       const imp = Math.round((p.tipo === 'patreon' ? 900 : 300 + i * 80) * (0.6 + rnd() * 0.8));
       linhas.push({ peca: p.id, dia: diasAtras(d), impressoes: imp, cliques: Math.round(imp * (0.008 + rnd() * 0.02)), alcance: Math.round(imp * 0.45) });
     }
