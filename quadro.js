@@ -1253,7 +1253,8 @@ function desenharEditorQuadro(alvo) {
     if (QUADRO_PLAY) pararJogada();
     if (ferramenta === 'bola') {
       if (bo) { QUADRO_HIST.push(JSON.stringify(q.estado)); arrastar = { bola: true }; svg.setPointerCapture(ev.pointerId); amostra(-1, q.estado.bola.x, q.estado.bola.y); return; }
-      mudar(() => { q.estado.bola = { x: r3(p.x), y: r3(p.y) }; });
+      // Depois de pôr a bola, passa logo a ✋ Mover: o próximo gesto é arrastar um jogador.
+      mudar(() => { q.estado.bola = { x: r3(p.x), y: r3(p.y) }; alvo.dataset.ferramenta = 'mover'; });
       return;
     }
     if (ferramenta === 'cor') {
