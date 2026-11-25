@@ -1300,7 +1300,8 @@ function desenharEditorQuadro(alvo) {
     }
     if (ferramenta === 'v' || ferramenta === 'b') {
       if (conta(ferramenta) >= 11) { aviso(`Já tens 11 ${ferramenta === 'v' ? 'encarnados' : 'brancos'}.`, true); return; }
-      mudar(() => q.estado.pontos.push({ c: ferramenta, x: r3(p.x), y: r3(p.y), n: '' }));
+      // Depois de pôr o jogador, passa logo a ✋ Mover (o gesto seguinte é arrastar).
+      mudar(() => { q.estado.pontos.push({ c: ferramenta, x: r3(p.x), y: r3(p.y), n: '' }); alvo.dataset.ferramenta = 'mover'; });
       return;
     }
     if (ferramenta === 'linha' || ferramenta === 'seta') {
@@ -1524,6 +1525,7 @@ function nomeCurto(nomeCompleto) {
 function tipoPosicao(p) {
   const c = String((p && p.position && p.position.abbreviation) || '').toUpperCase();
   if (c === 'G' || c === 'GK') return 'G';
+  if (/^(DM|CDM|CM|AM|CAM|LM|RM)/.test(c)) return 'M';      // os médios (incluindo o trinco DM) não são defesas
   if (/^(RB|LB|CB|CD|SW|D|LWB|RWB|FB)/.test(c)) return 'D';
   if (/^(F|ST|CF|W|LW|RW)/.test(c)) return 'F';
   return 'M';
@@ -1541,6 +1543,23 @@ function ladoPosicao(p) {
   if (/(^|-)L$/.test(c)) return -1;
   if (/(^|-)R$/.test(c)) return 1;
   return 0;
+}
+
+/** É um jogador de ala (fica junto à linha lateral)? Os médios centrais (CM-L, CM-R, DM…) NÃO são alas. */
+function ehAla(p) {
+  const c = String((p && p.position && p.position.abbreviation) || '').toUpperCase();
+  return /^(LB|RB|LWB|RWB|LM|RM|LW|RW|AM-L|AM-R)$/.test(c);
+}
+
+/** Posições na largura (0 a 1) de uma linha: as alas nas pontas e os restantes por dentro, bem espaçados. */
+function largurasLinha(lista) {
+  const n = lista.length;
+  if (n <= 1) return [.5];
+  const alas = lista.map(ehAla);
+  const esq = alas[0], dir = alas[n - 1];
+  const centrais = n - (esq ? 1 : 0) - (dir ? 1 : 0);
+  const miolo = k => k <= 0 ? [] : k === 1 ? [.5] : k === 2 ? [.38, .62] : k === 3 ? [.27, .5, .73] : k === 4 ? [.2, .4, .6, .8] : Array.from({ length: k }, (_, i) => .15 + (.7 * i) / (k - 1));
+  return [...(esq ? [.11] : []), ...miolo(centrais), ...(dir ? [.89] : [])];
 }
 
 /** Profundidade no campo: 0 guarda-redes, 1 defesa, 2 trinco, 3 meio, 4 médio ofensivo, 5 ataque.
@@ -1600,10 +1619,12 @@ function coordenadasOnze(time) {
   if (porTipo.F.length) filas.push({ x: 0.465, jogadores: porTipo.F });
   const out = [];
   filas.forEach(fila => {
-    const lista = fila.jogadores.slice().sort((a, b) => ladoPosicao(a) - ladoPosicao(b));
+    // Da esquerda para a direita: as alas nas pontas e os centrais (CM-L, CD-R…) por dentro.
+    const ordemLado = j => ehAla(j) ? Math.sign(ladoPosicao(j) || 1) * 2 : ladoPosicao(j) * 0.5;
+    const lista = fila.jogadores.slice().sort((a, b) => ordemLado(a) - ordemLado(b));
+    const ys = largurasLinha(lista);
     lista.forEach((j, i) => {
-      const y = lista.length === 1 ? 0.5 : 0.12 + i * (0.76 / (lista.length - 1));
-      out.push({ jogador: j, x: fila.x, y: Math.round(y * 1000) / 1000 });
+      out.push({ jogador: j, x: fila.x, y: Math.round((ys[i] != null ? ys[i] : .5) * 1000) / 1000 });
     });
   });
   return out;
