@@ -1585,6 +1585,7 @@ function ehAla(p) {
 function largurasLinha(lista) {
   const n = lista.length;
   if (n <= 1) return [.5];
+  if (n === 2) return [.4, .6];       // dois jogadores na linha (ex.: dupla de trincos, mesmo que o ESPN lhes chame LM/RM): ao centro
   const alas = lista.map(ehAla);
   const esq = alas[0], dir = alas[n - 1];
   const centrais = n - (esq ? 1 : 0) - (dir ? 1 : 0);
