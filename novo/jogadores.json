@@ -1,0 +1,332 @@
+[
+ {
+  "nome": "Trubin",
+  "numero": "1",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-trubin.webp"
+ },
+ {
+  "nome": "Samuel Soares",
+  "numero": "24",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-samuel-soares.webp"
+ },
+ {
+  "nome": "Diogo Ferreira",
+  "numero": "50",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-diogo-ferreira.webp"
+ },
+ {
+  "nome": "Lenglet",
+  "numero": "2",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-lenglet.webp"
+ },
+ {
+  "nome": "Circati",
+  "numero": "3",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-circati.webp"
+ },
+ {
+  "nome": "Bah",
+  "numero": "6",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-bah.webp"
+ },
+ {
+  "nome": "Dahl",
+  "numero": "26",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-dahl.webp"
+ },
+ {
+  "nome": "Gabriel Índio",
+  "numero": "33",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-gabriel-indio.webp"
+ },
+ {
+  "nome": "El Karouani",
+  "numero": "34",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-el-karouani.webp"
+ },
+ {
+  "nome": "Tomás Araújo",
+  "numero": "44",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-tomas-araujo.webp"
+ },
+ {
+  "nome": "Banjaqui",
+  "numero": "58",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-banjaqui.webp"
+ },
+ {
+  "nome": "José Neto",
+  "numero": "62",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-jose-neto.webp"
+ },
+ {
+  "nome": "Barrenechea",
+  "numero": "5",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-barrenechea.webp"
+ },
+ {
+  "nome": "Aursnes",
+  "numero": "8",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-aursnes.webp"
+ },
+ {
+  "nome": "Sudakov",
+  "numero": "10",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-sudakov.webp"
+ },
+ {
+  "nome": "Manu",
+  "numero": "16",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-manu.webp"
+ },
+ {
+  "nome": "Barreiro",
+  "numero": "18",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-barreiro.webp"
+ },
+ {
+  "nome": "Echeverri",
+  "numero": "30",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-echeverri.webp"
+ },
+ {
+  "nome": "João Palhinha",
+  "numero": "36",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-joao-palhinha.webp"
+ },
+ {
+  "nome": "Lukebakio",
+  "numero": "11",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-lukebakio.webp"
+ },
+ {
+  "nome": "Kaminski",
+  "numero": "13",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-kaminski.webp"
+ },
+ {
+  "nome": "Pavlidis",
+  "numero": "14",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-pavlidis.webp"
+ },
+ {
+  "nome": "Schjelderup",
+  "numero": "21",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-schjelderup.webp"
+ },
+ {
+  "nome": "Jhon Durán",
+  "numero": "22",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-jhon-duran.webp"
+ },
+ {
+  "nome": "Prestianni",
+  "numero": "25",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-prestianni.webp"
+ },
+ {
+  "nome": "Rafa",
+  "numero": "27",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-rafa.webp"
+ },
+ {
+  "nome": "Anísio",
+  "numero": "72",
+  "equipa": "Equipa principal",
+  "foto": "https://benficaindependente.github.io/jogadores/m-anisio.webp"
+ },
+ {
+  "nome": "Lena Pauels",
+  "numero": "1",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-lena-pauels.webp"
+ },
+ {
+  "nome": "Thaís Lima",
+  "numero": "12",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-thais-lima.webp"
+ },
+ {
+  "nome": "Michaely Bihina",
+  "numero": "46",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-michaely-bihina.webp"
+ },
+ {
+  "nome": "Inês Meninas",
+  "numero": "3",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-ines-meninas.webp"
+ },
+ {
+  "nome": "Blessing Demehin",
+  "numero": "4",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-blessing-demehin.webp"
+ },
+ {
+  "nome": "Marit Lund",
+  "numero": "5",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-marit-lund.webp"
+ },
+ {
+  "nome": "Ana Borges",
+  "numero": "11",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-ana-borges.webp"
+ },
+ {
+  "nome": "Catarina Amado",
+  "numero": "19",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-catarina-amado.webp"
+ },
+ {
+  "nome": "Diana Gomes",
+  "numero": "22",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-diana-gomes.webp"
+ },
+ {
+  "nome": "Tinkara Testen",
+  "numero": "31",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-tinkara-testen.webp"
+ },
+ {
+  "nome": "Andreia Norton",
+  "numero": "8",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-andreia-norton.webp"
+ },
+ {
+  "nome": "Caroline Møller",
+  "numero": "10",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-caroline-mller.webp"
+ },
+ {
+  "nome": "Anna Csiki",
+  "numero": "14",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-anna-csiki.webp"
+ },
+ {
+  "nome": "Ana Clara Oliveira",
+  "numero": "16",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-ana-clara-oliveira.webp"
+ },
+ {
+  "nome": "Pauleta",
+  "numero": "21",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-pauleta.webp"
+ },
+ {
+  "nome": "Carolina Tristão",
+  "numero": "23",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-carolina-tristao.webp"
+ },
+ {
+  "nome": "Madalena Loução",
+  "numero": "44",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-madalena-loucao.webp"
+ },
+ {
+  "nome": "Frøya Dorsin",
+  "numero": "7",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-frya-dorsin.webp"
+ },
+ {
+  "nome": "Nycole Raysla",
+  "numero": "9",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-nycole-raysla.webp"
+ },
+ {
+  "nome": "Lúcia Alves",
+  "numero": "13",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-lucia-alves.webp"
+ },
+ {
+  "nome": "Diana Silva",
+  "numero": "17",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-diana-silva.webp"
+ },
+ {
+  "nome": "Flourish Sabastine",
+  "numero": "18",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-flourish-sabastine.webp"
+ },
+ {
+  "nome": "Lara Martins",
+  "numero": "20",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-lara-martins.webp"
+ },
+ {
+  "nome": "Janet Akekoromowei",
+  "numero": "24",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-janet-akekoromowei.webp"
+ },
+ {
+  "nome": "Chandra Davidson",
+  "numero": "25",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-chandra-davidson.webp"
+ },
+ {
+  "nome": "Ziqin Shao",
+  "numero": "26",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-ziqin-shao.webp"
+ },
+ {
+  "nome": "Diana Costa",
+  "numero": "27",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-diana-costa.webp"
+ },
+ {
+  "nome": "Neide Guedes",
+  "numero": "77",
+  "equipa": "Futebol feminino",
+  "foto": "https://benficaindependente.github.io/jogadores/f-neide-guedes.webp"
+ }
+]

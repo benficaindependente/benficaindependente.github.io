@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e1016"/><stop offset="1" stop-color="#300f16"/></linearGradient></defs>
+<rect width="192" height="192" rx="43" fill="url(#g)"/>
+<circle cx="96" cy="96" r="64" fill="none" stroke="#e5172e" stroke-width="10"/>
+<text x="96" y="118" text-anchor="middle" font-family="Segoe UI, Inter, Arial, sans-serif" font-weight="900" font-size="68" fill="#fff">BI</text>
+<circle cx="147" cy="45" r="14" fill="#0e1016"/><circle cx="147" cy="45" r="11" fill="#e5172e"/>
+</svg>
