@@ -1458,6 +1458,10 @@ function alertas() {
       if (RUNS[0].conclusion === 'failure') lista.push({ mau: true, texto: `A última execução do robô falhou (${dataCurta(RUNS[0].created_at)}).`, link: RUNS[0].html_url });
       else if (falhas.length >= 3) lista.push({ mau: true, texto: `O robô falhou ${falhas.length} das últimas ${RUNS.length} vezes.`, link: falhas[0].html_url });
     }
+    // Verificações de coerência dos resultados e da agenda (feitas pelo robô em cada execução)
+    const semRes = (status.robo && status.robo.sem_resultados) || [];
+    if (semRes.length) lista.push({ mau: false, texto: `Há jogos na agenda de modalidades sem resultados disponíveis na origem: ${semRes.join(', ')}.` });
+    if (status.robo && status.robo.resultados_incoerentes > 0) lista.push({ mau: true, texto: `O robô retirou ${status.robo.resultados_incoerentes} resultado(s) com o género trocado (por exemplo, masculinos numa lista feminina).` });
     if (RUNS === false) lista.push({ mau: false, texto: 'Para ver as falhas do robô, a tua chave precisa da permissão "Actions: Read-only".' });
     if (totalAdmins() < APROVACOES) lista.push({ mau: true, texto: `Só há ${totalAdmins()} administrador(es): são precisos ${APROVACOES} para publicar.` });
   }
