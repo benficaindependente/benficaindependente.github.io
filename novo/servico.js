@@ -3,7 +3,7 @@
    Usa o seu próprio nome de cache, para não mexer na cache da plataforma antiga. Nunca guarda pedidos ao GitHub. */
 'use strict';
 
-const CACHE = 'bi-estudio-v11';
+const CACHE = 'bi-estudio-v12';
 const FICHEIROS = ['./index.html', './estilos.css', './app.js', './quadro.js', './participacao.js', './participantes.js', './jogadores.json',
   './fontes/inter-latin.woff2', './fontes/inter-latin-ext.woff2', './icone.svg', './icone-192.png', './icone-512.png', './manifest.webmanifest'];
 

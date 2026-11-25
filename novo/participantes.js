@@ -113,6 +113,7 @@ const ecraAdeptosQuem = alvo => comAbas(alvo, 'a_quem', [
 const ecraAdeptosRankings = alvo => comAbas(alvo, 'a_rank', [
   { id: 'prognosticos', nome: 'Prognósticos da época', icone: 'star', desenhar: ecraRankingAdmin },
   { id: 'participam', nome: 'Quem mais participa', icone: 'chat', desenhar: ecraAtivos },
+  { id: 'estadio', nome: 'Nos jogos', icone: 'live', desenhar: abaEstadio },
   { id: 'construir', nome: 'Construir rankings', icone: 'sliders', desenhar: abaRankings }
 ]);
 
@@ -426,16 +427,65 @@ async function abaCalendario(alvo) {
   }));
 }
 
+/* ---------------------------- No estádio: quem mais vai ver os jogos ---------------------------- */
+let ESTADIO_PERIODO = 'epoca';
+const NOMES_ESTADIO = { '30d': 'Últimos 30 dias', epoca: 'Esta época', tudo: 'Desde sempre' };
+function exemploEstadio() {
+  let s = 9; const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const nomes = ['Zé do Mocho', 'Rita', 'Aguia75', 'Manel', 'Joana', 'Tó', 'Luís', 'Sofia', 'Rui', 'Marta'];
+  const lista = nomes.map((nome, i) => { const p = Math.floor(rnd() * 14), j = Math.floor(rnd() * 9), m = Math.floor(rnd() * 6), c = Math.floor(p * rnd()); const v = Math.floor(p * 0.55), e = Math.floor((p - v) * 0.4);
+    return { user_id: 'u' + i, nome, nome_real: '', alcunha: '', pais: i % 3 ? 'Portugal' : 'Suíça', localidade: i % 3 ? 'Leiria' : 'Genebra', total: p + j + m, principal: p, jovens_feminino: j, modalidades: m, casa: c, fora: p - c, liga: Math.floor(p * 0.6), taca: Math.floor(p * 0.2), uefa: p - Math.floor(p * 0.6) - Math.floor(p * 0.2), vitorias: v, empates: e, derrotas: p - v - e }; }).filter(x => x.total).sort((a, b) => b.total - a.total);
+  return { exemplo: true, lista, jogos: [{ jogo: 'a', data: '2026-11-08', adversario: 'CF Estrela Amadora', competicao: 'Liga Portugal', categoria: 'principal', n: 7 }, { jogo: 'b', data: '2026-11-05', adversario: 'KKS Lech Poznan', competicao: 'Liga Europa', categoria: 'principal', n: 6 }, { jogo: 'c', data: '2026-11-15', adversario: 'Sporting CP', competicao: 'Campeonato Nacional Feminino', categoria: 'jovens_feminino', n: 3 }] };
+}
+async function abaEstadio(alvo) {
+  alvo.innerHTML = cartao('Nos jogos', '<p class="suave">A carregar…</p>');
+  let d;
+  try { carregar(true); d = CFG.modo === 'local' || !CFG.token ? exemploEstadio() : await rpcAdmin('bi_admin_idas', { p_periodo: ESTADIO_PERIODO }); }
+  catch (e) { alvo.innerHTML = cartao('Nos jogos', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-estadio.sql no Supabase.</p>`); return; }
+  finally { carregar(false); }
+  const lista = d.lista || [], soma = k => lista.reduce((n, x) => n + Number(x[k] || 0), 0);
+  const tabela = (titulo, sub, campo, extra) => {
+    const l = lista.filter(x => Number(x[campo]) > 0).sort((a, b) => b[campo] - a[campo] || b.total - a.total).slice(0, 15);
+    return cartao(titulo, `<p class="suave" style="margin-top:0">${sub}</p><div class="tabela-rolar"><table class="tabela tabela-numeros">
+      <tr><th>#</th><th>Aparece como</th><th>País</th><th class="direita">Jogos</th>${extra ? extra.map(e => `<th class="direita">${esc(e[1])}</th>`).join('') : ''}</tr>
+      ${l.map((x, i) => `<tr><td><b>${i + 1}</b></td><td><b>${esc(x.nome)}</b>${x.localidade ? `<div class="mini">${esc(x.localidade)}</div>` : ''}</td><td>${esc(x.pais || '—')}</td><td class="direita"><b>${numero(x[campo])}</b></td>${extra ? extra.map(e => `<td class="direita">${numero(x[e[0]])}</td>`).join('') : ''}</tr>`).join('')
+        || `<tr><td colspan="${4 + (extra ? extra.length : 0)}"><p class="suave">Ainda ninguém marcou jogos nesta categoria.</p></td></tr>`}</table></div>`);
+  };
+  alvo.innerHTML = (d.exemplo ? '<p class="aviso mau" style="margin:0 0 14px">Modo de teste: os números são de exemplo.</p>' : '') +
+    cartao('Quem vai ver os jogos ao vivo', `<p class="suave">Cada pessoa com conta marca com um visto os jogos a que foi (no estádio ou, nas modalidades, no pavilhão). Só entram contas com a participação associada.</p>
+      <div style="margin:10px 0 14px">${Object.keys(NOMES_ESTADIO).map(k => `<button class="botao pequeno ${k === ESTADIO_PERIODO ? 'principal' : ''}" data-est="${k}">${esc(NOMES_ESTADIO[k])}</button>`).join(' ')}</div>
+      <div class="grelha">
+        ${azulejo(numero(lista.length), 'Pessoas que já marcaram jogos')}
+        ${azulejo(numero(soma('principal')), 'Idas — equipa principal')}
+        ${azulejo(numero(soma('jovens_feminino')), 'Idas — jovens e fut. feminino')}
+        ${azulejo(numero(soma('modalidades')), 'Idas — modalidades')}
+        ${azulejo(pct(soma('vitorias'), soma('principal')), 'Vitórias nos jogos a que foram')}
+      </div>`, '<button class="botao pequeno" data-csv-est>⬇ Exportar (Excel)</button>') +
+    tabela('Quem mais vai ver a equipa principal', 'Jogos da equipa principal de futebol a que cada pessoa foi, com casa e fora e as vitórias, empates e derrotas.', 'principal', [['casa', 'Em casa'], ['fora', 'Fora'], ['vitorias', 'V'], ['empates', 'E'], ['derrotas', 'D']]) +
+    tabela('Quem mais vai ver as camadas jovens e o futebol feminino', 'Os fiéis das camadas jovens e do futebol feminino.', 'jovens_feminino') +
+    tabela('Quem mais vai ver as modalidades', 'Andebol, basquetebol, hóquei, voleibol, futsal e outras, no pavilhão ou onde foi o jogo.', 'modalidades') +
+    cartao('Jogos com mais gente', `<div class="tabela-rolar"><table class="tabela tabela-numeros"><tr><th>Jogo</th><th>Dia</th><th class="direita">Pessoas</th></tr>
+      ${(d.jogos || []).map(j => `<tr><td><b>${esc(j.adversario || j.jogo)}</b><div class="mini">${esc(j.competicao || '')}${j.modalidade ? ' · ' + esc(j.modalidade) : ''}</div></td><td>${esc(dataDia(j.data))}</td><td class="direita"><b>${numero(j.n)}</b></td></tr>`).join('')
+        || '<tr><td colspan="3"><p class="suave">Ainda sem dados.</p></td></tr>'}</table></div>`);
+  $$('[data-est]', alvo).forEach(b => b.addEventListener('click', () => { ESTADIO_PERIODO = b.dataset.est; abaEstadio(alvo); }));
+  const csv = $('[data-csv-est]', alvo);
+  if (csv) csv.addEventListener('click', () => descarregarCsv(`estadio-${ESTADIO_PERIODO}-${diaISO(new Date())}.csv`,
+    [['Aparece como', 'Nome', 'País', 'Total', 'Equipa principal', 'Jovens e fut. feminino', 'Modalidades', 'Em casa', 'Fora', 'Liga', 'Taças', 'Europa', 'V', 'E', 'D']]
+      .concat(lista.map(x => [x.nome, x.nome_real, x.pais, x.total, x.principal, x.jovens_feminino, x.modalidades, x.casa, x.fora, x.liga, x.taca, x.uefa, x.vitorias, x.empates, x.derrotas]))));
+}
+
 /* ---------------------------- Construir rankings: cruza as medidas como quiseres ---------------------------- */
 const MEDIDAS = [
   ['participacoes', 'Participações'], ['sondagens', 'Sondagens'], ['mvp', 'MVP'], ['quiz_respostas', 'Quiz respondido'], ['quiz_certas', 'Quiz certo'],
-  ['prognosticos', 'Prognósticos dados'], ['acertos_prog', 'Prognósticos certos'], ['dias_ativos', 'Dias ativos'], ['aberturas', 'Aberturas']];
+  ['prognosticos', 'Prognósticos dados'], ['acertos_prog', 'Prognósticos certos'], ['dias_ativos', 'Dias ativos'], ['aberturas', 'Aberturas'],
+  ['idas_principal', 'Jogos vistos ao vivo (equipa principal)'], ['idas_jovens', 'Jogos vistos ao vivo (jovens e fut. feminino)'], ['idas_modalidades', 'Jogos vistos ao vivo (modalidades)']];
 const faixaDe = i => i == null ? 'Sem data' : i < 18 ? 'Menos de 18' : i < 25 ? '18 a 24' : i < 35 ? '25 a 34' : i < 45 ? '35 a 44' : i < 55 ? '45 a 54' : i < 65 ? '55 a 64' : '65 ou mais';
 const PREDEFINICOES = {
   participativos: { nome: 'Mais participativos', ordem: 'participacoes', pesos: {} },
   quiz: { nome: 'Melhores no quiz', ordem: 'quiz_certas', pesos: {} },
   fieis: { nome: 'Mais fiéis (dias ativos)', ordem: 'dias_ativos', pesos: {} },
   prognosticos: { nome: 'Melhores prognosticadores', ordem: 'acertos_prog', pesos: {} },
+  estadio: { nome: 'Mais vão ao estádio', ordem: 'idas_principal', pesos: {} },
   equilibrado: { nome: 'Pontuação equilibrada', ordem: 'pontuacao', pesos: { sondagens: 1, mvp: 1, quiz_respostas: 1, quiz_certas: 2, prognosticos: 1, acertos_prog: 3, dias_ativos: 0.5 } }
 };
 let RK = { periodo: 'epoca', pais: '', faixa: '', agrupar: 'pessoa', ordem: 'participacoes', pesos: {}, top: 25, media: false };

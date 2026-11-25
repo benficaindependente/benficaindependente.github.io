@@ -318,6 +318,9 @@ begin
         (select count(*) from ranking_prognosticos r where r.user_id = pf.user_id and r.quando >= de) prognosticos,
         (select count(*) from ranking_prognosticos r join ranking_jogos j on j.jogo = r.jogo
           where r.user_id = pf.user_id and j.data >= de and j.golos_b = r.golos_b and j.golos_r = r.golos_r) acertos_prog,
+        (select count(*) from idas_estadio i where i.user_id = pf.user_id and i.categoria = 'principal' and i.data >= (de at time zone 'Europe/Lisbon')::date) idas_principal,
+        (select count(*) from idas_estadio i where i.user_id = pf.user_id and i.categoria = 'jovens_feminino' and i.data >= (de at time zone 'Europe/Lisbon')::date) idas_jovens,
+        (select count(*) from idas_estadio i where i.user_id = pf.user_id and i.categoria = 'modalidades' and i.data >= (de at time zone 'Europe/Lisbon')::date) idas_modalidades,
         (select count(*) from acessos_conta a where a.user_id = pf.user_id and a.dia >= (de at time zone 'Europe/Lisbon')::date) dias_ativos,
         coalesce((select sum(a.aberturas) from acessos_conta a where a.user_id = pf.user_id and a.dia >= (de at time zone 'Europe/Lisbon')::date), 0) aberturas,
         (select max(a.dia) from acessos_conta a where a.user_id = pf.user_id) ultimo_acesso,
