@@ -16,6 +16,34 @@ create table if not exists public.perfis (
   criado  timestamptz not null default now()
 );
 create unique index if not exists perfis_alcunha_unica on public.perfis (lower(alcunha)) where alcunha <> '';
+-- A pessoa escolhe se a sua participação na app (sondagens, MVP, quiz, acessos) fica associada à conta.
+alter table public.perfis add column if not exists participacao boolean not null default true;
+-- De onde a pessoa nos vê (opcional, escrito por ela).
+alter table public.perfis add column if not exists localidade text not null default '';
+alter table public.perfis add column if not exists pais text not null default '';
+-- Data de nascimento (opcional): dá a idade para os números e o parabéns no dia de anos.
+alter table public.perfis add column if not exists nascimento date;
+
+-- Participações associadas à conta (só contas com participacao = true). Cada sondagem, MVP ou pergunta conta uma vez.
+create table if not exists public.participacao_conta (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  tipo    text not null check (tipo in ('sondagem', 'mvp', 'quiz')),
+  ref     text not null,                -- id da sondagem, do jogo ou da pergunta
+  certa   boolean,                      -- só no quiz: acertou?
+  dia     date not null default (now() at time zone 'Europe/Lisbon')::date,
+  quando  timestamptz not null default now(),
+  primary key (user_id, tipo, ref)
+);
+-- Dias em que a pessoa abriu a app e quantas vezes.
+create table if not exists public.acessos_conta (
+  user_id   uuid not null references auth.users (id) on delete cascade,
+  dia       date not null,
+  aberturas integer not null default 1,
+  primary key (user_id, dia)
+);
+alter table public.participacao_conta enable row level security;
+alter table public.acessos_conta enable row level security;
+revoke all on public.participacao_conta, public.acessos_conta from anon, authenticated;
 
 -- Resultado oficial de cada jogo, guardado para sempre (os outros dados desaparecem ao fim de uns dias).
 create table if not exists public.ranking_jogos (
@@ -126,19 +154,25 @@ begin
   return json_build_object('ok', true);
 end $$;
 
--- ------------------------------ Perfil (nome e alcunha) ------------------------------
+-- ------------------------------ Perfil (nome, alcunha e consentimento) ------------------------------
 create or replace function public.bi_perfil_obter() returns json
 language plpgsql security definer set search_path = public as $$
 declare uid uuid := auth.uid();
 begin
   if uid is null then return null; end if;
-  return (select json_build_object('nome', nome, 'alcunha', alcunha, 'mostrar', mostrar) from perfis where user_id = uid);
+  return (select json_build_object('nome', nome, 'alcunha', alcunha, 'mostrar', mostrar, 'participacao', participacao, 'localidade', localidade, 'pais', pais, 'nascimento', coalesce(to_char(nascimento, 'YYYY-MM-DD'), '')) from perfis where user_id = uid);
 end $$;
 
-create or replace function public.bi_perfil_guardar(p_nome text, p_alcunha text, p_mostrar text) returns json
+drop function if exists public.bi_perfil_guardar(text, text, text);
+drop function if exists public.bi_perfil_guardar(text, text, text, boolean, text, text);
+create or replace function public.bi_perfil_guardar(p_nome text, p_alcunha text, p_mostrar text, p_participacao boolean default true, p_localidade text default '', p_pais text default '', p_nascimento text default '') returns json
 language plpgsql security definer set search_path = public as $$
-declare uid uuid := auth.uid(); n text := trim(coalesce(p_nome, '')); a text := trim(coalesce(p_alcunha, '')); m text := p_mostrar;
+declare uid uuid := auth.uid(); n text := trim(coalesce(p_nome, '')); a text := trim(coalesce(p_alcunha, '')); m text := p_mostrar; part boolean := coalesce(p_participacao, true); loc text := left(trim(coalesce(p_localidade, '')), 60); pa text := left(trim(coalesce(p_pais, '')), 60); nasc date;
 begin
+  if coalesce(trim(p_nascimento), '') <> '' then
+    begin nasc := trim(p_nascimento)::date; exception when others then raise exception 'Data de nascimento inválida.'; end;
+    if nasc > current_date - interval '5 years' or nasc < current_date - interval '110 years' then raise exception 'Data de nascimento inválida.'; end if;
+  end if;
   if uid is null then raise exception 'Entra na tua conta.'; end if;
   if length(n) = 0 and length(a) = 0 then raise exception 'Escreve o teu nome ou uma alcunha.'; end if;
   if length(n) > 30 or length(a) > 30 then raise exception 'No máximo 30 letras.'; end if;
@@ -146,8 +180,38 @@ begin
   if m = 'alcunha' and a = '' then raise exception 'Escolheste mostrar a alcunha, mas ainda não escreveste nenhuma.'; end if;
   if m = 'nome' and n = '' then raise exception 'Escolheste mostrar o nome, mas ainda não o escreveste.'; end if;
   if a <> '' and exists (select 1 from perfis where lower(alcunha) = lower(a) and user_id <> uid) then raise exception 'Essa alcunha já está a ser usada. Escolhe outra.'; end if;
-  insert into perfis (user_id, nome, alcunha, mostrar) values (uid, n, a, m)
-  on conflict (user_id) do update set nome = excluded.nome, alcunha = excluded.alcunha, mostrar = excluded.mostrar;
+  insert into perfis (user_id, nome, alcunha, mostrar, participacao, localidade, pais, nascimento) values (uid, n, a, m, part, loc, pa, nasc)
+  on conflict (user_id) do update set nome = excluded.nome, alcunha = excluded.alcunha, mostrar = excluded.mostrar, participacao = excluded.participacao,
+    localidade = excluded.localidade, pais = excluded.pais, nascimento = excluded.nascimento;
+  -- Quem desliga a associação da participação fica sem esse histórico (os prognósticos do ranking mantêm-se).
+  if not part then
+    delete from participacao_conta where user_id = uid;
+    delete from acessos_conta where user_id = uid;
+  end if;
+  return json_build_object('ok', true);
+end $$;
+
+-- ------------------------------ Participação associada à conta ------------------------------
+-- A app avisa quando a pessoa (com conta e com a opção ligada) vota numa sondagem, no MVP ou responde ao quiz.
+create or replace function public.bi_part_registar(p_tipo text, p_ref text, p_certa boolean default null) returns json
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null or p_tipo not in ('sondagem', 'mvp', 'quiz') or coalesce(length(p_ref), 0) not between 1 and 40 then return json_build_object('ok', false); end if;
+  if not exists (select 1 from perfis where user_id = uid and participacao) then return json_build_object('ok', false); end if;
+  insert into participacao_conta (user_id, tipo, ref, certa) values (uid, p_tipo, p_ref, case when p_tipo = 'quiz' then p_certa end)
+  on conflict (user_id, tipo, ref) do nothing;
+  return json_build_object('ok', true);
+end $$;
+
+-- A app avisa quando a abre (no máximo uma vez de 30 em 30 minutos).
+create or replace function public.bi_acesso_registar() returns json
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); hoje date := (now() at time zone 'Europe/Lisbon')::date;
+begin
+  if uid is null or not exists (select 1 from perfis where user_id = uid and participacao) then return json_build_object('ok', false); end if;
+  insert into acessos_conta (user_id, dia, aberturas) values (uid, hoje, 1)
+  on conflict (user_id, dia) do update set aberturas = acessos_conta.aberturas + 1;
   return json_build_object('ok', true);
 end $$;
 
@@ -235,10 +299,74 @@ begin
   return json_build_object('ok', true);
 end $$;
 
+create or replace function public.bi_admin_participacao_conta(p_gh text, p_periodo text default 'epoca') returns json
+language plpgsql security definer set search_path = public as $$
+declare l text := bi_quem(p_gh); ini timestamptz := bi_epoca_inicio(); de timestamptz;
+begin
+  de := case p_periodo when '7d' then now() - interval '7 days' when '30d' then now() - interval '30 days' when 'tudo' then '2000-01-01'::timestamptz else ini end;
+  return json_build_object(
+    'periodo', coalesce(p_periodo, 'epoca'), 'desde', de,
+    'lista', coalesce((select json_agg(x order by x.participacoes desc, x.dias_ativos desc, x.nome) from (
+      select pf.user_id, pf.nome as nome_real, pf.alcunha, pf.participacao as associada, pf.localidade, pf.pais, pf.nascimento,
+        case when pf.nascimento is null then null else extract(year from age(pf.nascimento))::int end idade,
+        coalesce(nullif(case pf.mostrar when 'nome' then pf.nome else pf.alcunha end, ''), nullif(pf.nome, ''), nullif(pf.alcunha, ''), 'Adepto') nome,
+        (select count(*) from participacao_conta c where c.user_id = pf.user_id and c.tipo = 'sondagem' and c.quando >= de) sondagens,
+        (select count(*) from participacao_conta c where c.user_id = pf.user_id and c.tipo = 'mvp' and c.quando >= de) mvp,
+        (select count(*) from participacao_conta c where c.user_id = pf.user_id and c.tipo = 'quiz' and c.quando >= de) quiz_respostas,
+        (select count(*) from participacao_conta c where c.user_id = pf.user_id and c.tipo = 'quiz' and c.certa and c.quando >= de) quiz_certas,
+        (select count(*) from ranking_prognosticos r where r.user_id = pf.user_id and r.quando >= de) prognosticos,
+        (select count(*) from acessos_conta a where a.user_id = pf.user_id and a.dia >= (de at time zone 'Europe/Lisbon')::date) dias_ativos,
+        coalesce((select sum(a.aberturas) from acessos_conta a where a.user_id = pf.user_id and a.dia >= (de at time zone 'Europe/Lisbon')::date), 0) aberturas,
+        (select max(a.dia) from acessos_conta a where a.user_id = pf.user_id) ultimo_acesso,
+        (select count(*) from participacao_conta c where c.user_id = pf.user_id and c.quando >= de)
+          + (select count(*) from ranking_prognosticos r where r.user_id = pf.user_id and r.quando >= de) participacoes,
+        pf.criado
+      from perfis pf) x), '[]'::json));
+end $$;
+
+-- Idades: quantas contas por faixa etária e como participam; aniversários dos próximos 30 dias.
+create or replace function public.bi_admin_idades(p_gh text) returns json
+language plpgsql security definer set search_path = public as $$
+declare l text := bi_quem(p_gh); hoje date := (now() at time zone 'Europe/Lisbon')::date; ini timestamptz := bi_epoca_inicio();
+begin
+  return (
+    with c as (
+      select pf.user_id, pf.nascimento, extract(year from age(hoje, pf.nascimento))::int idade,
+        coalesce(nullif(case pf.mostrar when 'nome' then pf.nome else pf.alcunha end, ''), nullif(pf.nome, ''), nullif(pf.alcunha, ''), 'Adepto') nome,
+        (select count(*) from participacao_conta x where x.user_id = pf.user_id and x.quando >= ini) part,
+        (select count(*) from ranking_prognosticos r join ranking_jogos j on j.jogo = r.jogo where r.user_id = pf.user_id and j.data >= ini) jogos,
+        (select count(*) from ranking_prognosticos r join ranking_jogos j on j.jogo = r.jogo where r.user_id = pf.user_id and j.data >= ini and j.golos_b = r.golos_b and j.golos_r = r.golos_r) acertos,
+        (select count(*) from participacao_conta x where x.user_id = pf.user_id and x.tipo = 'quiz' and x.quando >= ini) quiz,
+        (select count(*) from participacao_conta x where x.user_id = pf.user_id and x.tipo = 'quiz' and x.certa and x.quando >= ini) quiz_certas,
+        (select count(*) from acessos_conta a where a.user_id = pf.user_id and a.dia >= (ini at time zone 'Europe/Lisbon')::date) dias
+      from perfis pf where pf.nascimento is not null
+    ), f as (
+      select case when idade < 18 then '1|Menos de 18' when idade < 25 then '2|18 a 24' when idade < 35 then '3|25 a 34' when idade < 45 then '4|35 a 44'
+                  when idade < 55 then '5|45 a 54' when idade < 65 then '6|55 a 64' else '7|65 ou mais' end faixa, c.* from c
+    ), prox as (
+      select nome, idade, nascimento,
+        case when (nascimento + make_interval(years => idade))::date < hoje then (nascimento + make_interval(years => idade + 1))::date
+             else (nascimento + make_interval(years => idade))::date end dia
+      from c
+    )
+    select json_build_object(
+      'com_data', (select count(*) from c), 'sem_data', (select count(*) from perfis where nascimento is null),
+      'idade_media', (select round(avg(idade)::numeric, 1) from c), 'mais_novo', (select min(idade) from c), 'mais_velho', (select max(idade) from c),
+      'faixas', coalesce((select json_agg(json_build_object('faixa', split_part(faixa, '|', 2), 'contas', n, 'participacoes', part, 'jogos', jogos, 'acertos', acertos,
+            'quiz', quiz, 'quiz_certas', quiz_certas, 'dias_ativos', dias) order by faixa)
+          from (select faixa, count(*) n, sum(part) part, sum(jogos) jogos, sum(acertos) acertos, sum(quiz) quiz, sum(quiz_certas) quiz_certas, sum(dias) dias from f group by faixa) g), '[]'::json),
+      'aniversarios', coalesce((select json_agg(json_build_object('nome', nome, 'dia', dia, 'idade', extract(year from dia)::int - extract(year from nascimento)::int, 'dias_ate', dia - hoje) order by dia, nome)
+          from prox where dia - hoje <= 30), '[]'::json)
+    )
+  );
+end $$;
+
 -- ------------------------------ Permissões ------------------------------
-revoke execute on function public.bi_perfil_obter(), public.bi_perfil_guardar(text, text, text), public.bi_ranking(int), public.bi_conta_apagar(),
+revoke execute on function public.bi_perfil_obter(), public.bi_perfil_guardar(text, text, text, boolean, text, text, text), public.bi_ranking(int), public.bi_conta_apagar(),
+  public.bi_part_registar(text, text, boolean), public.bi_acesso_registar(), public.bi_admin_participacao_conta(text, text), public.bi_admin_idades(text),
   public.bi_admin_ranking(text), public.bi_admin_ranking_remover(text, uuid), public.bi_prognostico_enviar(text, text, text, text, int, int, text),
   public.bi_epoca_inicio(), public.bi_jogos_real_para_ranking() from public;
-grant execute on function public.bi_perfil_obter(), public.bi_perfil_guardar(text, text, text), public.bi_ranking(int), public.bi_conta_apagar(),
+grant execute on function public.bi_perfil_obter(), public.bi_perfil_guardar(text, text, text, boolean, text, text, text), public.bi_ranking(int), public.bi_conta_apagar(),
+  public.bi_part_registar(text, text, boolean), public.bi_acesso_registar(), public.bi_admin_participacao_conta(text, text), public.bi_admin_idades(text),
   public.bi_admin_ranking(text), public.bi_admin_ranking_remover(text, uuid), public.bi_prognostico_enviar(text, text, text, text, int, int, text)
   to anon, authenticated;

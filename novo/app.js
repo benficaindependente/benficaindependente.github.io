@@ -2819,6 +2819,7 @@ ECRAS = [
   // ⚙ Gestão
   { chave: 'painel', nome: 'Aprovações e alertas', grupo: 'gestao', desenhar: ecraPainel },
   { chave: 'estatisticas', nome: 'Estatísticas da app', grupo: 'gestao', desenhar: ecraEstatisticasApp },
+  { chave: 'participantes', nome: 'Participantes', grupo: 'gestao', desenhar: ecraParticipantes },
   { chave: 'monetizacao', nome: 'Monetização', grupo: 'gestao', desenhar: ecraMonetizacao },
   { chave: 'admins', nome: 'Administradores', grupo: 'gestao', desenhar: ecraAdmins },
   { chave: 'versoes', nome: 'Versões da app', grupo: 'gestao', desenhar: ecraVersoes },

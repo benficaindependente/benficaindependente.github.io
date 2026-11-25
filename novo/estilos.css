@@ -408,6 +408,11 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
 .aviso-faixa { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 18px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(135deg, rgba(240, 180, 41, .22), rgba(240, 180, 41, .08)); border: 1px solid rgba(240, 180, 41, .4); color: #ffe6a0; }
 .aviso-faixa .ico { margin-top: 2px; }
 
+.calor { display: grid; gap: 3px; overflow-x: auto; }
+.calor-linha { display: grid; grid-template-columns: 34px repeat(24, minmax(11px, 1fr)); gap: 3px; align-items: center; }
+.calor-linha i { display: block; height: 20px; border-radius: 4px; }
+.calor-linha span { font-size: .68rem; color: var(--suave); text-align: center; }
+.calor-dia { text-align: left !important; font-weight: 700; }
 .objetivo { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--linha); }
 .objetivo-topo { display: flex; justify-content: space-between; gap: 10px; font-size: .88rem; margin-bottom: 8px; flex-wrap: wrap; }
 .objetivo-barra { height: 10px; border-radius: 10px; background: rgba(255, 255, 255, .08); overflow: hidden; margin-bottom: 8px; }

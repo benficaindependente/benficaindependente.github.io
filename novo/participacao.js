@@ -345,3 +345,56 @@ async function ecraRankingAdmin(alvo) {
   if (csv) csv.addEventListener('click', () => descarregarCsv(`ranking-${diaISO(new Date())}.csv`,
     [['Pos', 'Aparece como', 'Nome', 'Alcunha', 'Pontos', 'Acertos', 'Jogos']].concat(linhas.map(x => [x.pos, x.nome, x.nome_real, x.alcunha, x.pontos, x.acertos, x.jogos]))));
 }
+
+/* ---------------------------- Adeptos mais ativos (participação associada às contas) ---------------------------- */
+let ATIVOS_PERIODO = 'epoca';
+const NOMES_PERIODO = { '7d': 'últimos 7 dias', '30d': 'últimos 30 dias', epoca: 'esta época', tudo: 'desde sempre' };
+
+async function ecraAtivos(alvo) {
+  if (CFG.modo === 'local' || !CFG.token) {
+    alvo.innerHTML = cartao('Adeptos mais ativos', '<p class="suave">Só funciona ao entrar com a conta (não no modo de teste).</p>');
+    return;
+  }
+  alvo.innerHTML = cartao('Adeptos mais ativos', '<p class="suave">A carregar…</p>');
+  let r;
+  try { carregar(true); r = await rpcAdmin('bi_admin_participacao_conta', { p_periodo: ATIVOS_PERIODO }); }
+  catch (e) { alvo.innerHTML = cartao('Adeptos mais ativos', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-ranking.sql no Supabase.</p>`); return; }
+  finally { carregar(false); }
+  const lista = (r.lista || []).filter(x => x.associada !== false);
+  const ativos = lista.filter(x => x.participacoes > 0 || x.dias_ativos > 0);
+  const tot = k => ativos.reduce((n, x) => n + Number(x[k] || 0), 0);
+  const medalha = ['🥇', '🥈', '🥉'];
+  const taxa = (c, t) => t ? Math.round(100 * c / t) + ' %' : '—';
+  let html = cartao('Adeptos mais ativos — ' + NOMES_PERIODO[ATIVOS_PERIODO], `
+    <p class="suave">Quem mais participa na app: votos nas sondagens e no Homem do jogo, respostas ao quiz, prognósticos e acessos. Só aparecem pessoas com conta que deixaram a participação associada. A coluna <b>Participações</b> soma sondagens, MVP, quiz e prognósticos.</p>
+    <div style="margin:10px 0 14px">${Object.keys(NOMES_PERIODO).map(k => `<button class="botao pequeno ${k === ATIVOS_PERIODO ? 'principal' : ''}" data-periodo="${k}">${esc(NOMES_PERIODO[k])}</button>`).join(' ')}</div>
+    <div class="grelha">
+      ${azulejo(numero(lista.length), 'Contas com participação associada')}
+      ${azulejo(numero(ativos.length), 'Ativas neste período')}
+      ${azulejo(numero(tot('participacoes')), 'Participações no total')}
+      ${azulejo(numero(tot('aberturas')), 'Aberturas da app (com conta)')}
+    </div>`, '<button class="botao pequeno" data-csv-ativos>⬇ Exportar (Excel)</button>');
+  const top = ativos.slice(0, 3);
+  if (top.length) {
+    html += cartao('Para parabenizar', `<p class="suave">As três pessoas que mais participaram ${esc(NOMES_PERIODO[ATIVOS_PERIODO])}.</p>
+      <div class="formatos">${top.map((x, i) => `<div class="formato"><b>${medalha[i]} ${esc(x.nome)}</b>
+        <p class="suave" style="margin:0">${numero(x.participacoes)} participações · ${numero(x.dias_ativos)} ${x.dias_ativos === 1 ? 'dia ativo' : 'dias ativos'} · ${numero(x.aberturas)} aberturas</p>
+        <p class="suave" style="margin:6px 0 0">${numero(x.sondagens)} sondagens · ${numero(x.mvp)} MVP · ${numero(x.quiz_certas)}/${numero(x.quiz_respostas)} no quiz · ${numero(x.prognosticos)} prognósticos</p></div>`).join('')}</div>`);
+  }
+  html += cartao('Tabela completa', `<div class="tabela-rolar"><table class="tabela tabela-numeros">
+    <tr><th>#</th><th>Aparece como</th><th>Nome</th><th>Idade</th><th>País</th><th class="direita">Participações</th><th class="direita">Sondagens</th><th class="direita">MVP</th>
+      <th class="direita">Quiz (certas/total)</th><th class="direita">Prognósticos</th><th class="direita">Dias ativos</th><th class="direita">Aberturas</th><th>Último acesso</th></tr>
+    ${ativos.map((x, i) => `<tr><td><b>${i + 1}</b></td><td><b>${esc(x.nome)}</b>${x.alcunha && x.nome_real ? `<div class="mini">${esc(x.alcunha)}</div>` : ''}</td><td>${esc(x.nome_real || '—')}</td><td>${x.idade != null ? numero(x.idade) : '—'}</td><td>${esc(x.pais || '—')}${x.localidade ? `<div class="mini">${esc(x.localidade)}</div>` : ''}</td>
+      <td class="direita"><b>${numero(x.participacoes)}</b></td><td class="direita">${numero(x.sondagens)}</td><td class="direita">${numero(x.mvp)}</td>
+      <td class="direita">${numero(x.quiz_certas)}/${numero(x.quiz_respostas)} <span class="mini">(${taxa(x.quiz_certas, x.quiz_respostas)})</span></td>
+      <td class="direita">${numero(x.prognosticos)}</td><td class="direita">${numero(x.dias_ativos)}</td><td class="direita">${numero(x.aberturas)}</td>
+      <td class="mini">${x.ultimo_acesso ? esc(dataDia(x.ultimo_acesso)) : '—'}</td></tr>`).join('')
+      || '<tr><td colspan="13"><p class="suave">Ainda não há participação associada a contas neste período.</p></td></tr>'}
+  </table></div>`);
+  alvo.innerHTML = html;
+  $$('[data-periodo]', alvo).forEach(b => b.addEventListener('click', () => { ATIVOS_PERIODO = b.dataset.periodo; ecraAtivos(alvo); }));
+  const csv = $('[data-csv-ativos]', alvo);
+  if (csv) csv.addEventListener('click', () => descarregarCsv(`adeptos-ativos-${ATIVOS_PERIODO}-${diaISO(new Date())}.csv`,
+    [['Pos', 'Aparece como', 'Nome', 'Alcunha', 'Participações', 'Sondagens', 'MVP', 'Quiz certas', 'Quiz total', 'Prognósticos', 'Dias ativos', 'Aberturas', 'Último acesso']]
+      .concat(ativos.map((x, i) => [i + 1, x.nome, x.nome_real, x.alcunha, x.participacoes, x.sondagens, x.mvp, x.quiz_certas, x.quiz_respostas, x.prognosticos, x.dias_ativos, x.aberturas, x.ultimo_acesso || '']))));
+}
