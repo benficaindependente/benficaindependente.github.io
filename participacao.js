@@ -164,28 +164,31 @@ function cartaoQuiz(perguntas, cfg) {
     ${blocos || '<p class="suave">Ainda não há perguntas: a próxima execução do robô cria-as.</p>'}`);
 }
 
-function ecraParticipacao(alvo) {
+function ecraParticipacao(alvo, quais) {
   if (CFG.modo === 'local' || !CFG.token) {
-    alvo.innerHTML = cartao('Participação dos adeptos', '<p class="suave">Só funciona ao entrar com a conta GitHub (não no modo de teste).</p>');
+    alvo.innerHTML = cartao(TITULOS_PART[quais], '<p class="suave">Só funciona ao entrar com a conta (não no modo de teste).</p>');
     return;
   }
-  alvo.innerHTML = cartao('Participação dos adeptos', '<p class="suave">A carregar…</p>');
+  alvo.innerHTML = cartao(TITULOS_PART[quais], '<p class="suave">A carregar…</p>');
   (async () => {
     let jogos, perguntas, quiz, envioQuiz;
     try {
       carregar(true);
       [jogos, perguntas, quiz, envioQuiz] = await Promise.all([
-        rpcAdmin('bi_admin_participacao'), rpcAdmin('bi_admin_perguntas'), lerQuizPublico(), lerQuizEnvio()
+        quais === 'prognosticos' ? rpcAdmin('bi_admin_participacao') : [],
+        quais === 'perguntas' ? rpcAdmin('bi_admin_perguntas') : [],
+        quais === 'quiz' ? lerQuizPublico() : [],
+        quais === 'quiz' ? lerQuizEnvio() : {}
       ]);
     } catch (e) {
-      alvo.innerHTML = cartao('Participação dos adeptos', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-novidades.sql no Supabase.</p>`);
+      alvo.innerHTML = cartao(TITULOS_PART[quais], `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-novidades.sql no Supabase.</p>`);
       return;
     } finally { carregar(false); }
 
     // No envio automático, as perguntas que o robô criar depois ficam logo com data — sem
     // ninguém ter de voltar a mexer aqui. Na primeira vez cria a agenda (a partir de agora),
     // para que as perguntas seguintes não saiam a qualquer hora.
-    if (envioQuiz.modo !== 'manual') {
+    if (quais === 'quiz' && envioQuiz.modo !== 'manual') {
       const agenda = agendaQuiz(envioQuiz, quiz);
       const antes = envioQuiz.envios || {};
       const mudou = Object.keys(agenda).length !== Object.keys(antes).length ||
@@ -196,7 +199,7 @@ function ecraParticipacao(alvo) {
       }
     }
 
-    let html = cartao('Prognósticos', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico. Quando o jogo acaba, o resultado oficial entra <b>automaticamente</b> (vem do robô) e aqui aparece logo quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
+    let html = quais !== 'prognosticos' ? '' : cartao('Prognósticos', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico. Quando o jogo acaba, o resultado oficial entra <b>automaticamente</b> (vem do robô) e aqui aparece logo quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
       ${jogos.length ? jogos.map((j, i) => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b>
           ${j.resultado ? `<span class="pilula ok">Fechado · ${j.resultado.golos_b}-${j.resultado.golos_r}</span>` : '<span class="pilula espera">Aberto</span>'}</div>
@@ -207,7 +210,7 @@ function ecraParticipacao(alvo) {
         </div></div>`).join('') : '<p class="suave">Ainda não há participações (ou já desapareceram).</p>'}`);
 
     const novas = perguntas.filter(p => p.estado === 'nova').length;
-    html += cartao('Perguntas ao programa', `<p class="suave">Perguntas e sugestões dos adeptos para o próximo direto. Marca as que vais usar (ficam no topo) e apaga o que não serve. Desaparecem sozinhas ao fim de 30 dias. <b>${novas}</b> por ler.</p>
+    if (quais === 'perguntas') html += cartao('Perguntas ao programa', `<p class="suave">Perguntas e sugestões dos adeptos para o próximo direto. Marca as que vais usar (ficam no topo) e apaga o que não serve. Desaparecem sozinhas ao fim de 30 dias. <b>${novas}</b> por ler.</p>
       ${perguntas.length ? perguntas.map(p => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(p.nome)}</b>
           <span class="pilula ${p.estado === 'escolhida' ? 'ok' : p.estado === 'nova' ? 'espera' : ''}">${p.estado === 'escolhida' ? 'Escolhida' : p.estado === 'lida' ? 'Lida' : 'Nova'}</span></div>
@@ -218,7 +221,7 @@ function ecraParticipacao(alvo) {
           <button class="botao pequeno perigo" data-pe="${p.id}|apagar">Apagar</button>
         </div></div>`).join('') : '<p class="suave">Ainda não há perguntas.</p>'}`);
 
-    html += cartaoQuiz(quiz, envioQuiz);
+    if (quais === 'quiz') html += cartaoQuiz(quiz, envioQuiz);
     alvo.innerHTML = html;
 
     // Quiz: modo, horário do envio automático e data de cada pergunta.
@@ -282,4 +285,116 @@ function ecraParticipacao(alvo) {
       redesenhar();
     }));
   })();
+}
+
+/* Três ecrãs separados: cada um mostra só o que lhe diz respeito. */
+const TITULOS_PART = { perguntas: 'Perguntas ao programa', prognosticos: 'Prognósticos', quiz: 'Quiz' };
+const ecraPerguntas = alvo => ecraParticipacao(alvo, 'perguntas');
+const ecraQuiz = alvo => ecraParticipacao(alvo, 'quiz');
+
+/* ---------------------------- Prognósticos: jogos e ranking da época ---------------------------- */
+function ecraPrognosticos(alvo) {
+  comAbas(alvo, 'prog', [
+    { id: 'jogos', nome: 'Jogos', icone: 'chart', desenhar: d => ecraParticipacao(d, 'prognosticos') },
+    { id: 'ranking', nome: 'Ranking da época', icone: 'star', desenhar: ecraRankingAdmin }
+  ]);
+}
+
+async function ecraRankingAdmin(alvo) {
+  if (CFG.modo === 'local' || !CFG.token) {
+    alvo.innerHTML = cartao('Ranking da época', '<p class="suave">Só funciona ao entrar com a conta (não no modo de teste).</p>');
+    return;
+  }
+  alvo.innerHTML = cartao('Ranking da época', '<p class="suave">A carregar…</p>');
+  let r;
+  try { carregar(true); r = await rpcAdmin('bi_admin_ranking'); }
+  catch (e) { alvo.innerHTML = cartao('Ranking da época', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-ranking.sql no Supabase.</p>`); return; }
+  finally { carregar(false); }
+  const lista = r.lista || [], jogos = r.jogos || [];
+  const comJogos = lista.filter(x => x.jogos > 0);
+  let pos = 0, ult = null;
+  const linhas = comJogos.map((x, i) => { if (!ult || x.acertos !== ult.acertos || x.jogos !== ult.jogos) pos = i + 1; ult = x; return Object.assign({ pos }, x); });
+  let html = cartao(`Ranking da época ${r.epoca}/${String(Number(r.epoca) + 1).slice(2)}`, `
+    <p class="suave">Cada resultado <b>exato</b> vale <b>3 pontos</b>. A época vai de 1 de julho a 30 de junho. Só entra quem criou conta na app e deu prognósticos com ela. Aqui vês o nome e a alcunha de cada pessoa; na app só aparece o que ela escolheu mostrar.</p>
+    <div class="grelha">
+      ${azulejo(numero(lista.length), 'Contas criadas')}
+      ${azulejo(numero(comJogos.length), 'Já com jogos terminados')}
+      ${azulejo(numero(jogos.length), 'Jogos com resultado')}
+      ${azulejo(linhas[0] ? numero(linhas[0].pontos) : '—', 'Pontos do 1.º lugar')}
+    </div>`, '<button class="botao pequeno" data-csv-rank>⬇ Exportar (Excel)</button>');
+  html += cartao('Classificação', `<div class="tabela-rolar"><table class="tabela tabela-numeros">
+    <tr><th>#</th><th>Aparece como</th><th>Nome</th><th>Alcunha</th><th class="direita">Pontos</th><th class="direita">Acertos</th><th class="direita">Jogos</th><th></th></tr>
+    ${linhas.map(x => `<tr><td><b>${x.pos}</b></td><td><b>${esc(x.nome)}</b></td><td>${esc(x.nome_real || '—')}</td><td>${esc(x.alcunha || '—')}</td>
+      <td class="direita"><b>${numero(x.pontos)}</b></td><td class="direita">${numero(x.acertos)}</td><td class="direita">${numero(x.jogos)}</td>
+      <td class="direita"><button class="botao pequeno perigo" data-tirar-rank="${esc(x.user_id)}" data-nome="${esc(x.nome)}">Tirar</button></td></tr>`).join('')
+      || '<tr><td colspan="8"><p class="suave">Ainda ninguém tem jogos terminados com conta.</p></td></tr>'}
+  </table></div>`);
+  html += cartao('Jogos da época', `<div class="tabela-rolar"><table class="tabela tabela-numeros">
+    <tr><th>Jogo</th><th class="direita">Resultado</th><th class="direita">Prognósticos</th><th class="direita">Acertaram</th></tr>
+    ${jogos.map(j => `<tr><td>${esc(j.titulo || j.jogo)}<div class="mini">${esc(dataCurta(j.data))}</div></td><td class="direita"><b>${j.golos_b} - ${j.golos_r}</b></td>
+      <td class="direita">${numero(j.prognosticos)}</td><td class="direita">${numero(j.acertos)}</td></tr>`).join('') || '<tr><td colspan="4"><p class="suave">Ainda não há jogos com resultado.</p></td></tr>'}
+  </table></div>`);
+  alvo.innerHTML = html;
+  $$('[data-tirar-rank]', alvo).forEach(b => b.addEventListener('click', async () => {
+    if (!await perguntar('Tirar do ranking?', `<p><b>${esc(b.dataset.nome)}</b> deixa de aparecer no ranking e os prognósticos dessa conta são apagados. A pessoa pode voltar a participar.</p>`, 'Sim, tirar', 'Cancelar')) return;
+    try { carregar(true); await rpcAdmin('bi_admin_ranking_remover', { p_user: b.dataset.tirarRank }); aviso('Tirado do ranking.'); }
+    catch (e) { aviso(e.message, true); } finally { carregar(false); }
+    ecraRankingAdmin(alvo);
+  }));
+  const csv = $('[data-csv-rank]', alvo);
+  if (csv) csv.addEventListener('click', () => descarregarCsv(`ranking-${diaISO(new Date())}.csv`,
+    [['Pos', 'Aparece como', 'Nome', 'Alcunha', 'Pontos', 'Acertos', 'Jogos']].concat(linhas.map(x => [x.pos, x.nome, x.nome_real, x.alcunha, x.pontos, x.acertos, x.jogos]))));
+}
+
+/* ---------------------------- Adeptos mais ativos (participação associada às contas) ---------------------------- */
+let ATIVOS_PERIODO = 'epoca';
+const NOMES_PERIODO = { '7d': 'últimos 7 dias', '30d': 'últimos 30 dias', epoca: 'esta época', tudo: 'desde sempre' };
+
+async function ecraAtivos(alvo) {
+  if (CFG.modo === 'local' || !CFG.token) {
+    alvo.innerHTML = cartao('Adeptos mais ativos', '<p class="suave">Só funciona ao entrar com a conta (não no modo de teste).</p>');
+    return;
+  }
+  alvo.innerHTML = cartao('Adeptos mais ativos', '<p class="suave">A carregar…</p>');
+  let r;
+  try { carregar(true); r = await rpcAdmin('bi_admin_participacao_conta', { p_periodo: ATIVOS_PERIODO }); }
+  catch (e) { alvo.innerHTML = cartao('Adeptos mais ativos', `<p class="erro">${esc(e.message)}</p><p class="suave">Se é a primeira vez, falta correr o ficheiro supabase-ranking.sql no Supabase.</p>`); return; }
+  finally { carregar(false); }
+  const lista = (r.lista || []).filter(x => x.associada !== false);
+  const ativos = lista.filter(x => x.participacoes > 0 || x.dias_ativos > 0);
+  const tot = k => ativos.reduce((n, x) => n + Number(x[k] || 0), 0);
+  const medalha = ['🥇', '🥈', '🥉'];
+  const taxa = (c, t) => t ? Math.round(100 * c / t) + ' %' : '—';
+  let html = cartao('Adeptos mais ativos — ' + NOMES_PERIODO[ATIVOS_PERIODO], `
+    <p class="suave">Quem mais participa na app: votos nas sondagens e no Homem do jogo, respostas ao quiz, prognósticos e acessos. Só aparecem pessoas com conta que deixaram a participação associada. A coluna <b>Participações</b> soma sondagens, MVP, quiz e prognósticos.</p>
+    <div style="margin:10px 0 14px">${Object.keys(NOMES_PERIODO).map(k => `<button class="botao pequeno ${k === ATIVOS_PERIODO ? 'principal' : ''}" data-periodo="${k}">${esc(NOMES_PERIODO[k])}</button>`).join(' ')}</div>
+    <div class="grelha">
+      ${azulejo(numero(lista.length), 'Contas com participação associada')}
+      ${azulejo(numero(ativos.length), 'Ativas neste período')}
+      ${azulejo(numero(tot('participacoes')), 'Participações no total')}
+      ${azulejo(numero(tot('aberturas')), 'Aberturas da app (com conta)')}
+    </div>`, '<button class="botao pequeno" data-csv-ativos>⬇ Exportar (Excel)</button>');
+  const top = ativos.slice(0, 3);
+  if (top.length) {
+    html += cartao('Para parabenizar', `<p class="suave">As três pessoas que mais participaram ${esc(NOMES_PERIODO[ATIVOS_PERIODO])}.</p>
+      <div class="formatos">${top.map((x, i) => `<div class="formato"><b>${medalha[i]} ${esc(x.nome)}</b>
+        <p class="suave" style="margin:0">${numero(x.participacoes)} participações · ${numero(x.dias_ativos)} ${x.dias_ativos === 1 ? 'dia ativo' : 'dias ativos'} · ${numero(x.aberturas)} aberturas</p>
+        <p class="suave" style="margin:6px 0 0">${numero(x.sondagens)} sondagens · ${numero(x.mvp)} MVP · ${numero(x.quiz_certas)}/${numero(x.quiz_respostas)} no quiz · ${numero(x.prognosticos)} prognósticos</p></div>`).join('')}</div>`);
+  }
+  html += cartao('Tabela completa', `<div class="tabela-rolar"><table class="tabela tabela-numeros">
+    <tr><th>#</th><th>Aparece como</th><th>Nome</th><th>Idade</th><th>País</th><th class="direita">Participações</th><th class="direita">Sondagens</th><th class="direita">MVP</th>
+      <th class="direita">Quiz (certas/total)</th><th class="direita">Prognósticos</th><th class="direita">Dias ativos</th><th class="direita">Aberturas</th><th>Último acesso</th></tr>
+    ${ativos.map((x, i) => `<tr><td><b>${i + 1}</b></td><td><b>${esc(x.nome)}</b>${x.alcunha && x.nome_real ? `<div class="mini">${esc(x.alcunha)}</div>` : ''}</td><td>${esc(x.nome_real || '—')}</td><td>${x.idade != null ? numero(x.idade) : '—'}</td><td>${esc(x.pais || '—')}${x.localidade ? `<div class="mini">${esc(x.localidade)}</div>` : ''}</td>
+      <td class="direita"><b>${numero(x.participacoes)}</b></td><td class="direita">${numero(x.sondagens)}</td><td class="direita">${numero(x.mvp)}</td>
+      <td class="direita">${numero(x.quiz_certas)}/${numero(x.quiz_respostas)} <span class="mini">(${taxa(x.quiz_certas, x.quiz_respostas)})</span></td>
+      <td class="direita">${numero(x.prognosticos)}</td><td class="direita">${numero(x.dias_ativos)}</td><td class="direita">${numero(x.aberturas)}</td>
+      <td class="mini">${x.ultimo_acesso ? esc(dataDia(x.ultimo_acesso)) : '—'}</td></tr>`).join('')
+      || '<tr><td colspan="13"><p class="suave">Ainda não há participação associada a contas neste período.</p></td></tr>'}
+  </table></div>`);
+  alvo.innerHTML = html;
+  $$('[data-periodo]', alvo).forEach(b => b.addEventListener('click', () => { ATIVOS_PERIODO = b.dataset.periodo; ecraAtivos(alvo); }));
+  const csv = $('[data-csv-ativos]', alvo);
+  if (csv) csv.addEventListener('click', () => descarregarCsv(`adeptos-ativos-${ATIVOS_PERIODO}-${diaISO(new Date())}.csv`,
+    [['Pos', 'Aparece como', 'Nome', 'Alcunha', 'Participações', 'Sondagens', 'MVP', 'Quiz certas', 'Quiz total', 'Prognósticos', 'Dias ativos', 'Aberturas', 'Último acesso']]
+      .concat(ativos.map((x, i) => [i + 1, x.nome, x.nome_real, x.alcunha, x.participacoes, x.sondagens, x.mvp, x.quiz_certas, x.quiz_respostas, x.prognosticos, x.dias_ativos, x.aberturas, x.ultimo_acesso || '']))));
 }

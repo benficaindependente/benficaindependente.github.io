@@ -1,14 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>App Benfica Independente</title>
-<meta name="theme-color" content="#d40000">
+<title>BI Estúdio · Benfica Independente</title>
+<meta name="theme-color" content="#0b0d12">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icone-192.png">
 <link rel="apple-touch-icon" href="icone-512.png">
-<link rel="stylesheet" href="estilos-v18.css?v=20">
+<link rel="preload" href="fontes/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="estilos.css?v=9">
 </head>
 <body>
 
@@ -16,11 +17,11 @@
 <section id="ecra-entrar" class="entrar">
   <div class="entrar-caixa">
     <img src="icone-512.png" alt="" class="entrar-logo">
-    <h1>App Benfica Independente</h1>
-    <p class="suave">Gestão da app</p>
+    <h1>BI Estúdio</h1>
+    <p class="suave">A plataforma de quem faz o Benfica Independente</p>
 
     <button id="entrar-google" class="botao principal largo">Entrar com a conta Google</button>
-    <p class="suave" style="text-align:center;margin:10px 0">ou com email e palavra-passe</p>
+    <p class="separador-ou"><span>ou com email e palavra-passe</span></p>
     <label>Email
       <input id="entrar-email" type="email" placeholder="o-teu-email@exemplo.com" autocomplete="username">
     </label>
@@ -28,11 +29,11 @@
       <input id="entrar-palavra" type="password" autocomplete="current-password">
     </label>
     <button id="entrar-email-botao" class="botao largo">Entrar</button>
-    <p class="suave" style="text-align:center;margin:10px 0">
-      <a href="#" id="entrar-primeiro" onclick="return false">Primeiro acesso</a> ·
+    <p class="entrar-links">
+      <a href="#" id="entrar-primeiro" onclick="return false">Primeiro acesso</a>
       <a href="#" id="entrar-esqueci" onclick="return false">Esqueci-me da palavra-passe</a>
     </p>
-    <button id="entrar-local" class="botao largo">Experimentar sem internet (nada chega à app)</button>
+    <button id="entrar-local" class="botao largo fantasma">Experimentar sem internet (nada chega à app)</button>
 
     <details class="ajuda">
       <summary>Entrar com a chave do GitHub (só para o dono, em caso de emergência)</summary>
@@ -48,7 +49,7 @@
         <li>No GitHub: a tua foto → Settings → Developer settings → Personal access tokens → <b>Fine-grained tokens</b> → Generate new token.</li>
         <li>Em <i>Resource owner</i> escolhe <b>benficaindependente</b>; em <i>Repository access</i> escolhe <b>benfica-independente-dados</b>
             (e <b>benfica-independente-gestao</b>, se existir).</li>
-        <li>Em <i>Permissions</i>: <b>Contents →  Read and write</b> e <b>Actions →  Read-only</b> (para os alertas do robô).</li>
+        <li>Em <i>Permissions</i>: <b>Contents →  Read and write</b> e <b>Actions →  Read-only</b> (para os alertas do robô).</li>
         <li>Copia a chave e cola-a aqui. Fica guardada só neste dispositivo. Nunca a envies a ninguém.</li>
       </ol>
     </details>
@@ -63,31 +64,38 @@
     <div class="barra-topo">
       <img src="icone-192.png" alt="" class="barra-logo">
       <div>
-        <strong>App Benfica Independente</strong>
+        <strong>BI Estúdio</strong>
         <span id="barra-modo" class="etiqueta">github</span>
       </div>
     </div>
     <nav id="menu" class="menu"></nav>
     <div class="barra-fundo">
-      <button id="sair" class="botao pequeno">Sair</button>
+      <span id="quem" class="quem"></span>
+      <button id="sair" class="botao pequeno fantasma">Sair</button>
     </div>
   </aside>
 
   <main class="conteudo">
     <header class="topo">
-      <button id="menu-botao" class="botao pequeno so-telemovel">☰</button>
-      <h2 id="titulo-ecra">Painel</h2>
-      <span id="quem" class="suave"></span>
+      <img src="icone-192.png" alt="" class="topo-logo so-telemovel">
+      <h2 id="titulo-ecra">Direto</h2>
+      <button id="aprovacoes" class="aviso-aprovacoes escondido"></button>
+      <button id="sair-m" class="botao pequeno fantasma so-telemovel">Sair</button>
     </header>
+    <nav id="subnav" class="subnav escondido"></nav>
     <div id="aviso" class="aviso escondido"></div>
     <div id="ecra" class="ecra"></div>
   </main>
+
+  <nav id="menu-baixo" class="menu-baixo"></nav>
+  <button id="ajuda-flutuante" class="ajuda-fab" aria-label="Pedir ajuda à IA"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg><span>Ajuda</span></button>
 </div>
 
 <div id="carregando" class="carregando escondido"><div class="roda"></div></div>
 
-<script src="quadro-v18.js?v=24"></script>
-<script src="participacao-v18.js?v=19"></script>
-<script src="app-v19.js?v=22"></script>
+<script src="quadro.js?v=1"></script>
+<script src="participacao.js?v=5"></script>
+<script src="participantes.js?v=5"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

@@ -1,32 +1,10 @@
-﻿/* Service worker do BI Estúdio (a plataforma nova, em /novo/).
-   Vai sempre primeiro à internet (para apanhar logo as versões novas) e só usa a cópia guardada quando não há ligação.
-   Usa o seu próprio nome de cache, para não mexer na cache da plataforma antiga. Nunca guarda pedidos ao GitHub. */
-'use strict';
-
-const CACHE = 'bi-estudio-v13';
-const FICHEIROS = ['./index.html', './estilos.css', './app.js', './quadro.js', './participacao.js', './participantes.js', './jogadores.json',
-  './fontes/inter-latin.woff2', './fontes/inter-latin-ext.woff2', './icone.svg', './icone-192.png', './icone-512.png', './manifest.webmanifest'];
-
-self.addEventListener('install', ev => {
-  ev.waitUntil(caches.open(CACHE).then(c => c.addAll(FICHEIROS)).then(() => self.skipWaiting()));
-});
-
+/* Service worker antigo: limpa a cache e desliga-se, para a pessoa ver sempre a plataforma atual. */
+self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', ev => {
   ev.waitUntil(
-    caches.keys().then(nomes => Promise.all(nomes.filter(n => n.startsWith('bi-estudio-') && n !== CACHE).map(n => caches.delete(n))))
-      .then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', ev => {
-  const url = new URL(ev.request.url);
-  if (url.hostname === 'api.github.com' || url.hostname.endsWith('githubusercontent.com')) return;
-  if (ev.request.method !== 'GET' || url.origin !== location.origin) return;
-  ev.respondWith(
-    fetch(ev.request, { cache: 'no-store' }).then(resposta => {
-      const copia = resposta.clone();
-      caches.open(CACHE).then(c => c.put(ev.request, copia));
-      return resposta;
-    }).catch(() => caches.match(ev.request).then(g => g || caches.match('./index.html')))
+    caches.keys().then(n => Promise.all(n.map(c => caches.delete(c))))
+      .then(() => self.registration.unregister())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(cs => cs.forEach(c => { try { c.navigate(c.url); } catch (e) { /* ignora */ } }))
   );
 });

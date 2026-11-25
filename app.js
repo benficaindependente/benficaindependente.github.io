@@ -18,7 +18,7 @@
 /* ----------------------------- Constantes ----------------------------- */
 const CHAVE_CONFIG = 'bi.plataforma.v2';
 const PREFIXO_LOCAL = 'bi.local.';
-const DONO_PADRAO = 'JoaoRebola';
+const DONO_PADRAO = 'benficaindependente';
 const REPO_PADRAO = 'benfica-independente-dados';
 const REPO_PRIVADO_PADRAO = 'benfica-independente-gestao';
 const RAMO_PADRAO = 'main';
@@ -228,6 +228,7 @@ function totalAdmins() { const a = admins(); return new Set([...a.donos, ...a.ad
 function guardarConfig() { localStorage.setItem(CHAVE_CONFIG, JSON.stringify(CFG)); }
 function lerConfig() {
   try { const b = localStorage.getItem(CHAVE_CONFIG); if (b) CFG = Object.assign(CFG, JSON.parse(b)); } catch (e) { /* ignora */ }
+  if (CFG.owner === 'JoaoRebola') CFG.owner = DONO_PADRAO;   // o repositório passou para a organização
 }
 function mostraErroEntrada(texto) { $('#entrar-erro').textContent = texto || ''; }
 
@@ -378,21 +379,272 @@ async function tratarLigacaoEmail() {
 }
 
 /* ------------------------------ Estrutura da UI ------------------------------ */
+/* ---------------------------- Ícones (SVG desenhados) ---------------------------- */
+const ICONES = {
+  live: '<circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/><path d="M7.6 7.6a6.2 6.2 0 0 0 0 8.8M16.4 7.6a6.2 6.2 0 0 1 0 8.8M4.8 4.8a10.2 10.2 0 0 0 0 14.4M19.2 4.8a10.2 10.2 0 0 1 0 14.4"/>',
+  edit: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/>',
+  board: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16"/><circle cx="12" cy="12" r="2.6"/><path d="M3 9.5h3.2v5H3M21 9.5h-3.2v5H21"/>',
+  poll: '<path d="M5.5 20V11M12 20V4M18.5 20v-6.5"/>',
+  chat: '<path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h-1A2.5 2.5 0 0 1 4 13.5z"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7.5 8 5.5 8-5.5"/>',
+  bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.6 2H4.4z"/><path d="M10 21a2.2 2.2 0 0 0 4 0"/>',
+  spark: '<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="m18.5 16 .7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
+  news: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+  star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8L3.5 9.7l5.9-.9z"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 4 4 3-3 4 4"/>',
+  euro: '<path d="M17.5 7.2A6 6 0 1 0 17.5 16.8M5 10.5h8.5M5 13.5h8.5"/>',
+  users: '<circle cx="9" cy="9" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 6.3a3.2 3.2 0 0 1 0 5.9M17.7 19a5.5 5.5 0 0 0-3-4.9"/>',
+  shield: '<path d="M12 3 5 6v5.5c0 4.5 3 7.7 7 9.5 4-1.8 7-5 7-9.5V6z"/><path d="m9 12 2.2 2.2 3.8-3.7"/>',
+  download: '<path d="M12 4v11M7.5 11 12 15.5l4.5-4.5M5 20h14"/>',
+  list: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+  chart: '<path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6"/>',
+  sliders: '<path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/>',
+  phone: '<rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/>',
+  contact: '<path d="M5 4.5h9a2 2 0 0 1 2 2V19a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V5.5a1 1 0 0 1 1-1z"/><circle cx="10" cy="10" r="2"/><path d="M6.5 16c.4-2 1.8-3 3.5-3s3.1 1 3.5 3M19 8v3M19 14v1"/>',
+  play: '<path d="M8 5.5v13l11-6.5z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>'
+};
+function icone(nome, classe) {
+  return `<svg class="ico ${classe || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[nome] || ''}</svg>`;
+}
+
+/* ---------------------------- Banner de publicidade ---------------------------- */
+const ICONES_BANNER = [['', 'Nenhum'], ['🔥', '🔥 Em destaque'], ['⭐', '⭐ Estrela'], ['🎁', '🎁 Oferta'], ['📢', '📢 Novidade'], ['⚽', '⚽ Futebol'],
+  ['🍽️', '🍽️ Restaurante'], ['🍺', '🍺 Bebida'], ['🏆', '🏆 Troféu'], ['💰', '💰 Desconto'], ['🛒', '🛒 Compras'], ['🎟️', '🎟️ Bilhetes'],
+  ['🚗', '🚗 Carros'], ['🏠', '🏠 Casa'], ['💪', '💪 Ginásio'], ['📞', '📞 Contacto'], ['➡️', '➡️ Seta'], ['👉', '👉 Aponta'], ['❤️', '❤️ Coração'], ['🔴', '🔴 Benfica']];
+
+/** A barra por cima do menu, tal como aparece na app (usada nas pré-visualizações). */
+function promoBar(v) {
+  const f = v.formato || (v.imagem ? 'logo' : 'texto');
+  if (f === 'imagem') {
+    return `<div class="promo promo-imagem">${imagemValida(v.imagem) ? `<img src="${esc(v.imagem)}" alt="">` : '<div class="promo-img">Imagem 1080 × 120 px</div>'}<span class="promo-canto">PUBLICIDADE</span></div>`;
+  }
+  const antes = f === 'texto' && v.iconeAntes ? `<span class="promo-ico">${esc(v.iconeAntes)}</span>` : '';
+  const depois = f === 'texto' && v.iconeDepois ? `<span class="promo-ico">${esc(v.iconeDepois)}</span>` : '';
+  const logo = f === 'logo' && imagemValida(v.imagem) ? `<img class="promo-logo" src="${esc(v.imagem)}" alt="">` : '';
+  return `<div class="promo">${logo}<span class="promo-etq">PUBLICIDADE</span>${antes}<span class="promo-txt">${esc(v.texto || 'Texto do anúncio')}</span>${depois}<span class="promo-seta">›</span></div>`;
+}
+
+/** Banner: duas abas — os anúncios (criar e editar) e os resultados (analytics e receita). */
+function ecraBanner(alvo) {
+  comAbas(alvo, 'banner', [
+    { id: 'anuncios', nome: 'Anúncios e formatos', icone: 'edit', desenhar: ecraBannerAnuncios },
+    { id: 'resultados', nome: 'Resultados e receita', icone: 'chart', desenhar: ecraBannerAnalytics }
+  ]);
+}
+
+let BAN_DIAS = 30;
+const PRAZO_ALERTA = 7;   // avisa quando faltam 7 dias ou menos para a campanha acabar
+
+/** Analytics do banner pago: visualizações, cliques, receita e relatório de cada campanha. */
+function ecraBannerAnalytics(alvo) {
+  alvo.innerHTML = cartao('Resultados do banner', '<p class="suave">A carregar…</p>');
+  (async () => {
+    let linhas, linhasTodas;
+    try { carregar(true); [linhas, linhasTodas] = await Promise.all([lerEstatisticas(BAN_DIAS), lerEstatisticas(0), carregarPrivados()]); }
+    catch (e) { alvo.innerHTML = cartao('Resultados do banner', `<p class="erro">${esc(e.message)}</p>`); return; }
+    finally { carregar(false); }
+    const periodo = BAN_DIAS ? `últimos ${BAN_DIAS} dias` : 'desde sempre';
+    const pecas = pecasPublicidade().filter(p => p.tipo === 'anuncios' && (p.item.estado === 'publicado' || PRIV[p.id]));
+    const ms = pecas.map(p => Object.assign({ p }, metricas(p, linhas)));
+    const ids = new Set(pecas.map(p => p.id));
+    const dosAnuncios = linhas.filter(l => ids.has(l.peca));
+    const ads = somar(dosAnuncios), pat = somar(linhas, 'patreon');
+    const recPaga = ms.filter(m => m.pr.pago).reduce((n, m) => n + m.rec, 0);
+    const nDias = BAN_DIAS || new Set(linhas.map(l => String(l.dia).slice(0, 10))).size || 1;
+    const porDia = Math.round((ads.imp + pat.imp) / nDias);
+    const estado = x => {
+      if (x.estado !== 'publicado') return ['espera', 'À espera de aprovação'];
+      if (x.ativo === false) return ['', 'Desligado'];
+      if (x.de && new Date(x.de) > new Date()) return ['info', 'Começa a ' + dataDia(x.de)];
+      const f = diasAte(x.ate);
+      if (f != null && f < 0) return ['', 'Terminada'];
+      if (f != null && f <= PRAZO_ALERTA) return ['espera', `Termina em ${f} ${f === 1 ? 'dia' : 'dias'}`];
+      return ['ok', 'A decorrer'];
+    };
+    const viva = m => { const e = estado(m.p.item)[1]; return e === 'A decorrer' || /^Termina em/.test(e); };
+    const ativas = ms.filter(m => m.pr.pago && viva(m)).length;
+    const aTerminar = ms.filter(m => m.pr.pago && /Termina em/.test(estado(m.p.item)[1]));
+
+    /** Progresso de um objetivo acordado (desde o início da campanha) e se, ao ritmo atual, chega a tempo. */
+    const objetivo = (m, rotulo, alvoN, campo) => {
+      const meta = Number(alvoN || 0);
+      if (!meta) return '';
+      const id = m.p.id, tot = somar(linhasTodas, id);
+      const feito = campo === 'imp' ? tot.imp : tot.cli;
+      const pc = Math.min(100, Math.round(feito / meta * 100));
+      const desde = diasAtras(6);
+      const s7 = somar(linhasTodas.filter(l => l.peca === id && String(l.dia).slice(0, 10) >= desde), id);
+      const ritmo = (campo === 'imp' ? s7.imp : s7.cli) / 7;
+      let nota;
+      if (feito >= meta) nota = '<span style="color:#7ee6ae">✔ Objetivo cumprido.</span>';
+      else if (ritmo <= 0) nota = 'Sem dados recentes para estimar o fim.';
+      else {
+        const dias = Math.ceil((meta - feito) / ritmo), fim = m.p.item.ate ? diasAte(m.p.item.ate) : null;
+        const quando = new Date(Date.now() + dias * 86400e3).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' });
+        nota = fim != null && dias > fim
+          ? `<span style="color:#ffd66b">⚠ Ao ritmo dos últimos 7 dias só chega ao objetivo por ${esc(quando)}, depois do fim da campanha. Aumenta a <b>frequência</b> do anúncio (1 a 5) para o cumprir.</span>`
+          : `Ao ritmo dos últimos 7 dias chega ao objetivo por volta de ${esc(quando)}.`;
+      }
+      return `<div class="objetivo"><div class="objetivo-topo"><span>${esc(rotulo)}</span><b>${numero(feito)} / ${numero(meta)} (${pc}%)</b></div>
+        <div class="objetivo-barra"><i style="width:${pc}%"></i></div><div class="mini">${nota}</div></div>`;
+    };
+
+    let html = cartao('Resumo do banner — ' + periodo, `
+      <div style="margin-bottom:14px">${[7, 30, 90, 365, 0].map(d => `<button class="botao pequeno ${d === BAN_DIAS ? 'principal' : ''}" data-dias="${d}">${d ? d + ' dias' : 'Sempre'}</button>`).join(' ')}</div>
+      <div class="grelha">
+        ${azulejo(euros(recPaga), 'Receita dos anúncios pagos')}
+        ${azulejo(numero(ads.imp), 'Visualizações dos anúncios')}
+        ${azulejo(numero(ads.alc), 'Pessoas alcançadas (soma diária)')}
+        ${azulejo(numero(ads.cli), 'Cliques')}
+        ${azulejo(pct(ads.cli, ads.imp), 'CTR — taxa de cliques')}
+        ${azulejo(ativas, 'Campanhas pagas a decorrer')}
+      </div>
+      ${CFG.modo === 'local' ? '<p class="suave" style="margin-top:10px">Modo de teste: as visualizações e cliques são números de exemplo.</p>' : ''}`,
+      '<button class="botao pequeno" data-csv>⬇ Exportar (Excel)</button>');
+
+    if (aTerminar.length) {
+      html += `<div class="aviso-faixa">${icone('calendar')}<div><b>Campanhas a terminar</b><br>${aTerminar.map(m => `${esc(m.p.nome)}${m.pr.anunciante ? ' (' + esc(m.pr.anunciante) + ')' : ''} — ${esc(estado(m.p.item)[1].toLowerCase())}`).join('<br>')}<br><span class="suave">É a altura de falar com o anunciante para renovar.</span></div></div>`;
+    }
+
+    html += cartao('O valor do espaço', `<p class="suave">Para fixares preços: quantas vezes o banner é visto, contando o Patreon e os anúncios.</p>
+      <div class="grelha">
+        ${azulejo(numero(porDia), 'Visualizações do banner por dia')}
+        ${azulejo(numero(porDia * 30), 'Estimativa para um mês')}
+        ${azulejo(numero(pat.imp), 'Só do Patreon (neste período)')}
+        ${azulejo(ads.imp ? euros(recPaga / ads.imp * 1000) : '—', 'Receita por 1000 visualizações (RPM)')}
+      </div>`);
+
+    html += cartao('Visualizações e cliques por dia', grafico(dosAnuncios, BAN_DIAS || 90));
+
+    html += `<h3 class="seccao-titulo">Campanhas</h3>`;
+    html += ms.length ? ms.map(m => {
+      const [cl, texto] = estado(m.p.item);
+      const orc = Number(m.pr.orcamento || 0), atingido = orc > 0 && m.rec >= orc;
+      return `<section class="campanha">
+        <div class="campanha-topo"><div><b>${esc(m.p.nome)}</b>
+          <div class="mini">${m.pr.anunciante ? esc(m.pr.anunciante) + ' · ' : ''}${m.pr.pago ? esc(MODELOS[m.pr.modelo] || 'Valor fixo') + ' · ' + euros(m.pr.preco) + (orc ? ' · máx. ' + euros(orc) : '') : 'Não é paga'}</div></div>
+          <div class="campanha-estado">${atingido ? '<span class="pilula mau">Orçamento atingido</span>' : ''}<span class="pilula ${cl}">${esc(texto)}</span></div></div>
+        ${promoBar(m.p.item)}
+        ${objetivo(m, 'Visualizações acordadas', m.pr.objImpressoes, 'imp')}${objetivo(m, 'Cliques acordados', m.pr.objCliques, 'cli')}
+        <div class="grelha">
+          ${azulejo(numero(m.s.imp), 'Visualizações')}${azulejo(numero(m.s.alc), 'Pessoas')}${azulejo(numero(m.s.cli), 'Cliques')}${azulejo(m.ctr, 'CTR')}
+          ${m.pr.pago ? azulejo(euros(m.rec), 'Receita') + azulejo(m.cpm, 'CPM') + azulejo(m.cpc, 'CPC') + azulejo(numero(m.conv), 'Vendas') : ''}
+        </div>
+        <div class="linha-acoes" style="justify-content:flex-start">
+          <button class="botao pequeno" data-preco="${esc(m.p.id)}">${icone('euro')} Contrato e preço</button>
+          <button class="botao pequeno principal" data-relatorio="${esc(m.p.id)}">${icone('download')} Relatório para o anunciante</button>
+        </div></section>`;
+    }).join('') : cartao('', `<div class="vazio-grande">${icone('euro')}<b>Ainda não há anúncios no banner</b><p class="suave">Cria o primeiro na aba "Anúncios e formatos". Depois de publicado, aqui aparecem as visualizações, os cliques e a receita.</p></div>`);
+
+    html += cartao('Mais números', `<p class="suave">Todas as peças (destaques, avisos, publicações), outras receitas como AdMob e a explicação de cada número estão em <b>Gestão › Monetização</b>.</p>
+      <button class="botao" data-monetizacao>${icone('chart')} Abrir a Monetização completa</button>`);
+
+    alvo.innerHTML = html;
+    $$('[data-dias]', alvo).forEach(b => b.addEventListener('click', () => { BAN_DIAS = Number(b.dataset.dias); ecraBannerAnalytics(alvo); }));
+    $$('[data-preco]', alvo).forEach(b => b.addEventListener('click', async () => {
+      const p = pecas.find(x => x.id === b.dataset.preco);
+      const v = await formulario('Contrato — ' + p.nome, PAGO, Object.assign({ modelo: 'fixo' }, PRIV[p.id] || {}), { textoGuardar: 'Guardar' });
+      if (!v) return;
+      try { carregar(true); const d = {}; PAGO.filter(c => c.tipo !== 'titulo').forEach(c => { d[c.nome] = v[c.nome]; }); await guardarPrivados(p.id, d); aviso('Guardado.'); await calcularAlertasDinheiro(); ecraBannerAnalytics(alvo); }
+      catch (e) { aviso(e.message, true); } finally { carregar(false); }
+    }));
+    $$('[data-relatorio]', alvo).forEach(b => b.addEventListener('click', () => {
+      const m = ms.find(x => x.p.id === b.dataset.relatorio);
+      relatorio(m, linhas.filter(l => l.peca === m.p.id), periodo);
+    }));
+    $('[data-csv]', alvo).addEventListener('click', () => {
+      const cab = ['Anúncio', 'Anunciante', 'Modelo', 'Preço €', 'Visualizações', 'Pessoas', 'Cliques', 'CTR', 'Vendas', 'Receita €'];
+      const lin = ms.map(m => [m.p.nome, m.pr.anunciante || '', m.pr.pago ? (MODELOS[m.pr.modelo] || '') : '', m.pr.preco || '', m.s.imp, m.s.alc, m.s.cli, m.ctr, m.conv || '', m.pr.pago ? m.rec.toFixed(2) : '']);
+      descarregarCsv(`banner-${diaISO(new Date())}.csv`, [cab].concat(lin));
+    });
+    $('[data-monetizacao]', alvo).addEventListener('click', () => irPara('monetizacao'));
+  })();
+}
+
+function ecraBannerAnuncios(alvo) {
+  const ativos = (ler('anuncios') || []).filter(x => x.ativo !== false);
+  const formato = (n, titulo, barra, texto) => `<div class="formato"><b>${n} · ${esc(titulo)}</b>${barra}<p class="suave">${texto}</p></div>`;
+  alvo.innerHTML = cartao('Como funciona', `
+    <p>Esta é a <b>barra vermelha por cima do menu da app</b>, visível em todos os ecrãs. Vai alternando, de 5 em 5 segundos, entre o <b>Patreon</b> e os anúncios de quem paga para aparecer. Quanto maior a <i>frequência</i> (1 a 5), mais vezes o anúncio aparece.</p>
+    <div class="formatos">
+      ${formato(1, 'Texto com ícones', promoBar({ formato: 'texto', texto: 'Restaurante O Águia — 10% para sócios', iconeAntes: '🍽️', iconeDepois: '➡️' }), 'Escreves a frase e escolhes um ícone antes, depois ou os dois.')}
+      ${formato(2, 'Logótipo e texto', promoBar({ formato: 'logo', texto: 'Ginásio Leão — 1.º mês grátis' }).replace('<span class="promo-etq">', '<span class="promo-logo promo-logo-exemplo">LOGO</span><span class="promo-etq">'), 'Um logótipo pequeno e quadrado (ex.: 300 × 300 px) antes do texto.')}
+      ${formato(3, 'Imagem a toda a largura', promoBar({ formato: 'imagem' }), '<b>Formato: 1080 × 120 píxeis</b> (9:1, larga e baixa). A imagem ocupa a barra inteira e pode levar a tua arte, já com texto e cores.')}
+    </div>`);
+  const resto = document.createElement('div');
+  alvo.appendChild(resto);
+  ecraConteudo('anuncios')(resto);
+  // Ordem real da rotação (como a pessoa a vê na app)
+  if (ativos.length) {
+    const rot = cartao('O que está a rodar agora', `<p class="suave">Assim aparecem, por esta ordem (o Patreon entra sempre).</p>
+      <div class="rotacao"><div class="promo promo-patreon"><span class="promo-etq">PATREON</span><span class="promo-txt">Apoia o Benfica Independente no Patreon</span><span class="promo-seta">›</span></div>
+      ${ativos.map(x => promoBar(x)).join('')}</div>`);
+    alvo.insertBefore(Object.assign(document.createElement('div'), { innerHTML: rot }).firstElementChild, resto);
+  }
+}
+
+/* ---------------------------- Abas dentro de um ecrã ---------------------------- */
+const ABA_ATIVA = {};
+/** Mostra abas ("separadores") grandes e claras. abas = [{ id, nome, icone, desenhar(div) }] */
+function comAbas(alvo, chave, abas) {
+  const atual = abas.find(a => a.id === ABA_ATIVA[chave]) || abas[0];
+  alvo.innerHTML = `<div class="abas" role="tablist">${abas.map(a => `<button role="tab" class="aba ${a.id === atual.id ? 'ativa' : ''}" data-aba="${esc(a.id)}">
+      ${a.icone ? icone(a.icone) : ''}<span>${esc(a.nome)}</span>${a.n ? `<span class="marca">${a.n}</span>` : ''}</button>`).join('')}</div><div class="aba-corpo"></div>`;
+  $$('.aba', alvo).forEach(b => b.addEventListener('click', () => { ABA_ATIVA[chave] = b.dataset.aba; comAbas(alvo, chave, abas); }));
+  atual.desenhar($('.aba-corpo', alvo));
+}
+
+function ecraSondagens(alvo) {
+  comAbas(alvo, 'sond', [
+    { id: 'simples', nome: 'Simples (texto)', icone: 'poll', desenhar: d => ecraVotacoes(d, 'simples') },
+    { id: 'fotos', nome: 'Com fotos dos jogadores', icone: 'image', desenhar: d => ecraVotacoes(d, 'fotos') }
+  ]);
+}
+
+/* ---------------------------- Estrutura: 4 áreas ---------------------------- */
+const GRUPOS = [
+  { chave: 'direto', nome: 'Direto', icone: 'live', ajuda: 'Tudo o que se usa durante o programa' },
+  { chave: 'conteudos', nome: 'Conteúdos', icone: 'edit', ajuda: 'Notícias, destaques, fotos e anúncios' },
+  { chave: 'agendado', nome: 'Agendado', icone: 'calendar', ajuda: 'Ver e gerir quando cada coisa sai e termina' },
+  { chave: 'adeptos', nome: 'Participantes', icone: 'users', ajuda: 'Números, acessos, origem, idades e rankings dos participantes' },
+  { chave: 'gestao', nome: 'Gestão', icone: 'gear', ajuda: 'Definições, equipa e números' }
+];
+
+function ecraAtual() { return ECRAS.find(x => x.chave === ECRAS_ATIVO) || ECRAS[0]; }
+function paginasDoGrupo(g) { return ECRAS.filter(e => e.grupo === g && (!e.soDono || souDono())); }
+function totalPorAprovar() {
+  return Object.keys(TIPOS).reduce((n, t) => n + porAprovarPorMim(t), 0) + (SOND_POR_APROVAR || 0);
+}
+
 function montaMenu() {
-  $('#menu').innerHTML = ECRAS.filter(e => !e.soDono || souDono()).map(e => {
-    const conta = marcaDoMenu(e.chave);
-    return `<a data-ecra="${e.chave}" class="${e.chave === ECRAS_ATIVO ? 'ativo' : ''}">
-      <span class="icone">${e.icone}</span><span>${esc(e.nome)}</span>
-      ${conta ? `<span class="marca">${conta}</span>` : ''}
-    </a>`;
+  const grupo = ecraAtual().grupo;
+  const html = GRUPOS.map(g => {
+    const n = paginasDoGrupo(g.chave).reduce((t, e) => t + (Number(marcaDoMenu(e.chave)) || 0), 0);
+    return `<a data-grupo="${g.chave}" class="${g.chave === grupo ? 'ativo' : ''}" title="${esc(g.ajuda)}">
+      ${icone(g.icone)}<span class="nome">${esc(g.nome)}</span>${n ? `<span class="marca">${n}</span>` : ''}</a>`;
   }).join('');
-  $$('#menu a').forEach(a => a.addEventListener('click', () => {
-    ECRAS_ATIVO = a.dataset.ecra;
-    CONVERSA_ABERTA = null;
-    $('.barra').classList.remove('aberta');
-    montaMenu();
-    desenharEcra();
+  $('#menu').innerHTML = html;
+  $('#menu-baixo').innerHTML = html;
+  $$('#menu a, #menu-baixo a').forEach(a => a.addEventListener('click', () => {
+    const primeira = paginasDoGrupo(a.dataset.grupo)[0];
+    if (primeira) irPara(primeira.chave);
   }));
+  // Páginas dentro da área escolhida
+  const paginas = paginasDoGrupo(grupo);
+  $('#subnav').innerHTML = paginas.length > 1 ? paginas.map(e => {
+    const n = marcaDoMenu(e.chave);
+    return `<a data-ecra="${e.chave}" class="${e.chave === ECRAS_ATIVO ? 'ativo' : ''}">${esc(e.nome)}${n ? `<span class="marca">${n}</span>` : ''}</a>`;
+  }).join('') : '';
+  $('#subnav').classList.toggle('escondido', paginas.length < 2);
+  $$('#subnav a').forEach(a => a.addEventListener('click', () => irPara(a.dataset.ecra)));
+  // Aviso de aprovações à espera
+  const aprov = totalPorAprovar();
+  const caixa = $('#aprovacoes');
+  caixa.classList.toggle('escondido', !aprov);
+  caixa.innerHTML = aprov ? `${icone('shield')}<span>${aprov} ${aprov === 1 ? 'coisa à espera' : 'coisas à espera'} da tua aprovação</span>` : '';
 }
 
 /** Quantas coisas neste ecrã esperam pela minha aprovação. */
@@ -402,7 +654,7 @@ function porAprovarPorMim(tipo) {
 function marcaDoMenu(chave) {
   if (TIPOS[chave]) return porAprovarPorMim(chave) || '';
   if (chave === 'painel') return alertas().filter(a => a.mau).length || '';
-  if (chave === 'votacoes') return SOND_POR_APROVAR || '';
+  if (chave === 'sondagens') return SOND_POR_APROVAR || '';
   if (chave === 'mensagens') return MSG_NOVAS || '';
   return '';
 }
@@ -523,11 +775,12 @@ function formulario(titulo, campos, valores, opcoes) {
     fundo.className = 'fundo-modal';
     fundo.innerHTML = `<div class="modal">
       <header><h3>${esc(titulo)}</h3></header>
-      <div class="modal-corpo formulario">${opcoes.nota ? `<p class="suave">${opcoes.nota}</p>` : ''}${campos.map(c => campoHtml(c, valores[c.nome])).join('')}</div>
+      <div class="modal-corpo formulario">${opcoes.aoVivo ? '<div class="prev-viva"><div class="prev-viva-etq">Assim aparece na app (muda enquanto escreves)</div><div data-vivo></div></div>' : ''}${opcoes.nota ? `<p class="suave">${opcoes.nota}</p>` : ''}${campos.map(c => campoHtml(c, valores[c.nome])).join('')}</div>
       <div class="modal-pe">
+        ${opcoes.previsualizar ? '<span class="pe-aviso" data-aviso-prev>👁 Vê primeiro a pré-visualização para poderes publicar.</span>' : ''}
         <button class="botao" data-cancelar>Cancelar</button>
-        ${opcoes.previsualizar ? '<button class="botao" data-previsualizar>👁 Pré-visualizar</button>' : ''}
-        <button class="botao principal" data-guardar>${esc(opcoes.textoGuardar || 'Guardar')}</button>
+        ${opcoes.previsualizar ? '<button class="botao principal" data-previsualizar>👁 Pré-visualizar</button>' : ''}
+        <button class="botao principal" data-guardar ${opcoes.previsualizar ? 'disabled title="Vê primeiro a pré-visualização"' : ''}>${esc(opcoes.textoGuardar || 'Guardar')}</button>
       </div>
     </div>`;
     document.body.appendChild(fundo);
@@ -553,8 +806,29 @@ function formulario(titulo, campos, valores, opcoes) {
         el.style.display = ok ? '' : 'none';
       });
     };
+    // Só se pode publicar depois de ver a pré-visualização; se se mudar algo, é preciso voltar a ver.
+    let previsto = null;
+    const bGuardar = $('[data-guardar]', fundo), bPrev = $('[data-previsualizar]', fundo), avisoPrev = $('[data-aviso-prev]', fundo);
+    const verificarPrev = () => {
+      if (!opcoes.previsualizar || !bGuardar) return;
+      const ok = previsto !== null && JSON.stringify(recolher()) === previsto;
+      bGuardar.disabled = !ok;
+      bGuardar.title = ok ? '' : 'Vê primeiro a pré-visualização';
+      if (bPrev) bPrev.classList.toggle('principal', !ok);
+      if (avisoPrev) {
+        avisoPrev.style.display = ok ? 'none' : '';
+        avisoPrev.textContent = previsto === null ? '👁 Vê primeiro a pré-visualização para poderes publicar.' : '✏️ Mudaste algo: volta a pré-visualizar para poderes publicar.';
+      }
+    };
+    fundo.addEventListener('input', verificarPrev);
+    fundo.addEventListener('change', verificarPrev);
+    // Pré-visualização ao vivo (um "mini editor"): muda a cada letra ou escolha.
+    const atualizarVivo = () => { const c = $('[data-vivo]', fundo); if (c && opcoes.aoVivo) c.innerHTML = opcoes.aoVivo(recolher()); };
     fundo.addEventListener('change', aplicarVisiveis);
+    fundo.addEventListener('input', atualizarVivo);
+    fundo.addEventListener('change', atualizarVivo);
     aplicarVisiveis();
+    atualizarVivo();
     // Escolher foto: reduz e carrega logo.
     $$('input[type="file"][data-para]', fundo).forEach(inp => inp.addEventListener('change', async () => {
       const f = inp.files && inp.files[0];
@@ -569,6 +843,7 @@ function formulario(titulo, campos, valores, opcoes) {
         info.textContent = r.resumo;
         const mini = $(`[data-mini="${inp.dataset.para}"]`, fundo);
         mini.src = r.url; mini.style.display = '';
+        atualizarVivo(); verificarPrev();
       } catch (e) {
         info.textContent = '';
         aviso(e.message, true);
@@ -582,13 +857,20 @@ function formulario(titulo, campos, valores, opcoes) {
       $(`[name="${n}"]`, fundo).value = '';
       const mini = $(`[data-mini="${n}"]`, fundo); mini.removeAttribute('src'); mini.style.display = 'none';
       $(`[data-info="${n}"]`, fundo).textContent = '';
+      atualizarVivo(); verificarPrev();
     }));
     const fechar = r => { fundo.remove(); resolve(r); };
     $('[data-cancelar]', fundo).addEventListener('click', () => fechar(null));
-    const bPrev = $('[data-previsualizar]', fundo);
-    if (bPrev) bPrev.addEventListener('click', () => mostrarPrevisualizacao(opcoes.previsualizar(recolher())));
-    $('[data-guardar]', fundo).addEventListener('click', async () => {
+    if (bPrev) bPrev.addEventListener('click', () => {
+      const v = recolher();
+      mostrarPrevisualizacao(opcoes.previsualizar(v));
+      previsto = JSON.stringify(v);
+      verificarPrev();
+    });
+    verificarPrev();
+    bGuardar.addEventListener('click', async () => {
       const saida = recolher();
+      if (opcoes.previsualizar && JSON.stringify(saida) !== previsto) { aviso('Vê primeiro a pré-visualização antes de publicar.', true); return; }
       if (opcoes.validar) { const erro = opcoes.validar(saida); if (erro) { aviso(erro, true); return; } }
       if (opcoes.confirmar) {
         const c = opcoes.confirmar(saida);
@@ -688,6 +970,10 @@ const PAGO = [
     ajuda: 'Valor fixo: o total da campanha. CPM: € por cada 1000 visualizações. CPC: € por clique. CPA: € por venda/inscrição.' },
   { nome: 'orcamento', etiqueta: 'Máximo a cobrar em € (opcional)', tipo: 'number', min: 0, passo: 0.01, so: 'pago:true',
     ajuda: 'Quando o valor ganho chega aqui, a plataforma avisa para desligar a campanha.' },
+  { nome: 'objImpressoes', etiqueta: 'Objetivo acordado: visualizações (opcional)', tipo: 'number', min: 0, so: 'pago:true',
+    ajuda: 'Ex.: 50000 visualizações garantidas ao anunciante. A campanha mostra o progresso e avisa se, ao ritmo atual, não vai chegar a tempo.' },
+  { nome: 'objCliques', etiqueta: 'Objetivo acordado: cliques (opcional)', tipo: 'number', min: 0, so: 'pago:true',
+    ajuda: 'Ex.: 500 cliques. Serve para acompanhar o contrato; não desliga o anúncio sozinho.' },
   { nome: 'conversoes', etiqueta: 'Vendas/inscrições conseguidas', tipo: 'number', min: 0, so: 'pago:true',
     ajuda: 'O anunciante diz-nos quantas vendas ou inscrições vieram da app (vê no site dele pelas visitas marcadas "benficaindependente").' },
   { nome: 'notas', etiqueta: 'Notas internas', tipo: 'textarea', so: 'pago:true' }
@@ -738,23 +1024,36 @@ const TIPOS = {
       'No topo do Início' + (v.de || v.ate ? ` (${v.de ? dataDia(v.de) : 'já'} → ${v.ate ? dataDia(v.ate) : 'sem fim'})` : ''))
   },
   anuncios: {
-    nome: 'Anúncios', singular: 'anúncio', icone: '💰',
-    descricao: 'Publicidade na barra por cima do menu da app, em todos os ecrãs. Alterna com o Patreon de 5 em 5 segundos.',
+    nome: 'Banner de publicidade', singular: 'anúncio', icone: '💰',
+    descricao: 'A barra vermelha por cima do menu da app, em todos os ecrãs. Alterna com o Patreon de 5 em 5 segundos e mostra, por turnos, quem paga para aparecer.',
     titulo: x => x.texto, resumo: x => x.link,
     campos: [
-      { nome: 'texto', etiqueta: 'Texto do anúncio (curto)', tipo: 'text', dica: 'Ex.: Restaurante O Águia — 10% para sócios' },
-      { nome: 'imagem', etiqueta: 'Logótipo (opcional)', tipo: 'imagem', maxLado: 300, ajuda: 'Logótipo quadrado. É reduzido automaticamente.' },
+      { nome: 'formato', etiqueta: 'Como queres o banner?', tipo: 'select', valor: 'texto', opcoes: [
+        ['texto', 'Texto com ícones (antes e/ou depois)'],
+        ['logo', 'Logótipo e texto'],
+        ['imagem', 'Imagem a toda a largura (1080 × 120 px)']] },
+      { nome: 'texto', etiqueta: 'Texto do anúncio (curto)', tipo: 'text', dica: 'Ex.: Restaurante O Águia — 10% para sócios', ajuda: 'No banner só com imagem, serve de nome do anúncio (não aparece).' },
+      { nome: 'iconeAntes', etiqueta: 'Ícone antes do texto', tipo: 'select', so: 'formato:texto', valor: '', opcoes: ICONES_BANNER },
+      { nome: 'iconeDepois', etiqueta: 'Ícone depois do texto', tipo: 'select', so: 'formato:texto', valor: '', opcoes: ICONES_BANNER },
+      { nome: 'imagem', etiqueta: 'Imagem', tipo: 'imagem', maxLado: 1080, so: 'formato:logo,imagem',
+        ajuda: 'Logótipo: quadrado (ex.: 300 × 300). Imagem do banner: 1080 × 120 píxeis (9:1, larga e baixa). É reduzida automaticamente.' },
       { nome: 'link', etiqueta: 'Para onde leva ao tocar', tipo: 'url', dica: 'https://...' },
       { nome: 'peso', etiqueta: 'Frequência (1 a 5)', tipo: 'number', valor: 1, min: 1, max: 5, ajuda: '1 = normal, 2 = aparece o dobro das vezes' },
       ...DATAS, ATIVO
     ],
     privados: PAGO,
-    valido: v => !v.texto ? 'O anúncio precisa de um texto.' : (v.link && !urlSegura(v.link) ? 'A ligação tem de começar por https://' : ''),
+    aoVivo: v => promoBar(v) + (v.formato === 'imagem'
+      ? '<div class="prev-viva-nota"><b>Formato da imagem: 1080 × 120 píxeis</b> (9:1, larga e baixa). Se for diferente, é cortada ao centro.</div>'
+      : v.formato === 'logo' ? '<div class="prev-viva-nota">Logótipo quadrado, de preferência 300 × 300 píxeis.</div>'
+      : '<div class="prev-viva-nota">Escolhe um ícone antes, depois ou os dois (ou nenhum).</div>'),
+    valido: v => !v.texto ? 'O anúncio precisa de um texto.'
+      : (v.formato === 'imagem' && !v.imagem ? 'Escolhe a imagem do banner (1080 × 120 px).'
+      : (v.link && !urlSegura(v.link) ? 'A ligação tem de começar por https://' : '')),
     previsualizar: v => telemovel(
       `<div class="tm-p tm-suave">(conteúdo do ecrã)</div><div style="flex:1"></div>
-       <div class="tm-anuncio">${tmImagem(v.imagem, 'tm-logo')}<span>${esc(v.texto || 'Texto do anúncio')}</span><em>PUBLICIDADE</em></div>
+       ${promoBar(v)}
        <div class="tm-menu"><span>Início</span><span>Artigos</span><span>Podcasts</span><span>Vídeos</span><span>Benfica</span></div>`,
-      'Na barra por cima do menu, em todos os ecrãs')
+      'Na barra por cima do menu, em todos os ecrãs' + (v.formato === 'imagem' ? ' · imagem: 1080 × 120 px' : ''))
   },
   publicacoes: {
     nome: 'Publicações', singular: 'publicação', icone: '🖼',
@@ -876,6 +1175,7 @@ function ecraConteudo(tipo) {
       ? `<p class="aviso mau" style="margin:0 0 12px">Só há ${totalAdmins()} administrador(es). São precisos ${APROVACOES} para publicar — acrescenta outro em <b>Administradores</b>.</p>` : '';
     alvo.innerHTML = cartao(T.nome,
       `<p class="suave">${T.descricao}</p>
+       <p class="suave">Para ver ou mudar quando sai e quando termina: <button class="botao pequeno fantasma" data-ver-agendado>Agendado ›</button></p>
        <p class="suave">Tudo o que crias, alteras ou apagas só chega à app depois de <b>${APROVACOES} administradores diferentes</b> aprovarem (quem cria já conta como uma aprovação).</p>
        ${poucos}
        <div class="tabela-rolar"><table class="tabela">
@@ -889,6 +1189,7 @@ function ecraConteudo(tipo) {
       const b = ev.target.closest('button');
       if (!b) return;
       if (b.hasAttribute('data-novo')) editarConteudo(tipo, null);
+      else if (b.hasAttribute('data-ver-agendado')) { ABA_ATIVA.agendado = { notificacoes: 'avisos', destaques: 'destaques', anuncios: 'banner' }[tipo] || 'outros'; irPara('agendado'); }
       else if (b.hasAttribute('data-atualizar')) recarregar([tipo]);
       else if (b.dataset.editar) editarConteudo(tipo, b.dataset.editar);
       else if (b.dataset.apagar) apagarConteudo(tipo, b.dataset.apagar);
@@ -910,6 +1211,7 @@ async function editarConteudo(tipo, id, modelo) {
   const atual = id ? (ler(tipo) || []).find(x => x.id === id) : null;
   // Se já há uma alteração pendente, parte dela. Um modelo pronto preenche o formulário.
   const base = atual ? Object.assign({}, atual, atual.proposta && atual.proposta.campos ? atual.proposta.campos : {}) : Object.assign({ ativo: true }, modelo || {});
+  if (tipo === 'anuncios' && !base.formato) base.formato = base.imagem ? 'logo' : 'texto';
   const privAtuais = atual ? (PRIV[atual.id] || {}) : {};
   const campos = T.campos.concat(T.privados || []);
   const publicado = atual && atual.estado === 'publicado';
@@ -917,6 +1219,7 @@ async function editarConteudo(tipo, id, modelo) {
     textoGuardar: 'Publicar',
     nota: publicado ? 'Enquanto a alteração não for aprovada, a app continua a mostrar a versão atual.' : '',
     previsualizar: T.previsualizar,
+    aoVivo: T.aoVivo,
     validar: x => T.valido(x)
       || (x.link && !urlSegura(x.link) ? 'As ligações têm de começar por https://' : '')
       || (x.imagem && !imagemValida(x.imagem) ? 'A imagem tem de ser uma foto escolhida ou um endereço https://' : ''),
@@ -1070,7 +1373,7 @@ function exemploEstatisticas(dias) {
   pecas.forEach((p, i) => {
     let s = 7 + i * 13;
     const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-    for (let d = Math.min(dias, 60) - 1; d >= 0; d--) {
+    for (let d = Math.min(dias || 60, 60) - 1; d >= 0; d--) {
       const imp = Math.round((p.tipo === 'patreon' ? 900 : 300 + i * 80) * (0.6 + rnd() * 0.8));
       linhas.push({ peca: p.id, dia: diasAtras(d), impressoes: imp, cliques: Math.round(imp * (0.008 + rnd() * 0.02)), alcance: Math.round(imp * 0.45) });
     }
@@ -1156,6 +1459,10 @@ function alertas() {
       if (RUNS[0].conclusion === 'failure') lista.push({ mau: true, texto: `A última execução do robô falhou (${dataCurta(RUNS[0].created_at)}).`, link: RUNS[0].html_url });
       else if (falhas.length >= 3) lista.push({ mau: true, texto: `O robô falhou ${falhas.length} das últimas ${RUNS.length} vezes.`, link: falhas[0].html_url });
     }
+    // Verificações de coerência dos resultados e da agenda (feitas pelo robô em cada execução)
+    const semRes = (status.robo && status.robo.sem_resultados) || [];
+    if (semRes.length) lista.push({ mau: false, texto: `Há jogos na agenda de modalidades sem resultados disponíveis na origem: ${semRes.join(', ')}.` });
+    if (status.robo && status.robo.resultados_incoerentes > 0) lista.push({ mau: true, texto: `O robô retirou ${status.robo.resultados_incoerentes} resultado(s) com o género trocado (por exemplo, masculinos numa lista feminina).` });
     if (RUNS === false) lista.push({ mau: false, texto: 'Para ver as falhas do robô, a tua chave precisa da permissão "Actions: Read-only".' });
     if (totalAdmins() < APROVACOES) lista.push({ mau: true, texto: `Só há ${totalAdmins()} administrador(es): são precisos ${APROVACOES} para publicar.` });
   }
@@ -1260,32 +1567,14 @@ function ecraPainel(alvo) {
   })();
 }
 
+const ALIAS_ECRAS = { anuncios: 'banner', votacoes: 'sondagens', participacao: 'perguntas', participantes: 'a_resumo', ativos: 'a_rankings' };
 function irPara(ecra) {
+  ecra = ALIAS_ECRAS[ecra] || ecra;
   ECRAS_ATIVO = ecra;
+  document.body.dataset.ecra = ecra;
   CONVERSA_ABERTA = null;
   redesenhar();
   window.scrollTo(0, 0);
-}
-
-/* --------------------------- Vídeos (programa de cada vídeo) --------------------------- */
-function ecraVideos(alvo) {
-  const mapa = ler('videos') || {};
-  const linhas = Object.entries(mapa).map(([vid, nome]) => `<tr>
-    <td class="mini"><a href="https://www.youtube.com/watch?v=${encodeURIComponent(vid)}" target="_blank" rel="noopener">${esc(vid)}</a></td>
-    <td><input class="entrada-programa" data-id="${esc(vid)}" value="${esc(nome)}" style="width:100%"></td>
-  </tr>`).join('');
-  alvo.innerHTML = cartao('Programa de cada vídeo',
-    `<p class="suave">O agente arruma sozinho os vídeos novos do canal em programas. Aqui podes corrigir à mão — o robô respeita as tuas correções. (Esta lista não precisa de aprovação: só organiza os vídeos.)</p>
-     <div class="tabela-rolar"><table class="tabela">
-      <tr><th>Vídeo</th><th>Programa</th></tr>
-      ${linhas || `<tr><td colspan="2"><p class="suave">Ainda não há vídeos arrumados pelo agente.</p></td></tr>`}
-     </table></div>`,
-    `<button class="botao pequeno principal" data-guardar>Guardar correções</button>`);
-  $('[data-guardar]', alvo).addEventListener('click', async () => {
-    const novos = {};
-    $$('.entrada-programa', alvo).forEach(i => { novos[i.dataset.id] = i.value.trim() || 'Outros vídeos'; });
-    if (await alterarFicheiro('videos', m => { Object.assign(m, novos); }, `Plataforma (${CFG.login}): corrige programas dos vídeos`)) aviso('Gravado.');
-  });
 }
 
 /* ---------------------------- Monetização ---------------------------- */
@@ -2076,17 +2365,22 @@ async function novaSondagem() {
     await rpcAdmin('bi_admin_sondagem_criar', { p_pergunta: v.pergunta, p_opcoes: opcoes, p_fecha: v.fecha ? new Date(v.fecha).toISOString() : null });
     aviso(TESTE ? 'Sondagem publicada.' : 'Sondagem enviada. Falta a aprovação de outro administrador.');
   } catch (e) { aviso(e.message, true); } finally { carregar(false); }
-  if (ECRAS_ATIVO === 'votacoes') redesenhar();
+  if (ECRAS_ATIVO === 'sondagens') redesenhar();
 }
 
-function ecraVotacoes(alvo) {
+function ecraVotacoes(alvo, modo) {
+  if (CFG.modo === 'local' && modo === 'mvp') {
+    alvo.innerHTML = cartao('Homem do jogo (MVP)', '<p class="aviso mau">Estás no <b>modo de teste</b>: a votação do Homem do jogo só funciona com a conta de administrador.</p>');
+    return;
+  }
   if (CFG.modo === 'local') {
-    alvo.innerHTML = cartao('Sondagens e Homem do jogo', `<p class="aviso mau">Estás no <b>modo de teste</b>: as sondagens não são enviadas para a app.
+    alvo.innerHTML = cartao('Sondagens', `<p class="aviso mau">Estás no <b>modo de teste</b>: as sondagens não são enviadas para a app.
       Para publicar a sério, sai (Definições › Sair) e entra com a conta GitHub.</p>
       <p class="suave">Podes na mesma experimentar o formulário e ver como a sondagem fica na app.</p>`,
-      '<button class="botao pequeno principal" data-nova>＋ Experimentar uma sondagem</button> <button class="botao pequeno principal" data-nova-fotos>📸 Experimentar com fotos</button>');
-    $('[data-nova]', alvo).addEventListener('click', novaSondagem);
-    $('[data-nova-fotos]', alvo).addEventListener('click', novaSondagemFotos);
+      modo === 'fotos' ? '<button class="botao pequeno principal" data-nova-fotos>📸 Experimentar com fotos</button>'
+        : '<button class="botao pequeno principal" data-nova>＋ Experimentar uma sondagem</button>');
+    $('[data-nova]', alvo)?.addEventListener('click', novaSondagem);
+    $('[data-nova-fotos]', alvo)?.addEventListener('click', novaSondagemFotos);
     return;
   }
   alvo.innerHTML = cartao('Sondagens', '<p class="suave">A carregar…</p>');
@@ -2110,8 +2404,9 @@ function ecraVotacoes(alvo) {
       if (fim && agora < fim + horas * 3600e3) return `<span class="pilula ok">Terminada · resultado no Início até ${esc(dataCurta(new Date(fim + horas * 3600e3).toISOString()))}</span>`;
       return '<span class="pilula">No histórico (menu ⋮ da app)</span>';
     };
-    let html = cartao('Sondagens', `<p class="suave">Enquanto está aberta, a sondagem aparece no topo do Início da app, no lugar da foto do BI (várias ficam empilhadas). Quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois passa para o "Histórico de sondagens" (menu ⋮ da app). Um voto por telemóvel.</p>
-      ${sond.length ? sond.map(s => `<div class="sondagem">
+    const lista = modo === 'fotos' ? sond.filter(s => s.fotos) : sond.filter(s => !s.fotos);
+    let html = modo === 'mvp' ? '' : cartao(modo === 'fotos' ? 'Sondagens com fotos' : 'Sondagens simples', `<p class="suave">Enquanto está aberta, a sondagem aparece no topo do Início da app, no lugar da foto do BI (várias ficam empilhadas). Quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois passa para o "Histórico de sondagens" (menu ⋮ da app). Um voto por telemóvel.</p>
+      ${lista.length ? lista.map(s => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(s.pergunta)}</b> ${estado(s)}</div>
         <div class="mini">Criada por ${esc(s.criada_por)} · ${esc(dataCurta(s.criada))}${s.aprovada_por ? ` · aprovada por ${esc(s.aprovada_por)}` : ''}${s.fecha ? ` · fecha ${esc(dataCurta(s.fecha))}` : ''}</div>
         ${s.fotos ? `<div class="linha-acoes">${s.opcoes.map((o, i) => fotoRedonda(s.fotos[i], o, 38)).join('')}</div>` : ''}
@@ -2122,14 +2417,14 @@ function ecraVotacoes(alvo) {
           ${!s.aprovada_por && s.criada_por === CFG.login ? '<span class="mini">Espera por outro administrador</span>' : ''}
           ${s.aprovada_por && !s.fechada ? `<button class="botao pequeno" data-fechar-s="${s.id}">Fechar votação</button>` : ''}
           <button class="botao pequeno perigo" data-apagar-s="${s.id}">Apagar</button>
-        </div></div>`).join('') : '<p class="suave">Ainda não há sondagens.</p>'}`,
-      '<button class="botao pequeno principal" data-nova>＋ Nova sondagem</button> <button class="botao pequeno principal" data-nova-fotos>📸 Com fotos</button>');
+        </div></div>`).join('') : '<p class="suave">Ainda não há sondagens deste tipo.</p>'}`,
+      modo === 'fotos' ? '<button class="botao pequeno principal" data-nova-fotos>📸 Nova sondagem com fotos</button>' : '<button class="botao pequeno principal" data-nova>＋ Nova sondagem</button>');
     // Estado da votação de cada jogo: aberta (24 horas a contar do fim do jogo) ou terminada por um administrador.
     const hdjAberta = j => !j.fechado && j.aberto && Date.now() < new Date(j.aberto).getTime() + 24 * 3600e3;
     const hdjEstado = j => j.fechado
       ? `<span class="pilula">Terminada ${esc(dataCurta(j.fechado))}${j.por ? ' por ' + esc(j.por) : ''}</span>`
       : hdjAberta(j) ? '<span class="pilula ok">Aberta · a decorrer na app</span>' : '<span class="pilula">Terminada (24 horas)</span>';
-    html += cartao('Homem do jogo (MVP)', `<p class="suave">Automático: quando o jogo da equipa principal acaba, a votação abre na app (no Início e no ecrã do jogo) e fecha sozinha ao fim de 24 horas. Se estás a fazer o direto, podes <b>terminá-la já</b> com o botão abaixo: a app deixa de aceitar votos e mostra logo o pódio com os 3 mais votados, com percentagem e número de votos. O resultado fica 1 hora no Início e depois só na ficha do jogo.</p>
+    if (modo === 'mvp') html += cartao('Homem do jogo (MVP)', `<p class="suave">Automático: quando o jogo da equipa principal acaba, a votação abre na app (no Início e no ecrã do jogo) e fecha sozinha ao fim de 24 horas. Se estás a fazer o direto, podes <b>terminá-la já</b> com o botão abaixo: a app deixa de aceitar votos e mostra logo o pódio com os 3 mais votados, com percentagem e número de votos. O resultado fica 1 hora no Início e depois só na ficha do jogo.</p>
       ${hdj.length ? hdj.map(j => `<div class="sondagem">
           <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b> ${hdjEstado(j)}</div>
           <div class="mini">${numero(j.total)} ${j.total == 1 ? 'votante' : 'votantes'}${j.ultimo ? ` · último registo ${esc(dataCurta(j.ultimo))}` : ''}</div>
@@ -2137,8 +2432,8 @@ function ecraVotacoes(alvo) {
           ${hdjAberta(j) ? `<div class="linha-acoes"><button class="botao pequeno principal" data-fechar-hdj="${esc(j.jogo)}" data-titulo="${esc(j.titulo || j.jogo)}">🏁 Terminar votação agora</button></div>` : ''}</div>`).join('')
         : '<p class="suave">Ainda não houve votações. O jogo aparece aqui assim que acabar e a votação abrir na app.</p>'}`);
     alvo.innerHTML = html;
-    $('[data-nova]', alvo).addEventListener('click', novaSondagem);
-    $('[data-nova-fotos]', alvo).addEventListener('click', novaSondagemFotos);
+    $('[data-nova]', alvo)?.addEventListener('click', novaSondagem);
+    $('[data-nova-fotos]', alvo)?.addEventListener('click', novaSondagemFotos);
     const prevDe = x => x.fotos ? prevSondagemFotos(x.pergunta, (x.opcoes || []).map((o, i) => ({ nome: o, foto: x.fotos[i] || '' })), x.fecha, x.votos)
       : prevSondagem(x.pergunta, x.opcoes || [], x.fecha, x.votos);
     const acao = async (fn, id, ok) => {
@@ -2251,24 +2546,541 @@ function ecraAtividade(alvo) {
   })();
 }
 
-ECRAS = [
-  { chave: 'inicio', nome: 'O que queres fazer?', icone: '⌂', desenhar: ecraInicio },
-  { chave: 'painel', nome: 'Painel e alertas', icone: '▦', desenhar: ecraPainel },
-  ...Object.keys(TIPOS).map(t => ({ chave: t, nome: TIPOS[t].nome, icone: TIPOS[t].icone, desenhar: ecraConteudo(t) })),
-  { chave: 'mensagens', nome: 'Mensagens', icone: '✉', desenhar: ecraMensagens },
-  { chave: 'ajuda', nome: 'Ajuda (IA)', icone: '✦', desenhar: ecraAjuda },
-  { chave: 'votacoes', nome: 'Sondagens e Homem do jogo', icone: '🗳', desenhar: ecraVotacoes },
-  { chave: 'quadro', nome: 'Quadro tático', icone: '📋', desenhar: ecraQuadro },
-  { chave: 'participacao', nome: 'Participação dos adeptos', icone: '🙌', desenhar: ecraParticipacao },
-  { chave: 'estatisticas', nome: 'Estatísticas da app', icone: '📈', desenhar: ecraEstatisticasApp },
-  { chave: 'atividade', nome: 'Registo de atividade', icone: '🕘', desenhar: ecraAtividade },
-  { chave: 'gestores', nome: 'Gestores (contacto)', icone: '☎', desenhar: ecraGestores },
-  { chave: 'videos', nome: 'Programas dos vídeos', icone: '▶', desenhar: ecraVideos },
-  { chave: 'monetizacao', nome: 'Monetização', icone: '📊', desenhar: ecraMonetizacao },
-  { chave: 'admins', nome: 'Administradores', icone: '👤', desenhar: ecraAdmins },
-  { chave: 'versoes', nome: 'Versões da app', icone: '⬇', desenhar: ecraVersoes },
-  { chave: 'definicoes', nome: 'Definições', icone: '⚙', desenhar: ecraDefinicoes }
+/* ------------------------ Programas, séries e temas ------------------------
+   Os feeds dizem o que existe: rubricas dos vídeos do canal, programas do podcast e
+   temas do blogue. Aqui os administradores marcam o que aparece na app. O que fica
+   marcado é gravado em data/programas.json, que a app lê. Um programa novo aparece
+   nesta lista SEM visto — só entra na app quando alguém o marcar. */
+
+const PROG_TIPOS = [
+  { chave: 'youtube', nome: 'Programas YouTube', ajuda: 'Rubricas dos vídeos do canal (Voo Picado, Antevisões, Rescaldos…).' },
+  { chave: 'podcasts', nome: 'Podcasts', ajuda: 'Programas do podcast (Rescaldos, Megafone, Modalidades Benfica…).' },
+  { chave: 'artigos', nome: 'Artigos', ajuda: 'Separadores do blogue (Crónicas, Benfiquistas, Benficologia…).' }
 ];
+const PROG_FICHEIRO = 'programas.json';
+const PROG_FEED_YOUTUBE = 'https://www.youtube.com/feeds/videos.xml?channel_id=UCig3rOWj-2NsbOXRBUaiQqQ';
+const PROG_FEED_PODCAST = 'https://anchor.fm/s/12b150a0/podcast/rss';
+const PROG_FEED_BLOGUE = 'https://www.benficaindependente.com/blog-feed.xml';
+let PROG_ABA = 'youtube';
+let PROG_GUARDADO = null;     // nomes já gravados em programas.json
+let PROG_ENCONTRADOS = null;  // o que os feeds têm, por tipo
+let PROG_ESCOLHAS = null;     // o que está marcado agora
+
+function progPlano(t) {
+  return String(t == null ? '' : t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+function progSegmentos(t) {
+  const partes = String(t).split('|').map(s => s.trim()).filter(Boolean);
+  if (partes.length > 1) return partes;
+  return String(t).split(/\s[-–—]\s|:\s/).map(s => s.trim()).filter(Boolean);
+}
+const PROG_EP = /^\s*EP(IS[OÓ]DIO)?\.?\s*#?\d+\s*$/i;
+const PROG_NAO_PALAVRA = /[^0-9A-ZÀ-ÜÇ#/.]+/;
+function progChave(seg) {
+  return String(seg).replace(/\([^)]*\)/g, '').toUpperCase()
+    .split(PROG_NAO_PALAVRA)
+    .filter(w => w && !/\d/.test(w) && !w.startsWith('#'))
+    .map(w => w.replace(/^[.#/]+|[.#/]+$/g, ''))
+    .filter(Boolean)
+    .join(' ');
+}
+const PROG_NOMES = {
+  RESCALDO: 'Rescaldos', ANTEVISÃO: 'Antevisões', REFORÇO: 'Reforços',
+  ENTREVISTA: 'Entrevistas', PODCAST: 'Megafone', OUTROS: 'Outros episódios'
+};
+const PROG_ALIAS = ['MEGAFONE', 'AGUENTA CORAÇÃO'];
+
+function progTitulo(s) {
+  const pequenas = ['DE', 'DA', 'DO', 'DAS', 'DOS', 'E', 'EM', 'A', 'O', 'À'];
+  return String(s).toLowerCase().split(' ').map((w, i) => {
+    if (i > 0 && pequenas.indexOf(w) >= 0) return w;
+    if (w.length <= 3 && pequenas.indexOf(w) < 0 && !/[aeiouáéíóúãõ]/.test(w)) return w.toUpperCase();
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }).join(' ');
+}
+
+/** O mesmo agrupamento que a app faz nos programas do podcast. */
+function progClassificarPodcast(titulos) {
+  const contagem = {};
+  const itens = titulos.map(titulo => {
+    let numero = false;
+    const chaves = [];
+    progSegmentos(titulo).forEach(seg => {
+      if (PROG_EP.test(seg)) { numero = true; return; }
+      const k = progChave(seg);
+      if (!k || (' ' + k + ' ').indexOf(' X ') >= 0) return;
+      chaves.push(k);
+    });
+    Array.from(new Set(chaves)).forEach(k => { contagem[k] = (contagem[k] || 0) + 1; });
+    return { titulo, chaves, numero };
+  });
+  const grandes = Object.keys(contagem).filter(k => contagem[k] >= 8);
+  function canonica(k) {
+    if (PROG_ALIAS.some(a => k === a || k.indexOf(a + ' ') === 0)) return 'PODCAST';
+    const palavras = k.split(' ');
+    for (let n = 1; n <= 3; n++) {
+      if (n < palavras.length) {
+        const prefixo = palavras.slice(0, n).join(' ');
+        if (grandes.indexOf(prefixo) >= 0) return prefixo;
+      }
+    }
+    if (k.slice(-1) === 'S' && contagem[k.slice(0, -1)] != null) return k.slice(0, -1);
+    return k;
+  }
+  const canon = itens.map(i => Array.from(new Set(i.chaves.map(canonica))));
+  const contCanon = {};
+  canon.forEach(ks => ks.forEach(k => { contCanon[k] = (contCanon[k] || 0) + 1; }));
+  const votos = {};
+  const atribuido = itens.map((item, i) => {
+    let melhor = null;
+    canon[i].forEach(k => {
+      if ((contCanon[k] || 0) < 4) return;
+      if (!melhor || contCanon[k] > contCanon[melhor]) melhor = k;
+    });
+    const chave = melhor || (item.numero ? 'PODCAST' : 'OUTROS');
+    if (melhor) {
+      const original = progSegmentos(item.titulo)
+        .find(s => canonica(progChave(s)) === melhor && progChave(s) === melhor);
+      if (original) {
+        const nome = original.replace(/\([^)]*\)/g, '').split(/\s+/)
+          .filter(w => w && !/\d/.test(w) && !w.startsWith('#'))
+          .join(' ').replace(/^[\s\-:.]+|[\s\-:.]+$/g, '');
+        votos[melhor] = votos[melhor] || {};
+        votos[melhor][nome] = (votos[melhor][nome] || 0) + 1;
+      }
+    }
+    return chave;
+  });
+  const nomes = {};
+  Array.from(new Set(atribuido)).forEach(k => {
+    if (PROG_NOMES[k]) { nomes[k] = PROG_NOMES[k]; return; }
+    let votado = null;
+    const v = votos[k] || {};
+    Object.keys(v).forEach(n => { if (!votado || v[n] > v[votado]) votado = n; });
+    nomes[k] = votado && /[a-zà-ü]/.test(votado) ? votado : progTitulo(votado || k);
+  });
+  const cont = {};
+  atribuido.forEach(k => { const n = nomes[k]; cont[n] = (cont[n] || 0) + 1; });
+  return cont;
+}
+
+/** As mesmas regras que a app usa nos programas dos vídeos. */
+const PROG_YT = [
+  ['Watchalong', ['WATCHALONG', 'WATCH ALONG']],
+  ['Voo Picado', ['VOO PICADO']],
+  ['Rescaldos', ['RESCALDO']],
+  ['Antevisões', ['ANTEVISAO']],
+  ['Modalidades Benfica', ['MODALIDADES']],
+  ['Viagens em Vermelho', ['VIAGENS EM VERMELHO', 'VIAGENS EUROPEIAS']],
+  ['Fórum Benfica', ['FORUM BENFI']],
+  ['Análise Tática', ['ANALISE TA']],
+  ['BI On Tour', ['BI ON TOUR']],
+  ['A História Gloriosa', ['HISTORIA GLORIOSA']],
+  ['O Brinco do Baptista', ['BRINCO DO BAPTISTA']],
+  ['Bancada Jovem', ['BANCADA JOVEM']],
+  ['Nacional 1904', ['NACIONAL 1904']],
+  ['Tema Quente', ['TEMA QUENTE']],
+  ['Mundo Mundial', ['MUNDO MUNDIAL']],
+  ['Eleições', ['ELEICOES']],
+  ['Entrevistas', ['ENTREVISTA']]
+];
+function progClassificarYouTube(titulos) {
+  const cont = {};
+  titulos.forEach(t => {
+    const up = progPlano(t);
+    let nome = null;
+    PROG_YT.forEach(r => { if (!nome && r[1].some(p => up.indexOf(p) >= 0)) nome = r[0]; });
+    if (!nome && /\bEP\.?\s*\d+/.test(up)) nome = 'Megafone';
+    if (!nome) nome = 'Outros vídeos';
+    cont[nome] = (cont[nome] || 0) + 1;
+  });
+  return cont;
+}
+
+async function progTitulosPodcast() {
+  const r = await fetch(PROG_FEED_PODCAST, { cache: 'no-store' });
+  if (!r.ok) throw new Error('podcast HTTP ' + r.status);
+  const doc = new DOMParser().parseFromString(await r.text(), 'text/xml');
+  return Array.from(doc.querySelectorAll('item > title')).map(n => (n.textContent || '').trim()).filter(Boolean);
+}
+async function progFeed(url) {
+  const alvo = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url);
+  const r = await fetch(alvo, { cache: 'no-store' });
+  if (!r.ok) throw new Error('feed HTTP ' + r.status);
+  const j = await r.json();
+  if (j.status !== 'ok') throw new Error(j.message || 'feed indisponível');
+  return j.items || [];
+}
+
+async function progCarregar() {
+  let guardado = null;
+  try { guardado = await lerFicheiro(CFG.repo, PROG_FICHEIRO); } catch (e) { guardado = null; }
+  PROG_GUARDADO = { youtube: [], podcasts: [], artigos: [] };
+  if (guardado) PROG_TIPOS.forEach(t => {
+    if (Array.isArray(guardado[t.chave])) PROG_GUARDADO[t.chave] = guardado[t.chave]
+      // Nome antigo do programa do podcast: passou a chamar-se Megafone.
+      .map(n => n === 'Podcast Benfica Independente' ? 'Megafone' : n)
+      .filter((n, i, arr) => arr.indexOf(n) === i);
+  });
+
+  const achados = { youtube: {}, podcasts: {}, artigos: {} };
+  try { achados.podcasts = progClassificarPodcast(await progTitulosPodcast()); } catch (e) { /* sem feed */ }
+  try { achados.youtube = progClassificarYouTube((await progFeed(PROG_FEED_YOUTUBE)).map(i => i.title)); } catch (e) { /* sem feed */ }
+  // O feed do YouTube só traz os últimos vídeos: as rubricas conhecidas ficam sempre
+  // na lista (sem contagem), para não desaparecerem da app por não haver vídeos recentes.
+  PROG_YT.forEach(r => { if (achados.youtube[r[0]] == null) achados.youtube[r[0]] = 0; });
+  ['Outros vídeos', 'Megafone'].forEach(n => { if (achados.youtube[n] == null) achados.youtube[n] = 0; });
+  try {
+    (await progFeed(PROG_FEED_BLOGUE)).forEach(i => (i.categories || []).forEach(c => {
+      achados.artigos[c] = (achados.artigos[c] || 0) + 1;
+    }));
+  } catch (e) { /* sem feed */ }
+
+  PROG_ENCONTRADOS = {};
+  PROG_ESCOLHAS = {};
+  PROG_TIPOS.forEach(t => {
+    const nomes = Object.keys(achados[t.chave]);
+    PROG_GUARDADO[t.chave].forEach(n => { if (nomes.indexOf(n) < 0) nomes.push(n); });
+    PROG_ENCONTRADOS[t.chave] = nomes.map(n => ({
+      nome: n,
+      quantos: achados[t.chave][n] || 0,
+      guardado: PROG_GUARDADO[t.chave].indexOf(n) >= 0
+    })).sort((a, b) => (b.quantos - a.quantos) || a.nome.localeCompare(b.nome, 'pt'));
+    PROG_ESCOLHAS[t.chave] = {};
+    PROG_ENCONTRADOS[t.chave].forEach(x => { PROG_ESCOLHAS[t.chave][x.nome] = x.guardado; });
+  });
+}
+
+function progDesenhar(alvo) {
+  const tipo = PROG_TIPOS.find(t => t.chave === PROG_ABA) || PROG_TIPOS[0];
+  const lista = PROG_ENCONTRADOS[tipo.chave] || [];
+  const marcados = lista.filter(x => PROG_ESCOLHAS[tipo.chave][x.nome]).length;
+  const linhas = lista.map(x => `<tr>
+    <td style="width:34px"><input type="checkbox" data-prog="${esc(x.nome)}" ${PROG_ESCOLHAS[tipo.chave][x.nome] ? 'checked' : ''}></td>
+    <td><b>${esc(x.nome)}</b></td>
+    <td class="mini">${x.quantos ? esc(x.quantos + (tipo.chave === 'artigos' ? ' artigo(s)' : ' episódio(s)')) : '<span class="suave">sem novidades recentes</span>'}</td>
+    <td>${x.guardado ? '' : '<span class="pilula">novo</span>'}</td>
+  </tr>`).join('');
+  alvo.innerHTML = cartao('Programas, séries e temas',
+    `<p class="suave">${esc(tipo.ajuda)} O que estiver marcado aparece na app; o resto fica de fora.
+      Um programa novo aparece aqui <b>sem visto</b> — é só marcá-lo. Se guardares sem nada marcado, a app volta a mostrar tudo.</p>
+     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">
+       ${PROG_TIPOS.map(t => `<button class="botao pequeno ${t.chave === PROG_ABA ? 'principal' : ''}" data-prog-aba="${t.chave}">${esc(t.nome)}</button>`).join('')}
+     </div>
+     <p class="suave"><b>${marcados}</b> de ${lista.length} marcados neste separador.</p>
+     <div class="tabela-rolar"><table class="tabela">
+       <tr><th></th><th>Programa / série / tema</th><th>Na app?</th><th></th></tr>
+       ${linhas || `<tr><td colspan="4"><p class="suave">Não encontrei nada neste separador.</p></td></tr>`}
+     </table></div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+       <button class="botao pequeno" data-prog-todos="1">Marcar todos</button>
+       <button class="botao pequeno" data-prog-todos="0">Desmarcar todos</button>
+       <button class="botao pequeno" data-prog-atualizar="1">Voltar a ler os feeds</button>
+     </div>`,
+    `<button class="botao pequeno principal" data-prog-guardar="1">Guardar</button>`);
+
+  $$('[data-prog-aba]', alvo).forEach(b => b.addEventListener('click', () => {
+    PROG_ABA = b.dataset.progAba;
+    progDesenhar(alvo);
+  }));
+  $$('[data-prog]', alvo).forEach(i => i.addEventListener('change', () => {
+    PROG_ESCOLHAS[PROG_ABA][i.dataset.prog] = i.checked;
+    progDesenhar(alvo);
+  }));
+  $$('[data-prog-todos]', alvo).forEach(b => b.addEventListener('click', () => {
+    const marcar = b.dataset.progTodos === '1';
+    (PROG_ENCONTRADOS[PROG_ABA] || []).forEach(x => { PROG_ESCOLHAS[PROG_ABA][x.nome] = marcar; });
+    progDesenhar(alvo);
+  }));
+  $('[data-prog-atualizar]', alvo).addEventListener('click', async () => {
+    carregar(true);
+    try { await progCarregar(); aviso('Lista atualizada.'); }
+    catch (e) { aviso('Não consegui ler os feeds: ' + e.message, true); }
+    finally { carregar(false); progDesenhar(alvo); }
+  });
+  $('[data-prog-guardar]', alvo).addEventListener('click', async () => {
+    const corpo = { atualizado: agoraISO(), por: CFG.login || '' };
+    PROG_TIPOS.forEach(t => {
+      corpo[t.chave] = (PROG_ENCONTRADOS[t.chave] || [])
+        .filter(x => PROG_ESCOLHAS[t.chave][x.nome]).map(x => x.nome);
+    });
+    carregar(true);
+    try {
+      await escreverFicheiro(CFG.repo, PROG_FICHEIRO, corpo,
+        `Plataforma (${CFG.login}): programas e temas que aparecem na app`);
+      PROG_GUARDADO = { youtube: corpo.youtube, podcasts: corpo.podcasts, artigos: corpo.artigos };
+      aviso('Gravado. A app mostra a lista nova na próxima atualização.');
+    } catch (e) {
+      aviso(e.message, true);
+    } finally {
+      carregar(false);
+    }
+  });
+}
+
+async function ecraProgramas(alvo) {
+  alvo.innerHTML = cartao('Programas, séries e temas', '<p class="suave">A ler os feeds do canal, do podcast e do blogue…</p>');
+  if (!PROG_ENCONTRADOS) {
+    carregar(true);
+    try { await progCarregar(); }
+    catch (e) { aviso('Não consegui ler os feeds: ' + e.message, true); }
+    finally { carregar(false); }
+  }
+  if (!PROG_ENCONTRADOS) { alvo.innerHTML = cartao('Programas, séries e temas', '<p class="suave">Não consegui ler os feeds. Tenta outra vez.</p>'); return; }
+  progDesenhar(alvo);
+}
+
+ECRAS = [
+  // 🔴 Direto: o que se usa durante o programa
+  { chave: 'direto', nome: 'Painel do direto', grupo: 'direto', desenhar: ecraDireto },
+  { chave: 'quadro', nome: 'Quadro tático', grupo: 'direto', desenhar: ecraQuadro },
+  { chave: 'mvp', nome: 'Homem do jogo (MVP)', grupo: 'direto', desenhar: a => ecraVotacoes(a, 'mvp') },
+  { chave: 'perguntas', nome: 'Perguntas ao programa', grupo: 'direto', desenhar: ecraPerguntas },
+  { chave: 'prognosticos', nome: 'Prognósticos', grupo: 'direto', desenhar: ecraPrognosticos },
+  { chave: 'mensagens', nome: 'Mensagens', grupo: 'direto', desenhar: ecraMensagens },
+  // ✍ Conteúdos: é aqui que se CRIA e edita tudo o que vai para a app
+  ...['noticias', 'destaques', 'publicacoes'].map(t => ({ chave: t, nome: TIPOS[t].nome, grupo: 'conteudos', desenhar: ecraConteudo(t) })),
+  { chave: 'notificacoes', nome: 'Avisos', grupo: 'conteudos', desenhar: ecraConteudo('notificacoes') },
+  { chave: 'sondagens', nome: 'Sondagens', grupo: 'conteudos', desenhar: ecraSondagens },
+  { chave: 'banner', nome: 'Banner de publicidade', grupo: 'conteudos', desenhar: ecraBanner },
+  { chave: 'quiz', nome: 'Quiz', grupo: 'conteudos', desenhar: ecraQuiz },
+  { chave: 'programas', nome: 'Programas na app', grupo: 'conteudos', desenhar: ecraProgramas },
+  // 📅 Agendado: só para ver e gerir quando cada coisa sai e termina
+  { chave: 'agendado', nome: 'Agendamentos', grupo: 'agendado', desenhar: ecraAgendado },
+  // 👥 Participantes: números, acessos, origem e idades, rankings
+  { chave: 'a_resumo', nome: 'Resumo', grupo: 'adeptos', desenhar: ecraAdeptosResumo },
+  { chave: 'a_quando', nome: 'Acessos', grupo: 'adeptos', desenhar: ecraAdeptosQuando },
+  { chave: 'a_quem', nome: 'Origem e idades', grupo: 'adeptos', desenhar: ecraAdeptosQuem },
+  { chave: 'a_rankings', nome: 'Rankings', grupo: 'adeptos', desenhar: ecraAdeptosRankings },
+  { chave: 'estatisticas', nome: 'Uso da app', grupo: 'adeptos', desenhar: ecraEstatisticasApp },
+  // ⚙ Gestão
+  { chave: 'painel', nome: 'Aprovações e alertas', grupo: 'gestao', desenhar: ecraPainel },
+  { chave: 'monetizacao', nome: 'Monetização', grupo: 'gestao', desenhar: ecraMonetizacao },
+  { chave: 'admins', nome: 'Administradores', grupo: 'gestao', desenhar: ecraAdmins },
+  { chave: 'versoes', nome: 'Versões da app', grupo: 'gestao', desenhar: ecraVersoes },
+  { chave: 'atividade', nome: 'Registo de atividade', grupo: 'gestao', desenhar: ecraAtividade },
+  { chave: 'gestores', nome: 'Gestores (contacto)', grupo: 'gestao', desenhar: ecraGestores },
+  { chave: 'ajuda', nome: 'Ajuda (IA)', grupo: 'gestao', desenhar: ecraAjuda },
+  { chave: 'definicoes', nome: 'Definições', grupo: 'gestao', desenhar: ecraDefinicoes }
+];
+
+/* ---------------------------- Painel do direto ---------------------------- */
+const URL_JOGOS = 'https://site.api.espn.com/apis/site/v2/sports/soccer/all/teams/1929/schedule?fixture=true';
+
+/** O jogo de hoje (ou o próximo) da equipa principal, para o topo do Direto. */
+async function lerJogoDeHoje() {
+  try {
+    const r = await fetch(URL_JOGOS);
+    if (!r.ok) return null;
+    const j = await r.json();
+    const dia = d => new Date(d).toLocaleDateString('sv-SE', { timeZone: 'Europe/Lisbon' });
+    const hoje = dia(Date.now());
+    const lista = (j.events || []).map(e => {
+      const c = (e.competitions || [])[0] || {};
+      const eq = c.competitors || [];
+      const lado = h => eq.find(x => x.homeAway === h) || {};
+      const nota = x => { const v = x.score; return v == null ? null : (typeof v === 'object' ? (v.displayValue ?? v.value) : v); };
+      const est = ((c.status || e.status || {}).type || {}).state || 'pre';
+      return {
+        id: e.id, quando: new Date(e.date), estado: est, comp: ((e.league || c.league || {}).name) || '',
+        casa: ((lado('home').team || {}).displayName) || '', fora: ((lado('away').team || {}).displayName) || '',
+        gc: nota(lado('home')), gf: nota(lado('away')),
+        logoC: (((lado('home').team || {}).logos || [])[0] || {}).href || '', logoF: (((lado('away').team || {}).logos || [])[0] || {}).href || ''
+      };
+    }).filter(x => !isNaN(x.quando));
+    return lista.find(x => x.estado === 'in') || lista.find(x => dia(x.quando) === hoje)
+      || lista.filter(x => x.quando.getTime() > Date.now()).sort((a, b) => a.quando - b.quando)[0] || null;
+  } catch (e) { return null; }
+}
+
+function cartaoJogo(g) {
+  if (!g) return `<section class="jogo vazio"><div class="jogo-topo"><span class="selo">Sem jogo marcado</span></div>
+    <p class="suave" style="margin:0">Quando houver jogo da equipa principal, aparece aqui, com o resultado a mexer.</p></section>`;
+  const emDireto = g.estado === 'in', acabou = g.estado === 'post';
+  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Lisbon' }) === g.quando.toLocaleDateString('sv-SE', { timeZone: 'Europe/Lisbon' });
+  const hora = g.quando.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Lisbon' });
+  const dia = g.quando.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Lisbon' });
+  const logo = u => u ? `<img src="${esc(u)}" alt="" class="jogo-logo">` : '<span class="jogo-logo"></span>';
+  return `<section class="jogo ${emDireto ? 'ao-vivo' : ''}">
+    <div class="jogo-topo">
+      <span class="selo ${emDireto ? 'selo-vivo' : ''}">${emDireto ? '● Em direto' : acabou ? 'Terminado' : hoje ? 'Hoje' : 'Próximo jogo'}</span>
+      <span class="suave">${esc(g.comp)}${g.comp ? ' · ' : ''}${hoje ? 'hoje às ' + hora : esc(dia) + ' às ' + hora}</span>
+    </div>
+    <div class="jogo-equipas">
+      <div class="jogo-eq">${logo(g.logoC)}<b>${esc(g.casa)}</b></div>
+      <div class="jogo-res">${g.estado === 'pre' ? 'vs' : `${esc(String(g.gc ?? 0))} – ${esc(String(g.gf ?? 0))}`}</div>
+      <div class="jogo-eq">${logo(g.logoF)}<b>${esc(g.fora)}</b></div>
+    </div>
+  </section>`;
+}
+
+function ecraDireto(alvo) {
+  const mosaico = (acao, ico, titulo, sub, id) => `<button class="mosaico" ${acao}>
+      <span class="mosaico-ico">${icone(ico)}</span>
+      <span class="mosaico-txt"><b>${esc(titulo)}</b><span ${id ? `id="${id}"` : ''}>${esc(sub)}</span></span></button>`;
+  alvo.innerHTML = `<div id="jogo-hoje">${cartaoJogo(undefined).replace('Sem jogo marcado', 'A procurar o jogo…')}</div>
+    <h3 class="seccao-titulo">Durante o direto</h3>
+    <div class="mosaicos">
+      ${mosaico('data-ir="quadro"', 'board', 'Quadro tático', 'Mostra a tática aos adeptos, ao vivo')}
+      ${mosaico('data-ir="sondagens" data-aba="sond:simples" data-nova-sondagem', 'poll', 'Sondagem rápida', 'Os adeptos votam na app')}
+      ${mosaico('data-ir="sondagens" data-aba="sond:fotos" data-nova-fotos', 'image', 'Sondagem com fotos', 'Escolhe jogadores, com foto e nome')}
+      ${mosaico('data-ir="mvp"', 'star', 'Homem do jogo (MVP)', 'Ver os votos e terminar a votação')}
+      ${mosaico('data-ir="perguntas"', 'chat', 'Perguntas dos adeptos', 'Escolhe as que vais ler no direto', 'sub-perguntas')}
+      ${mosaico('data-ir="prognosticos"', 'chart', 'Prognósticos', 'Ver quem acertou no resultado')}
+      ${mosaico('data-ir="mensagens"', 'mail', 'Mensagens', MSG_NOVAS ? `${MSG_NOVAS} por responder` : 'Sem mensagens novas')}
+      ${mosaico('data-criar="notificacoes"', 'bell', 'Enviar um aviso', 'Notificação para os telemóveis, agora')}
+    </div>
+    <h3 class="seccao-titulo">Precisas de ajuda?</h3>
+    <div class="mosaicos">
+      ${mosaico('data-ir="ajuda"', 'spark', 'Perguntar à IA', 'Explica como se faz qualquer coisa')}
+      ${mosaico('data-ir="agendado"', 'calendar', 'Ver o que está agendado', 'Avisos, sondagens, destaques e quiz')}
+      ${mosaico('data-ir="a_quando"', 'chart', 'Ver os acessos à app', 'Calendário dia a dia e hora a hora')}
+    </div>`;
+  $$('[data-ir]', alvo).forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.aba) { const [k, v] = b.dataset.aba.split(':'); ABA_ATIVA[k] = v; }
+    irPara(b.dataset.ir);
+    if (b.hasAttribute('data-nova-sondagem')) novaSondagem();
+    if (b.hasAttribute('data-nova-fotos')) novaSondagemFotos();
+  }));
+  $$('[data-criar]', alvo).forEach(b => b.addEventListener('click', () => { irPara(b.dataset.criar); editarConteudo(b.dataset.criar, null); }));
+  lerJogoDeHoje().then(g => { const c = $('#jogo-hoje', alvo); if (c) c.innerHTML = cartaoJogo(g); });
+  // Quantas perguntas novas há (sem bloquear o ecrã)
+  if (CFG.modo !== 'local') {
+    rpcAdmin('bi_admin_perguntas').then(l => {
+      const n = (l || []).filter(p => p.estado === 'nova').length, c = $('#sub-perguntas', alvo);
+      if (c) c.textContent = n ? `${n} ${n === 1 ? 'nova' : 'novas'} por ler` : 'Escolhe as que vais ler no direto';
+    }).catch(() => {});
+  }
+}
+
+/* ---------------------------- Agendamentos: ver e gerir quando cada coisa sai e termina ---------------------------- */
+/* Aqui NÃO se cria nada: a criação está em Conteúdos. Aqui vês tudo o que lá está com o seu estado e as suas datas,
+   e podes mudar as datas, fechar ou cancelar. */
+function quandoDe(v) { if (!v) return null; const d = new Date(String(v).length === 10 ? v + 'T00:00:00' : v); return isNaN(d) ? null : d; }
+function fimDe(v) { if (!v) return null; const d = new Date(String(v).length === 10 ? v + 'T23:59:59' : v); return isNaN(d) ? null : d; }
+function rotuloDia(d) {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dia = new Date(d); dia.setHours(0, 0, 0, 0);
+  const dif = Math.round((dia - hoje) / 86400e3);
+  if (dif === 0) return 'Hoje';
+  if (dif === 1) return 'Amanhã';
+  return d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+function quandoTxt(d, soDia) {
+  if (!d) return '';
+  const dia = d.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
+  return soDia ? dia : `${dia}, ${d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+/** Tudo o que existe em Conteúdos, com estado e datas: avisos, notícias, destaques, publicações, banner, sondagens e quiz. */
+async function recolherAgendamentos() {
+  const agora = new Date(), itens = [];
+  const T = { notificacoes: ['avisos', 'Aviso', 'bell'], destaques: ['destaques', 'Destaque', 'star'], anuncios: ['banner', 'Banner', 'euro'],
+    noticias: ['outros', 'Notícia', 'news'], publicacoes: ['outros', 'Publicação', 'image'] };
+  Object.keys(T).forEach(t => (ler(t) || []).forEach(x => {
+    const [grupo, tipo, ico] = T[t], ini = quandoDe(x.de), fim = fimDe(x.ate);
+    const estado = x.estado !== 'publicado' ? 'pendente' : x.ativo === false ? 'desligado' : ini && ini > agora ? 'agendado' : fim && fim < agora ? 'terminado' : 'decorre';
+    itens.push({ kind: 'conteudo', tipo: t, id: x.id, grupo, tipoNome: tipo, ico, titulo: TIPOS[t].titulo(x) || '(sem título)', ini, fim, estado, ecra: t, comHora: String(x.de || '').includes('T') });
+  }));
+  if (CFG.modo !== 'local' && CFG.token) {
+    try {
+      (await rpcAdmin('bi_admin_sondagens')).forEach(sd => {
+        const fim = quandoDe(sd.fecha), estado = !sd.aprovada_por ? 'pendente' : (sd.fechada || (fim && fim < agora)) ? 'terminado' : 'decorre';
+        itens.push({ kind: 'sondagem', id: sd.id, grupo: 'sondagens', tipoNome: sd.fotos ? 'Sondagem com fotos' : 'Sondagem', ico: 'poll', titulo: sd.pergunta, ini: quandoDe(sd.criada), fim, estado, ecra: 'sondagens', fotos: !!sd.fotos, comHora: true });
+      });
+    } catch (e) { /* sem sondagens */ }
+    try {
+      const [quiz, env] = await Promise.all([lerQuizPublico(), lerQuizEnvio()]), envios = (env && env.envios) || {};
+      (quiz || []).slice(-30).forEach(q => {
+        const quando = quandoDe(envios[q.id]);
+        const estado = !quando ? 'agendado' : quando > agora ? 'agendado' : agora - quando > 21 * 86400e3 ? 'terminado' : 'decorre';
+        itens.push({ kind: 'quiz', id: q.id, grupo: 'quiz', tipoNome: 'Quiz', ico: 'chat', titulo: q.pergunta, ini: quando, fim: null, estado, ecra: 'quiz', semData: !quando, comHora: true, envios: env });
+      });
+    } catch (e) { /* sem quiz */ }
+  }
+  return itens;
+}
+
+const ESTADOS_AGENDA = {
+  pendente: ['espera', 'À espera de aprovação'], agendado: ['info', 'Agendado'], decorre: ['ok', 'A decorrer'],
+  terminado: ['', 'Terminado'], desligado: ['', 'Desligado']
+};
+
+function linhaAgenda(i) {
+  const [cl, txt] = ESTADOS_AGENDA[i.estado];
+  const datas = [i.ini && (i.estado === 'agendado' ? 'Sai a ' : 'Desde ') + quandoTxt(i.ini, !i.comHora), i.fim && 'Termina a ' + quandoTxt(i.fim, true), i.semData && 'Ainda sem data'].filter(Boolean).join(' · ');
+  const bot = [];
+  if (i.kind === 'conteudo') bot.push(`<button class="botao pequeno" data-ag="datas" data-i="${esc(i.tipo + '|' + i.id)}">${icone('calendar')} Mudar datas</button>`);
+  if (i.kind === 'sondagem' && i.estado === 'decorre') bot.push(`<button class="botao pequeno" data-ag="fechar" data-i="${esc(i.id)}">Fechar agora</button>`);
+  if (i.kind === 'quiz') {
+    bot.push(`<button class="botao pequeno" data-ag="quiz-data" data-i="${esc(i.id)}">${icone('calendar')} ${i.semData ? 'Marcar data' : 'Mudar data'}</button>`);
+    if (i.estado === 'agendado') bot.push(`<button class="botao pequeno" data-ag="quiz-agora" data-i="${esc(i.id)}">Enviar já</button>`);
+    if (!i.semData && i.estado === 'agendado') bot.push(`<button class="botao pequeno perigo" data-ag="quiz-cancelar" data-i="${esc(i.id)}">Cancelar envio</button>`);
+  }
+  bot.push(`<button class="botao pequeno fantasma" data-ag="ver" data-i="${esc(i.kind + '|' + i.ecra + '|' + (i.fotos ? 'fotos' : ''))}">Abrir em Conteúdos ›</button>`);
+  return `<div class="agenda-item">
+    <span class="evento-ico">${icone(i.ico)}</span>
+    <div class="agenda-txt"><b>${esc(String(i.titulo).slice(0, 110))}</b><div class="mini">${esc(i.tipoNome)}${datas ? ' · ' + esc(datas) : ''}</div></div>
+    <span class="pilula ${cl}">${esc(txt)}</span>
+    <div class="agenda-acoes">${bot.join('')}</div></div>`;
+}
+
+async function ecraAgendado(alvo) {
+  alvo.innerHTML = cartao('', '<p class="suave">A procurar o que está em Conteúdos…</p>');
+  const itens = await recolherAgendamentos();
+  const grupo = g => itens.filter(i => !g || i.grupo === g);
+  const abaDe = (g, meta) => d => {
+    const lista = grupo(g);
+    const por = e => lista.filter(i => i.estado === e);
+    const sec = (titulo, arr, ordem, limite) => arr.length ? `<h3 class="seccao-titulo">${esc(titulo)} (${arr.length})</h3>${arr.sort(ordem).slice(0, limite || 99).map(linhaAgenda).join('')}` : '';
+    const mais = (a, b) => (a.ini || 0) - (b.ini || 0), maisFim = (a, b) => (a.fim ? a.fim.getTime() : 9e15) - (b.fim ? b.fim.getTime() : 9e15), recentes = (a, b) => ((b.fim || b.ini || 0) - (a.fim || a.ini || 0));
+    d.innerHTML = cartao(meta.titulo, `<p style="margin:0 0 8px">${meta.oque}</p>
+      <p class="suave" style="margin:0">Aqui só vês e geres as datas. ${meta.criar ? `Para criar, vai a <b>Conteúdos › ${esc(meta.criar[1])}</b>. <button class="botao pequeno" data-criar-em="${esc(meta.criar[0])}">Ir para ${esc(meta.criar[1])} ›</button>` : 'Para criar, usa o menu <b>Conteúdos</b>.'}</p>`) +
+      (lista.length ? sec('À espera de aprovação', por('pendente'), mais) + sec('Agendado: ainda vai sair', por('agendado'), mais) + sec('A decorrer agora', por('decorre'), maisFim) + sec('Desligado', por('desligado'), recentes)
+        + (por('terminado').length ? `<details style="margin-top:6px"><summary class="seccao-titulo" style="cursor:pointer;display:list-item">Terminado (${por('terminado').length})</summary>${por('terminado').sort(recentes).slice(0, 20).map(linhaAgenda).join('')}</details>` : '')
+        : '<p class="suave" style="margin-top:14px">Ainda não há nada aqui.</p>');
+    $$('[data-criar-em]', d).forEach(b => b.addEventListener('click', () => irPara(b.dataset.criarEm)));
+    $$('[data-ag]', d).forEach(b => b.addEventListener('click', () => acaoAgenda(b.dataset.ag, b.dataset.i)));
+  };
+  const n = g => grupo(g).filter(i => i.estado !== 'terminado').length;
+  comAbas(alvo, 'agendado', [
+    { id: 'tudo', nome: 'Tudo', icone: 'list', n: itens.filter(i => i.estado === 'agendado' || i.estado === 'pendente').length || '', desenhar: abaDe(null, { titulo: 'Tudo o que está agendado', oque: 'Todos os conteúdos com o seu estado e as suas datas: o que vai sair, o que está a decorrer e o que já terminou.' }) },
+    { id: 'avisos', nome: 'Avisos', icone: 'bell', n: n('avisos') || '', desenhar: abaDe('avisos', { titulo: 'Avisos', oque: 'As notificações para os telemóveis e o dia e hora em que saem.', criar: ['notificacoes', 'Avisos'] }) },
+    { id: 'destaques', nome: 'Destaques', icone: 'star', n: n('destaques') || '', desenhar: abaDe('destaques', { titulo: 'Destaques do Início', oque: 'O cartão grande no topo do Início e entre que dias aparece.', criar: ['destaques', 'Destaques'] }) },
+    { id: 'sondagens', nome: 'Sondagens', icone: 'poll', n: n('sondagens') || '', desenhar: abaDe('sondagens', { titulo: 'Sondagens', oque: 'As sondagens abertas, as que esperam aprovação e quando fecham. Podes fechar uma já.', criar: ['sondagens', 'Sondagens'] }) },
+    { id: 'quiz', nome: 'Quiz', icone: 'chat', n: n('quiz') || '', desenhar: abaDe('quiz', { titulo: 'Quiz', oque: 'Quando sai cada pergunta do quiz. Podes marcar ou mudar a data, enviar já ou cancelar o envio.', criar: ['quiz', 'Quiz'] }) },
+    { id: 'banner', nome: 'Banner', icone: 'euro', n: n('banner') || '', desenhar: abaDe('banner', { titulo: 'Banner de publicidade', oque: 'Os anúncios da barra por cima do menu da app e as datas em que começam e terminam.', criar: ['banner', 'Banner de publicidade'] }) },
+    { id: 'outros', nome: 'Notícias e publicações', icone: 'news', n: n('outros') || '', desenhar: abaDe('outros', { titulo: 'Notícias e publicações', oque: 'As notícias, fotos e textos que estão na app e, se tiverem, as datas em que aparecem.', criar: ['noticias', 'Notícias'] }) }
+  ]);
+}
+
+/** As ações de cada linha: mudar datas, fechar, marcar o quiz… (tudo o que mexe em tempos, nada de criar). */
+async function acaoAgenda(acao, ref) {
+  try {
+    if (acao === 'ver') { const [kind, ecra, fotos] = ref.split('|'); if (kind === 'sondagem') ABA_ATIVA.sond = fotos ? 'fotos' : 'simples'; irPara(ecra); return; }
+    if (acao === 'datas') { const [tipo, id] = ref.split('|'); await editarConteudo(tipo, id); return redesenhar(); }
+    if (acao === 'fechar') {
+      if (!await perguntar('Fechar a sondagem?', '<p>A votação fecha já. Os resultados continuam visíveis na app durante uns dias.</p>', 'Sim, fechar', 'Cancelar')) return;
+      carregar(true); await rpcAdmin('bi_admin_sondagem_fechar', { p_id: Number(ref) }); aviso('Sondagem fechada.'); return redesenhar();
+    }
+    if (acao.startsWith('quiz')) {
+      const env = await lerQuizEnvio(), envios = Object.assign({}, env.envios || {});
+      if (acao === 'quiz-agora') { if (!confirm('Enviar esta pergunta já para os telemóveis?')) return; envios[ref] = agoraISO(); }
+      else if (acao === 'quiz-cancelar') delete envios[ref];
+      else {
+        const atual = envios[ref];
+        const v = await formulario('Quando sai esta pergunta?', [{ nome: 'quando', etiqueta: 'Dia e hora', tipo: 'datetime-local' }],
+          { quando: atual ? paraCampoData(new Date(atual).getTime()) : paraCampoData(Date.now() + 3600 * 1000) },
+          { textoGuardar: 'Guardar', nota: 'Nesse dia e hora a pergunta aparece no Início (e é enviada a notificação).' });
+        if (!v || !v.quando) return;
+        envios[ref] = new Date(v.quando).toISOString();
+      }
+      carregar(true);
+      if (await guardarQuizEnvio({ envios }, 'Plataforma: agendamento do quiz')) { aviso('Guardado.'); }
+      return redesenhar();
+    }
+  } catch (e) { aviso(e.message, true); } finally { carregar(false); }
+}
 
 async function lerSeguro(nome) {
   try {
@@ -2332,7 +3144,7 @@ async function abrirApp() {
   $('#barra-modo').textContent = CFG.modo === 'local' ? 'teste' : CFG.modo === 'email' ? 'email' : 'github';
   $('#barra-modo').classList.toggle('local', CFG.modo === 'local');
   $('#quem').textContent = CFG.nome || CFG.login;
-  ECRAS_ATIVO = 'inicio';
+  ECRAS_ATIVO = 'direto';
   redesenhar();
 }
 
@@ -2346,7 +3158,9 @@ function pronto() {
   $('#entrar-palavra').addEventListener('keydown', e => { if (e.key === 'Enter') entrarComEmail(); });
   $('#entrar-local').addEventListener('click', entrarLocal);
   $('#sair').addEventListener('click', sair);
-  $('#menu-botao').addEventListener('click', () => $('.barra').classList.toggle('aberta'));
+  $('#sair-m').addEventListener('click', sair);
+  $('#aprovacoes').addEventListener('click', () => irPara('painel'));
+  $('#ajuda-flutuante').addEventListener('click', () => irPara('ajuda'));
   $('#entrar-token').addEventListener('keydown', e => { if (e.key === 'Enter') entrarComGitHub(); });
   tratarLigacaoEmail().then(tratada => {
     if (!tratada && (CFG.modo === 'local' || CFG.token) && CFG.login) abrirApp().catch(e => mostraErroEntrada(e.message));
