@@ -73,6 +73,34 @@ function corJogador(p) {
   return p.c === 'b' ? { fundo: CORES_Q.branco, claro: true } : { fundo: CORES_Q.vermelho, claro: false };
 }
 
+/** Afasta jogadores sobrepostos (distância mínima, em metros, entre centros): assim é fácil pegar em cada um. */
+function afastarSobrepostos(pontos, minimo) {
+  const min = minimo || 10;
+  for (let it = 0; it < 40; it++) {
+    let mexeu = false;
+    for (let i = 0; i < pontos.length; i++) {
+      for (let j = i + 1; j < pontos.length; j++) {
+        const a = pontos[i], b = pontos[j];
+        let dx = (b.x - a.x) * RL, dy = (b.y - a.y) * RW, d = Math.hypot(dx, dy);
+        if (d >= min) continue;
+        if (d < 0.01) { dx = 0; dy = 1; d = 1; }
+        const f = (min - d) / 2 / d;
+        a.x -= dx * f / RL; a.y -= dy * f / RW; b.x += dx * f / RL; b.y += dy * f / RW;
+        mexeu = true;
+      }
+    }
+    pontos.forEach(p => { p.x = Math.min(.985, Math.max(.015, p.x)); p.y = Math.min(.97, Math.max(.03, p.y)); });
+    if (!mexeu) break;
+  }
+  pontos.forEach(p => { p.x = Math.round(p.x * 1000) / 1000; p.y = Math.round(p.y * 1000) / 1000; });
+}
+function haSobrepostos(pontos, minimo) {
+  for (let i = 0; i < pontos.length; i++) for (let j = i + 1; j < pontos.length; j++) {
+    if (Math.hypot((pontos[j].x - pontos[i].x) * RL, (pontos[j].y - pontos[i].y) * RW) < (minimo || 7)) return true;
+  }
+  return false;
+}
+
 let QUADRO_IDS = 0;
 function quadroSvg(estado, extra) {
   const e = estado || { pontos: [], linhas: [] };
@@ -584,6 +612,7 @@ function ecraQuadro(alvo) {
     }
     await lerMomentos();
     await sugerirOnzeAutomatico();
+    if (QUADRO && haSobrepostos(QUADRO.estado.pontos || [], 7)) { afastarSobrepostos(QUADRO.estado.pontos, 10); guardarQuadroEmBreve(); }
     desenharEditorQuadro(alvo);
   })();
 }
@@ -1080,6 +1109,7 @@ function desenharEditorQuadro(alvo) {
           p.y = r3(adv ? 1 - ys[k] : ys[k]);
         });
       });
+      afastarSobrepostos(q.estado.pontos, 10);
     });
   }));
   const desfazer = () => {
@@ -1780,6 +1810,7 @@ async function montarQuadro(sum, jogo, soBenfica) {
 
   // Linha do tempo do jogo (substituições e expulsões, as duas equipas).
   const eventos = eventosDoJogo(sum, benfica, rival, fotos).filter(e => !soBenfica || e.equipa === 'v');
+  afastarSobrepostos([...inicial.v, ...inicial.b], 10);
   const pontos = JSON.parse(JSON.stringify([...inicial.v, ...inicial.b]));
 
   // Compatibilidade: a app mostra os nomes de quem entrou por baixo do campo.
