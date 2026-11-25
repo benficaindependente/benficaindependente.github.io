@@ -56,6 +56,16 @@ function relvadoSvg() {
 }
 
 /** Desenho completo (relvado + riscos + jogadores) para o editor e para as pré-visualizações. */
+/** Cores dos jogadores. Sem cor escolhida: encarnado (Benfica), branco (adversário) e o guarda-redes de amarelo. */
+const CORES_Q = { vermelho: '#e0121f', branco: '#f4f6f8', amarelo: '#ffd400', azul: '#1e6bff', verde: '#18b45a', laranja: '#ff7a00', preto: '#1b1b1b', rosa: '#ff5fa2' };
+const CORES_CLARAS_Q = new Set(['branco', 'amarelo', 'rosa']);
+function corJogador(p) {
+  if (p.cor && CORES_Q[p.cor]) return { fundo: CORES_Q[p.cor], claro: CORES_CLARAS_Q.has(p.cor), especial: true };
+  const guarda = !p.cor && (p.c === 'b' ? p.x > 0.91 : p.x < 0.09);
+  if (guarda) return { fundo: CORES_Q.amarelo, claro: true, especial: true };
+  return p.c === 'b' ? { fundo: CORES_Q.branco, claro: true } : { fundo: CORES_Q.vermelho, claro: false };
+}
+
 let QUADRO_IDS = 0;
 function quadroSvg(estado, extra) {
   const e = estado || { pontos: [], linhas: [] };
@@ -63,7 +73,8 @@ function quadroSvg(estado, extra) {
   const linhas = (e.linhas || []).map((l, i) =>
     `<line data-linha="${i}" x1="${l.x1 * RL}" y1="${l.y1 * RW}" x2="${l.x2 * RL}" y2="${l.y2 * RW}" stroke="#111" stroke-width=".55" stroke-linecap="round" ${l.t === 'seta' ? 'marker-end="url(#ponta)"' : ''}/>`).join('');
   const pontos = (e.pontos || []).map((p, i) => {
-    const v = p.c !== 'b';
+    const k = corJogador(p);
+    const v = !k.claro;
     const R = 2.75;
     const x = Math.round(p.x * RL * 1000) / 1000;
     const y = Math.round(p.y * RW * 1000) / 1000;
@@ -73,7 +84,7 @@ function quadroSvg(estado, extra) {
     const circulo = foto
       ? `<defs><clipPath id="${clip}"><circle cx="${x}" cy="${y}" r="${R}"/></clipPath></defs>
          <image href="${esc(foto)}" xlink:href="${esc(foto)}" x="${cx}" y="${cy}" width="${R * 2}" height="${R * 2}" clip-path="url(#${clip})" preserveAspectRatio="xMidYMid slice"/>`
-      : `<circle cx="${x}" cy="${y}" r="${R}" fill="${v ? '#e0121f' : '#f4f6f8'}"/>`;
+      : `<circle cx="${x}" cy="${y}" r="${R}" fill="${k.fundo}"/>`;
     const nome = String(p.nome || '');
     const larg = Math.min(20, Math.max(4.6, nome.length * 1.08 + 2.0));
     const pill = nome
@@ -84,7 +95,7 @@ function quadroSvg(estado, extra) {
       <circle cx="${x}" cy="${y}" r="${R * 2.1}" fill="#fff" fill-opacity="0"/>
       <ellipse cx="${x}" cy="${Math.round((y + R * 0.8) * 100) / 100}" rx="${R * 0.95}" ry="${R * 0.5}" fill="rgba(0,0,0,.35)"/>
       ${circulo}
-      <circle cx="${x}" cy="${y}" r="${R}" fill="none" stroke="${v ? 'rgba(255,255,255,.98)' : 'rgba(8,14,10,.9)'}" stroke-width=".5"/>
+      <circle cx="${x}" cy="${y}" r="${R}" fill="none" stroke="${foto && k.especial ? k.fundo : (v ? 'rgba(255,255,255,.98)' : 'rgba(8,14,10,.9)')}" stroke-width="${foto && k.especial ? '.95' : '.5'}"/>
       ${p.n && !foto ? `<text x="${x}" y="${y + .68}" text-anchor="middle" font-size="2.6" font-weight="800" fill="${v ? '#fff' : '#141414'}" font-family="Arial, sans-serif">${esc(p.n)}</text>` : ''}
       ${pill}</g>`;
   }).join('');
@@ -244,13 +255,13 @@ function prevQuadro(estado, titulo) {
 /** Formações por linhas: [quantos jogadores, posição ao comprimento (0 = a própria baliza)].
  *  Dentro de cada linha, os jogadores espalham-se pela largura e os dos extremos ficam sempre nas alas. */
 const FORMACOES_LINHAS = {
-  '4-3-3':   [[1, .04], [4, .21], [3, .34], [3, .46]],
-  '4-4-2':   [[1, .04], [4, .21], [4, .35], [2, .46]],
-  '4-2-3-1': [[1, .04], [4, .21], [2, .31], [3, .40], [1, .47]],
-  '4-1-4-1': [[1, .04], [4, .21], [1, .29], [4, .38], [1, .47]],
-  '3-5-2':   [[1, .04], [3, .20], [5, .34], [2, .46]],
-  '3-4-3':   [[1, .04], [3, .20], [4, .34], [3, .46]],
-  '5-3-2':   [[1, .04], [5, .21], [3, .35], [2, .46]]
+  '4-3-3':   [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [3, .34, [.3, .5, .7]], [3, .46, [.14, .5, .86]]],
+  '4-4-2':   [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [4, .35, [.1, .38, .62, .9]], [2, .46, [.4, .6]]],
+  '4-2-3-1': [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [2, .31, [.4, .6]], [3, .40, [.15, .5, .85]], [1, .47, [.5]]],
+  '4-1-4-1': [[1, .04, [.5]], [4, .21, [.12, .38, .62, .88]], [1, .29, [.5]], [4, .38, [.1, .38, .62, .9]], [1, .47, [.5]]],
+  '3-5-2':   [[1, .04, [.5]], [3, .20, [.25, .5, .75]], [5, .34, [.08, .3, .5, .7, .92]], [2, .46, [.4, .6]]],
+  '3-4-3':   [[1, .04, [.5]], [3, .20, [.25, .5, .75]], [4, .34, [.1, .38, .62, .9]], [3, .46, [.15, .5, .85]]],
+  '5-3-2':   [[1, .04, [.5]], [5, .21, [.08, .29, .5, .71, .92]], [3, .35, [.3, .5, .7]], [2, .46, [.4, .6]]]
 };
 /** Posições a que cada linha chega, de 0 a 1 na largura (os extremos ficam junto às linhas laterais). */
 function larguraLinha(n) {
@@ -264,7 +275,7 @@ function larguraLinha(n) {
 /** Compatível com o resto do código: lista [x, y] de cada lugar, linha a linha. */
 const FORMACOES = {};
 Object.keys(FORMACOES_LINHAS).forEach(f => {
-  FORMACOES[f] = FORMACOES_LINHAS[f].flatMap(([n, x]) => larguraLinha(n).map(y => [x, y]));
+  FORMACOES[f] = FORMACOES_LINHAS[f].flatMap(([n, x, ys]) => (ys || larguraLinha(n)).map(y => [x, y]));
 });
 
 
@@ -278,7 +289,28 @@ const CSS_BANCA = `
 .qb-pill{flex:0 0 auto;border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:800;background:#1d232b;border:1px solid #2b333d;color:#c8d0da}
 .qb-pill.ok{background:rgba(226,18,39,.2);border-color:#e21227;color:#ffd5d9}
 .qb-titulo{flex:1;min-width:0;background:#12161c;border:1px solid #2b333d;border-radius:10px;color:#e8edf3;padding:9px 12px;font:inherit;font-size:14px}
-.qb .botao{white-space:nowrap}
+.qb .botao{white-space:normal;line-height:1.15;text-align:center;display:inline-flex;align-items:center;justify-content:center;gap:.4em}
+.qb-ferr{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:58px;padding:6px 2px;border-radius:12px;background:#1d232b;border:1px solid #2b333d;color:#dfe5ec;font:inherit;font-size:12px;font-weight:700;line-height:1.1;cursor:pointer;text-align:center}
+.qb-ferr .qb-ic{font-size:20px;line-height:1}
+.qb-ferr.ativa{background:#e21227;border-color:#ff6070;color:#fff;box-shadow:0 2px 10px rgba(226,18,39,.4)}
+.qb-ferr:active{transform:scale(.97)}
+.qb-aba{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1}
+.qb-aba .qb-ic{font-size:17px;line-height:1}
+.qb-cores{display:flex;flex-wrap:wrap;gap:8px}
+.qb-cor{width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.35);cursor:pointer;padding:0;color:#fff;font-size:16px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.qb-cor.padrao{background:#2b333d}
+.qb-cor.ativa{border-color:#fff;box-shadow:0 0 0 3px rgba(226,18,39,.65)}
+.qb-minutos{flex:0 0 auto;background:#12161c;border:1px solid #2b333d;border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.qb-minutos.vazio{font-size:12.5px;color:#9aa4b2}
+.qb-min-linha{display:flex;align-items:center;gap:10px}
+.qb-min-linha>b{flex:0 0 auto;font-size:12px;color:#9aa4b2;text-transform:uppercase;letter-spacing:.05em}
+.qb-slider{flex:1;min-width:80px;accent-color:#e21227;height:26px}
+.qb-min-val{flex:0 0 auto;min-width:44px;text-align:center;font-weight:800;font-size:15px;background:#e21227;color:#fff;border-radius:8px;padding:3px 8px}
+.qb-min-evs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.qb-ev{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 11px;border-radius:10px;border:1px solid #2b333d;background:#1d232b;color:#e8edf3;font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.qb-ev b{color:#ffb3b3}
+.qb-ev.ativo{background:#e21227;border-color:#ff6070;color:#fff}.qb-ev.ativo b{color:#fff}
+.qb-ev.verm{border-color:#7a1e26}
 .qb-topo .botao{padding:.4em .7em;min-height:36px}
 .qb .q-campo{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0;max-width:none;margin:0}
 .qb .q-campo svg{width:100%;height:100%;max-height:100%;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -671,23 +703,41 @@ function desenharEditorQuadro(alvo) {
   q.estado.linhas = q.estado.linhas || [];
   let ferramenta = alvo.dataset.ferramenta || 'mover';
   const conta = c => q.estado.pontos.filter(p => (p.c === 'b') === (c === 'b')).length;
-  const botaoF = (f, t) => `<button class="botao pequeno ${ferramenta === f ? 'principal' : ''}" data-f="${f}">${t}</button>`;
+  const partir = t => { const i = t.indexOf(' '); return i < 0 ? ['', t] : [t.slice(0, i), t.slice(i + 1)]; };
+  const botaoF = (f, t) => { const [ic, tx] = partir(t); return `<button class="qb-ferr ${ferramenta === f ? 'ativa' : ''}" data-f="${f}"><span class="qb-ic">${ic}</span><span>${tx}</span></button>`; };
   const aba = alvo.dataset.aba || 'campo';
-  const abaB = (id, t) => `<button class="qb-aba ${aba === id ? 'ativa' : ''}" data-aba="${id}">${t}</button>`;
+  const abaB = (id, t) => { const [ic, tx] = partir(t); return `<button class="qb-aba ${aba === id ? 'ativa' : ''}" data-aba="${id}"><span class="qb-ic">${ic}</span><span>${tx}</span></button>`; };
   const jogoPrep = String(q.estado.prep_jogo != null ? q.estado.prep_jogo : ((q.estado.jogo && q.estado.jogo.nome) || ''));
   const momentos = momentosDoJogo(jogoPrep);
   const nomesJogos = Object.keys(QUADRO_MOM.jogos || {}).map(k => QUADRO_MOM.jogos[k].nome).filter(Boolean);
   const botoesMom = momentos.length
     ? momentos.map((m, i) => `<button class="qb-mom-btn" data-mom-abrir="${esc(m.id)}" title="${esc(m.nome)}"><i>${i + 1}</i>${esc(m.nome)}</button>`).join('')
     : '<span class="qb-mom-vazio">Ainda sem momentos para este jogo: guarda-os no separador "Guardar".</span>';
+  const eventosJogo = (q.estado.eventos || []).slice().sort((x, y) => Number(x.min) - Number(y.min));
+  const minAtual = q.estado.momento == null ? 0 : Number(q.estado.momento);
+  const maxMin = Math.max(90, ...eventosJogo.map(e => Number(e.min) || 0));
+  const barraMinutos = eventosJogo.length ? `<div class="qb-minutos">
+      <div class="qb-min-linha"><b>⏱ Minuto</b><input type="range" class="qb-slider" data-slider-min min="0" max="${maxMin}" step="1" value="${minAtual}">
+        <span class="qb-min-val" data-min-val>${minAtual}'</span><button class="botao" data-min="0" title="Voltar ao onze inicial">Início</button></div>
+      <div class="qb-min-evs">${eventosJogo.map(e => {
+        const vermelho = e.tipo === 'vermelho';
+        const lado = e.equipa === 'b' ? '⚪' : '🔴';
+        const txt = vermelho ? `${esc(e.sai)}` : `${esc(e.sai)} → ${esc(e.entra)}`;
+        return `<button class="qb-ev ${q.estado.momento != null && Number(e.min) === minAtual ? 'ativo' : ''} ${vermelho ? 'verm' : ''}" data-min="${esc(e.min)}" title="${vermelho ? 'Expulsão' : 'Substituição'} aos ${esc(e.min)}'">
+          <b>${esc(e.min)}'</b> ${vermelho ? '🟥' : '🔄'} ${lado} ${txt}</button>`; }).join('')}</div></div>`
+    : `<div class="qb-minutos vazio">⏱ Para teres as <b>substituições por minuto</b>, escolhe um jogo no separador <b>⚽ Jogo</b>.</div>`;
   const jogadas = jogadasDoJogo(jogoPrep);
   const botoesJog = jogadas.map(j => `<button class="qb-jog-btn ${QUADRO_PLAY && QUADRO_PLAY.j.id === j.id ? 'tocar' : ''}" data-jog-play="${esc(j.id)}" title="${esc(j.nome)}">▶ ${esc(j.nome)}</button><button class="qb-jog-btn rep" data-jog-loop="${esc(j.id)}" title="Repetir sem parar">🔁</button>`).join('');
   const formacoes = c => Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="${c}:${f}">${f}</button>`).join('');
   const tabCampo = `
     <div class="qb-sec"><b>Ferramentas</b><div class="qb-grelha">
       ${botaoF('mover', '✋ Mover')}${botaoF('manual', '🔁 Trocar')}${botaoF('v', '🔴 Pôr')}${botaoF('b', '⚪ Pôr')}
-      ${botaoF('bola', '⚽ Bola')}${botaoF('linha', '／ Risco')}${botaoF('seta', '➚ Seta')}${botaoF('apagar', '🗑 Tirar')}
+      ${botaoF('bola', '⚽ Bola')}${botaoF('linha', '／ Risco')}${botaoF('seta', '➚ Seta')}${botaoF('cor', '🎨 Cor')}${botaoF('apagar', '🗑 Tirar')}
     </div></div>
+    <div class="qb-sec"><b>Cor dos jogadores</b><div class="qb-cores">
+      ${Object.keys(CORES_Q).map(c => `<button class="qb-cor ${alvo.dataset.cor === c && ferramenta === 'cor' ? 'ativa' : ''}" data-cor="${c}" title="${c}" style="background:${CORES_Q[c]}"></button>`).join('')}
+      <button class="qb-cor padrao ${alvo.dataset.cor === 'padrao' && ferramenta === 'cor' ? 'ativa' : ''}" data-cor="padrao" title="Cor original">↺</button>
+    </div><p class="suave mini" style="margin:6px 0 0">Escolhe uma cor e toca nos jogadores para a aplicar. O guarda-redes aparece sempre a amarelo.</p></div>
     <div class="qb-sec"><b>🔴 Formação do Benfica</b><div class="qb-grelha">${formacoes('v')}</div></div>
     <div class="qb-sec"><b>⚪ Formação do adversário</b><div class="qb-grelha">${formacoes('b')}</div></div>
     <div class="qb-sec"><div class="qb-grelha dois">
@@ -700,6 +750,7 @@ function desenharEditorQuadro(alvo) {
       ${ferramenta === 'manual' ? 'Toca num jogador e depois no outro: trocam de posição.' : ''}
       ${ferramenta === 'v' || ferramenta === 'b' ? 'Toca no relvado onde queres pôr o jogador. Se já tens 11, tira um com 🗑 Tirar.' : ''}
       ${ferramenta === 'linha' || ferramenta === 'seta' ? 'Carrega e arrasta no relvado para desenhar.' : ''}
+      ${ferramenta === 'cor' ? 'Escolhe a cor e toca no jogador. ↺ volta à cor original.' : ''}
       ${ferramenta === 'bola' ? 'Toca no relvado para pôr a bola (ou arrasta-a). Toca em 🗑 Tirar e na bola para a retirar.' : ''}
       ${ferramenta === 'apagar' ? 'Toca num jogador, bola, risco ou seta para o tirar do campo.' : ''}</p>`;
   const tabJogo = `
@@ -759,6 +810,7 @@ function desenharEditorQuadro(alvo) {
           <button class="botao ${q.visivel ? 'perigo' : 'principal'}" data-visivel="${q.visivel ? 0 : 1}">${q.visivel ? 'Tirar da app' : '📡 Pôr na app'}</button>
         </div>
         <div class="q-campo">${quadroSvg(q.estado)}</div>
+        ${barraMinutos}
         <div class="qb-momentos"><b>Momentos</b>${botoesMom}</div>
         ${jogadas.length ? `<div class="qb-momentos"><b>Jogadas</b>${botoesJog}${QUADRO_PLAY ? '<button class="qb-jog-btn" data-jog-parar>⏹ Parar</button>' : ''}</div>` : ''}
       </section>
@@ -826,6 +878,19 @@ function desenharEditorQuadro(alvo) {
       q.estado.jogo = d.jogo;
       q.estado.momento = null;
       q.titulo = d.titulo;
+    });
+  }
+  $$('[data-cor]', alvo).forEach(b => b.addEventListener('click', () => {
+    alvo.dataset.cor = b.dataset.cor;
+    alvo.dataset.ferramenta = 'cor';
+    desenharEditorQuadro(alvo);
+  }));
+  const slider = $('[data-slider-min]', alvo);
+  if (slider) {
+    slider.addEventListener('input', () => { const v = $('[data-min-val]', alvo); if (v) v.textContent = slider.value + "'"; });
+    slider.addEventListener('change', () => {
+      const min = Number(slider.value);
+      mudar(() => { q.estado.pontos = aplicarTempo(q.estado, min === 0 ? null : min); q.estado.momento = min === 0 ? null : min; });
     });
   }
   $$('[data-menu-toggle]', alvo).forEach(b => b.addEventListener('click', () => { QUADRO_SEM_PAINEL = !QUADRO_SEM_PAINEL; desenharEditorQuadro(alvo); }));
@@ -898,10 +963,10 @@ function desenharEditorQuadro(alvo) {
       const adv = c === 'b';
       const atuais = q.estado.pontos.filter(p => p.c === c).slice().sort((u, v) => adv ? v.x - u.x : u.x - v.x);
       let i = 0;
-      FORMACOES_LINHAS[f].forEach(([n, x]) => {
+      FORMACOES_LINHAS[f].forEach(([n, x, ysDef]) => {
         const grupo = atuais.slice(i, i + n).sort((u, v) => adv ? v.y - u.y : u.y - v.y);
         i += n;
-        const ys = larguraLinha(grupo.length === n ? n : Math.max(1, grupo.length));
+        const ys = (ysDef && grupo.length === n) ? ysDef : larguraLinha(Math.max(1, grupo.length));
         grupo.forEach((p, k) => {
           p.x = r3(adv ? 1 - x : x);
           p.y = r3(adv ? 1 - ys[k] : ys[k]);
@@ -1081,6 +1146,14 @@ function desenharEditorQuadro(alvo) {
     if (ferramenta === 'bola') {
       if (bo) { QUADRO_HIST.push(JSON.stringify(q.estado)); arrastar = { bola: true }; svg.setPointerCapture(ev.pointerId); amostra(-1, q.estado.bola.x, q.estado.bola.y); return; }
       mudar(() => { q.estado.bola = { x: r3(p.x), y: r3(p.y) }; });
+      return;
+    }
+    if (ferramenta === 'cor') {
+      if (g) mudar(() => {
+        const pt = q.estado.pontos[Number(g.dataset.ponto)]; if (!pt) return;
+        const c = alvo.dataset.cor || 'amarelo';
+        if (c === 'padrao') delete pt.cor; else pt.cor = c;
+      });
       return;
     }
     if (ferramenta === 'apagar') {
