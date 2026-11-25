@@ -8,12 +8,12 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 
 :root {
-  --fundo: #0b0d12;
-  --fundo-2: #12161d;
-  --fundo-3: #1a1f29;
-  --linha: #252c38;
+  --fundo: #12161e;
+  --fundo-2: #1a202b;
+  --fundo-3: #232b39;
+  --linha: #2f3849;
   --texto: #f2f4f8;
-  --suave: #9aa4b2;
+  --suave: #a9b3c2;
   --vermelho: #e5172e;
   --vermelho-escuro: #b50f22;
   --vermelho-claro: #ff4d5e;
@@ -294,6 +294,74 @@ body[data-ecra="quadro"] .ecra { max-width: none; }
   .azulejo .num { font-size: 1.25rem; }
   .azulejo .rot { font-size: .78rem; }
 }
+
+
+/* ============ Degradês e efeitos (para não ficar pesado) ============ */
+:root { --grad-vermelho: linear-gradient(135deg, #ff3b4f 0%, #e5172e 45%, #b30f22 100%); --brilho-vermelho: 0 8px 22px rgba(229, 23, 46, .38); }
+html, body { background: var(--fundo); }
+body {
+  background:
+    radial-gradient(900px 520px at 100% -8%, rgba(229, 23, 46, .20), transparent 60%),
+    radial-gradient(700px 480px at -5% 105%, rgba(229, 23, 46, .10), transparent 60%),
+    linear-gradient(160deg, #181d28 0%, #11151d 55%, #14101a 100%) fixed;
+}
+/* barra lateral e menu de baixo */
+.barra { background: linear-gradient(180deg, #281520 0%, #1b1f2a 38%, #171b25 100%); border-right-color: #3a2a35; }
+.menu a:hover { background: rgba(255, 255, 255, .06); }
+.menu a.ativo { background: var(--grad-vermelho); color: #fff; box-shadow: var(--brilho-vermelho); }
+.menu a.ativo .ico { color: #fff; }
+.menu a .marca { background: #fff; color: #b30f22; }
+.menu a.ativo .marca { background: #fff; color: #b30f22; }
+.menu-baixo { background: linear-gradient(180deg, rgba(34, 22, 32, .97), rgba(22, 26, 36, .98)); }
+/* topo */
+.topo { background: linear-gradient(180deg, rgba(30, 36, 48, .92), rgba(22, 27, 37, .88)); border-bottom: 0;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .05), 0 12px 24px -16px rgba(0, 0, 0, .5); position: sticky; }
+.topo::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, #e5172e, rgba(229, 23, 46, 0) 70%); }
+/* separadores das páginas */
+.subnav a { background: rgba(255, 255, 255, .04); }
+.subnav a.ativo { background: var(--grad-vermelho); border-color: transparent; color: #fff; box-shadow: var(--brilho-vermelho); }
+/* botões */
+.botao { background: linear-gradient(180deg, #2b3447, #232b3a); border-color: #3a455a; }
+.botao:hover { background: linear-gradient(180deg, #333e54, #2a3345); border-color: #4a5670; }
+.botao.principal { background: var(--grad-vermelho); border-color: transparent; box-shadow: var(--brilho-vermelho); }
+.botao.principal:hover { filter: brightness(1.08); background: var(--grad-vermelho); }
+.botao.fantasma { background: transparent; }
+/* cartões */
+.cartao { background: linear-gradient(180deg, #212837, #1a202b); border-color: #313b4e; box-shadow: 0 10px 26px -14px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .04); }
+.cartao > header { background: linear-gradient(90deg, rgba(229, 23, 46, .12), transparent 55%); border-bottom-color: #313b4e; }
+.azulejo { background: linear-gradient(180deg, #283144, #212938); border-color: #364055; }
+.azulejo .num { background: var(--grad-vermelho); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.seccao-titulo { display: flex; align-items: center; gap: 10px; }
+.seccao-titulo::before { content: ""; width: 4px; height: 14px; border-radius: 3px; background: var(--grad-vermelho); }
+/* painel do direto */
+.jogo { background: radial-gradient(520px 220px at 50% -30%, rgba(255, 59, 79, .45), transparent 70%), linear-gradient(135deg, #4a1220 0%, #271a29 55%, #1d2330 100%);
+  border-color: rgba(255, 90, 105, .35); box-shadow: 0 16px 36px -18px rgba(229, 23, 46, .55); }
+.jogo.ao-vivo { border-color: #ff4d5e; box-shadow: 0 0 0 1px rgba(255, 77, 94, .4), 0 16px 40px -14px rgba(229, 23, 46, .7); }
+.jogo.vazio { background: linear-gradient(135deg, #2a1822, #1e2430); }
+.jogo .selo { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .18); color: #ffe3e6; }
+.jogo .suave { color: #e7d3d8; }
+.jogo-res { text-shadow: 0 2px 14px rgba(0, 0, 0, .4); }
+.mosaico { background: linear-gradient(180deg, #232b3b, #1b2230); border-color: #333e52; box-shadow: 0 8px 20px -14px rgba(0, 0, 0, .6); }
+.mosaico:hover { background: linear-gradient(180deg, #2b3548, #202838); border-color: rgba(255, 77, 94, .6); box-shadow: 0 12px 26px -12px rgba(229, 23, 46, .5); transform: translateY(-2px); }
+.mosaico-ico { background: var(--grad-vermelho); color: #fff; box-shadow: var(--brilho-vermelho); }
+.mosaico .marca { background: #fff; color: #b30f22; }
+.evento { background: linear-gradient(180deg, #232b3b, #1b2230); border-color: #333e52; }
+.evento:hover { border-color: rgba(255, 77, 94, .55); }
+.evento-ico { background: rgba(229, 23, 46, .16); }
+/* aviso de aprovações e ajuda */
+.aviso-aprovacoes { background: linear-gradient(135deg, rgba(240, 180, 41, .28), rgba(240, 180, 41, .1)); }
+.ajuda-fab { background: var(--grad-vermelho); border-color: transparent; color: #fff; box-shadow: var(--brilho-vermelho); }
+.ajuda-fab:hover { background: var(--grad-vermelho); filter: brightness(1.08); }
+.ajuda-fab .ico { color: #fff; }
+/* janelas e entrada */
+.modal { background: linear-gradient(180deg, #232b3a, #1b212d); border-color: #364055; }
+.modal > header { background: linear-gradient(90deg, rgba(229, 23, 46, .16), transparent 60%); }
+.entrar { background: radial-gradient(900px 520px at 50% -10%, rgba(255, 59, 79, .5), transparent 62%), linear-gradient(160deg, #281520, #151a23); }
+.entrar-caixa { background: linear-gradient(180deg, #232b3a, #1b212d); border-color: #3a455a; }
+/* o resto */
+.sondagem, .mensagem { background: linear-gradient(180deg, #252d3d, #1f2635); border-color: #333e52; }
+.pilula { background: rgba(255, 255, 255, .06); }
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), textarea, select { background: #141922; border-color: #38435a; }
 
 /* ============ Específico (quadro tático, pré-visualizações, sondagens com fotos) ============ */
 
