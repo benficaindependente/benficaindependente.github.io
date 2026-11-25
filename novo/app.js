@@ -426,7 +426,119 @@ function promoBar(v) {
   return `<div class="promo">${logo}<span class="promo-etq">PUBLICIDADE</span>${antes}<span class="promo-txt">${esc(v.texto || 'Texto do anúncio')}</span>${depois}<span class="promo-seta">›</span></div>`;
 }
 
+/** Banner: duas abas — os anúncios (criar e editar) e os resultados (analytics e receita). */
 function ecraBanner(alvo) {
+  comAbas(alvo, 'banner', [
+    { id: 'anuncios', nome: 'Anúncios e formatos', icone: 'edit', desenhar: ecraBannerAnuncios },
+    { id: 'resultados', nome: 'Resultados e receita', icone: 'chart', desenhar: ecraBannerAnalytics }
+  ]);
+}
+
+let BAN_DIAS = 30;
+const PRAZO_ALERTA = 7;   // avisa quando faltam 7 dias ou menos para a campanha acabar
+
+/** Analytics do banner pago: visualizações, cliques, receita e relatório de cada campanha. */
+function ecraBannerAnalytics(alvo) {
+  alvo.innerHTML = cartao('Resultados do banner', '<p class="suave">A carregar…</p>');
+  (async () => {
+    let linhas;
+    try { carregar(true); [linhas] = await Promise.all([lerEstatisticas(BAN_DIAS), carregarPrivados()]); }
+    catch (e) { alvo.innerHTML = cartao('Resultados do banner', `<p class="erro">${esc(e.message)}</p>`); return; }
+    finally { carregar(false); }
+    const periodo = BAN_DIAS ? `últimos ${BAN_DIAS} dias` : 'desde sempre';
+    const pecas = pecasPublicidade().filter(p => p.tipo === 'anuncios' && (p.item.estado === 'publicado' || PRIV[p.id]));
+    const ms = pecas.map(p => Object.assign({ p }, metricas(p, linhas)));
+    const ids = new Set(pecas.map(p => p.id));
+    const dosAnuncios = linhas.filter(l => ids.has(l.peca));
+    const ads = somar(dosAnuncios), pat = somar(linhas, 'patreon');
+    const recPaga = ms.filter(m => m.pr.pago).reduce((n, m) => n + m.rec, 0);
+    const nDias = BAN_DIAS || new Set(linhas.map(l => String(l.dia).slice(0, 10))).size || 1;
+    const porDia = Math.round((ads.imp + pat.imp) / nDias);
+    const estado = x => {
+      if (x.estado !== 'publicado') return ['espera', 'À espera de aprovação'];
+      if (x.ativo === false) return ['', 'Desligado'];
+      if (x.de && new Date(x.de) > new Date()) return ['info', 'Começa a ' + dataDia(x.de)];
+      const f = diasAte(x.ate);
+      if (f != null && f < 0) return ['', 'Terminada'];
+      if (f != null && f <= PRAZO_ALERTA) return ['espera', `Termina em ${f} ${f === 1 ? 'dia' : 'dias'}`];
+      return ['ok', 'A decorrer'];
+    };
+    const viva = m => { const e = estado(m.p.item)[1]; return e === 'A decorrer' || /^Termina em/.test(e); };
+    const ativas = ms.filter(m => m.pr.pago && viva(m)).length;
+    const aTerminar = ms.filter(m => m.pr.pago && /Termina em/.test(estado(m.p.item)[1]));
+
+    let html = cartao('Resumo do banner — ' + periodo, `
+      <div style="margin-bottom:14px">${[7, 30, 90, 365, 0].map(d => `<button class="botao pequeno ${d === BAN_DIAS ? 'principal' : ''}" data-dias="${d}">${d ? d + ' dias' : 'Sempre'}</button>`).join(' ')}</div>
+      <div class="grelha">
+        ${azulejo(euros(recPaga), 'Receita dos anúncios pagos')}
+        ${azulejo(numero(ads.imp), 'Visualizações dos anúncios')}
+        ${azulejo(numero(ads.alc), 'Pessoas alcançadas (soma diária)')}
+        ${azulejo(numero(ads.cli), 'Cliques')}
+        ${azulejo(pct(ads.cli, ads.imp), 'CTR — taxa de cliques')}
+        ${azulejo(ativas, 'Campanhas pagas a decorrer')}
+      </div>
+      ${CFG.modo === 'local' ? '<p class="suave" style="margin-top:10px">Modo de teste: as visualizações e cliques são números de exemplo.</p>' : ''}`,
+      '<button class="botao pequeno" data-csv>⬇ Exportar (Excel)</button>');
+
+    if (aTerminar.length) {
+      html += `<div class="aviso-faixa">${icone('calendar')}<div><b>Campanhas a terminar</b><br>${aTerminar.map(m => `${esc(m.p.nome)}${m.pr.anunciante ? ' (' + esc(m.pr.anunciante) + ')' : ''} — ${esc(estado(m.p.item)[1].toLowerCase())}`).join('<br>')}<br><span class="suave">É a altura de falar com o anunciante para renovar.</span></div></div>`;
+    }
+
+    html += cartao('O valor do espaço', `<p class="suave">Para fixares preços: quantas vezes o banner é visto, contando o Patreon e os anúncios.</p>
+      <div class="grelha">
+        ${azulejo(numero(porDia), 'Visualizações do banner por dia')}
+        ${azulejo(numero(porDia * 30), 'Estimativa para um mês')}
+        ${azulejo(numero(pat.imp), 'Só do Patreon (neste período)')}
+        ${azulejo(ads.imp ? euros(recPaga / ads.imp * 1000) : '—', 'Receita por 1000 visualizações (RPM)')}
+      </div>`);
+
+    html += cartao('Visualizações e cliques por dia', grafico(dosAnuncios, BAN_DIAS || 90));
+
+    html += `<h3 class="seccao-titulo">Campanhas</h3>`;
+    html += ms.length ? ms.map(m => {
+      const [cl, texto] = estado(m.p.item);
+      const orc = Number(m.pr.orcamento || 0), atingido = orc > 0 && m.rec >= orc;
+      return `<section class="campanha">
+        <div class="campanha-topo"><div><b>${esc(m.p.nome)}</b>
+          <div class="mini">${m.pr.anunciante ? esc(m.pr.anunciante) + ' · ' : ''}${m.pr.pago ? esc(MODELOS[m.pr.modelo] || 'Valor fixo') + ' · ' + euros(m.pr.preco) + (orc ? ' · máx. ' + euros(orc) : '') : 'Não é paga'}</div></div>
+          <div class="campanha-estado">${atingido ? '<span class="pilula mau">Orçamento atingido</span>' : ''}<span class="pilula ${cl}">${esc(texto)}</span></div></div>
+        ${promoBar(m.p.item)}
+        <div class="grelha">
+          ${azulejo(numero(m.s.imp), 'Visualizações')}${azulejo(numero(m.s.alc), 'Pessoas')}${azulejo(numero(m.s.cli), 'Cliques')}${azulejo(m.ctr, 'CTR')}
+          ${m.pr.pago ? azulejo(euros(m.rec), 'Receita') + azulejo(m.cpm, 'CPM') + azulejo(m.cpc, 'CPC') + azulejo(numero(m.conv), 'Vendas') : ''}
+        </div>
+        <div class="linha-acoes" style="justify-content:flex-start">
+          <button class="botao pequeno" data-preco="${esc(m.p.id)}">${icone('euro')} Contrato e preço</button>
+          <button class="botao pequeno principal" data-relatorio="${esc(m.p.id)}">${icone('download')} Relatório para o anunciante</button>
+        </div></section>`;
+    }).join('') : cartao('', `<div class="vazio-grande">${icone('euro')}<b>Ainda não há anúncios no banner</b><p class="suave">Cria o primeiro na aba "Anúncios e formatos". Depois de publicado, aqui aparecem as visualizações, os cliques e a receita.</p></div>`);
+
+    html += cartao('Mais números', `<p class="suave">Todas as peças (destaques, avisos, publicações), outras receitas como AdMob e a explicação de cada número estão em <b>Gestão › Monetização</b>.</p>
+      <button class="botao" data-monetizacao>${icone('chart')} Abrir a Monetização completa</button>`);
+
+    alvo.innerHTML = html;
+    $$('[data-dias]', alvo).forEach(b => b.addEventListener('click', () => { BAN_DIAS = Number(b.dataset.dias); ecraBannerAnalytics(alvo); }));
+    $$('[data-preco]', alvo).forEach(b => b.addEventListener('click', async () => {
+      const p = pecas.find(x => x.id === b.dataset.preco);
+      const v = await formulario('Contrato — ' + p.nome, PAGO, Object.assign({ modelo: 'fixo' }, PRIV[p.id] || {}), { textoGuardar: 'Guardar' });
+      if (!v) return;
+      try { carregar(true); const d = {}; PAGO.filter(c => c.tipo !== 'titulo').forEach(c => { d[c.nome] = v[c.nome]; }); await guardarPrivados(p.id, d); aviso('Guardado.'); await calcularAlertasDinheiro(); ecraBannerAnalytics(alvo); }
+      catch (e) { aviso(e.message, true); } finally { carregar(false); }
+    }));
+    $$('[data-relatorio]', alvo).forEach(b => b.addEventListener('click', () => {
+      const m = ms.find(x => x.p.id === b.dataset.relatorio);
+      relatorio(m, linhas.filter(l => l.peca === m.p.id), periodo);
+    }));
+    $('[data-csv]', alvo).addEventListener('click', () => {
+      const cab = ['Anúncio', 'Anunciante', 'Modelo', 'Preço €', 'Visualizações', 'Pessoas', 'Cliques', 'CTR', 'Vendas', 'Receita €'];
+      const lin = ms.map(m => [m.p.nome, m.pr.anunciante || '', m.pr.pago ? (MODELOS[m.pr.modelo] || '') : '', m.pr.preco || '', m.s.imp, m.s.alc, m.s.cli, m.ctr, m.conv || '', m.pr.pago ? m.rec.toFixed(2) : '']);
+      descarregarCsv(`banner-${diaISO(new Date())}.csv`, [cab].concat(lin));
+    });
+    $('[data-monetizacao]', alvo).addEventListener('click', () => irPara('monetizacao'));
+  })();
+}
+
+function ecraBannerAnuncios(alvo) {
   const ativos = (ler('anuncios') || []).filter(x => x.ativo !== false);
   const formato = (n, titulo, barra, texto) => `<div class="formato"><b>${n} · ${esc(titulo)}</b>${barra}<p class="suave">${texto}</p></div>`;
   alvo.innerHTML = cartao('Como funciona', `

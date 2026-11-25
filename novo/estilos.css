@@ -399,6 +399,15 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
 .prev-viva .promo { font-size: .9rem; }
 .prev-viva-nota { margin-top: 8px; font-size: .8rem; color: var(--suave); }
 
+.campanha { border: 1px solid #333e52; border-radius: 16px; padding: 16px; margin-bottom: 14px; background: linear-gradient(180deg, #252d3d, #1f2635); }
+.campanha-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.campanha-topo b { font-size: 1.02rem; }
+.campanha-estado { display: flex; gap: 6px; flex-wrap: wrap; }
+.campanha .grelha { margin: 14px 0; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.campanha .azulejo .num { font-size: 1.3rem; white-space: nowrap; }
+.aviso-faixa { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 18px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(135deg, rgba(240, 180, 41, .22), rgba(240, 180, 41, .08)); border: 1px solid rgba(240, 180, 41, .4); color: #ffe6a0; }
+.aviso-faixa .ico { margin-top: 2px; }
+
 /* ============ Específico (quadro tático, pré-visualizações, sondagens com fotos) ============ */
 
 /* ---------- Pré-visualização (telemóvel) ---------- */
