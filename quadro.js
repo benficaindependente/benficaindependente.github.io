@@ -310,6 +310,7 @@ const CSS_BANCA = `
 @keyframes qbpisca{50%{opacity:.55}}
 .qb-jog-btn{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid #1f6f3d;background:#12301f;color:#d6ffe6;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .qb-jog-btn.tocar{background:#1f8f4d;color:#fff}
+.qb-jog-btn.rep{padding:0 12px;margin-left:-6px}
 @media (max-width:860px),(orientation:portrait) and (max-width:1100px){
  .qb{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 40%}
  .qb-corpo{padding:10px}
@@ -680,7 +681,7 @@ function desenharEditorQuadro(alvo) {
     ? momentos.map((m, i) => `<button class="qb-mom-btn" data-mom-abrir="${esc(m.id)}" title="${esc(m.nome)}"><i>${i + 1}</i>${esc(m.nome)}</button>`).join('')
     : '<span class="qb-mom-vazio">Ainda sem momentos para este jogo: guarda-os no separador "Guardar".</span>';
   const jogadas = jogadasDoJogo(jogoPrep);
-  const botoesJog = jogadas.map(j => `<button class="qb-jog-btn ${QUADRO_PLAY && QUADRO_PLAY.j.id === j.id ? 'tocar' : ''}" data-jog-play="${esc(j.id)}" title="${esc(j.nome)}">▶ ${esc(j.nome)}</button>`).join('');
+  const botoesJog = jogadas.map(j => `<button class="qb-jog-btn ${QUADRO_PLAY && QUADRO_PLAY.j.id === j.id ? 'tocar' : ''}" data-jog-play="${esc(j.id)}" title="${esc(j.nome)}">▶ ${esc(j.nome)}</button><button class="qb-jog-btn rep" data-jog-loop="${esc(j.id)}" title="Repetir sem parar">🔁</button>`).join('');
   const formacoes = c => Object.keys(FORMACOES).map(f => `<button class="botao pequeno" data-form="${c}:${f}">${f}</button>`).join('');
   const tabCampo = `
     <div class="qb-sec"><b>Ferramentas</b><div class="qb-grelha">
