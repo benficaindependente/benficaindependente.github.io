@@ -537,16 +537,32 @@ create table if not exists public.idas_estadio (
   golos_b    smallint,                            -- golos do Benfica (se se souber)
   golos_r    smallint,                            -- golos do adversário
   modalidade text not null default '',
+  estrangeiro boolean not null default false,     -- jogo fora de Portugal
   quando     timestamptz not null default now(),
   primary key (user_id, jogo)
 );
+alter table public.idas_estadio add column if not exists estrangeiro boolean not null default false;
 alter table public.idas_estadio enable row level security;
+
+-- A que prova pertence um jogo, pelo nome da competição (serve para os rankings por prova).
+create or replace function public.bi_prova(p_competicao text) returns text
+language sql immutable as $$
+  select case
+    when t ~ 'campeoes|champions' then 'uefa'
+    when t ~ 'europa|conference|conferencia|uefa' then 'uefa'
+    when t ~ 'supertaca' then 'supertaca'
+    when t ~ 'taca da liga|league cup|allianz' then 'taca_liga'
+    when t ~ 'taca de portugal|taca portugal' then 'taca_portugal'
+    when t ~ 'liga|campeonato|primeira' then 'liga'
+    else 'outra' end
+  from (select translate(lower(coalesce(p_competicao, '')), 'çãõáéíóúâêôà', 'caoaeiouaeoa') t) x
+$$;
 revoke all on public.idas_estadio from anon, authenticated;
 
 -- Marca (ou atualiza) um jogo a que a pessoa foi.
 create or replace function public.bi_ida_marcar(
   p_jogo text, p_categoria text, p_data date, p_casa boolean, p_competicao text, p_tipo text,
-  p_adversario text, p_gb int, p_gr int, p_modalidade text) returns json
+  p_adversario text, p_gb int, p_gr int, p_modalidade text, p_estrangeiro boolean default false) returns json
 language plpgsql security definer set search_path = public as $$
 declare uid uuid := auth.uid();
 begin
@@ -557,12 +573,13 @@ begin
   if p_gb is not null and p_gb not between 0 and 300 then p_gb := null; end if;
   if p_gr is not null and p_gr not between 0 and 300 then p_gr := null; end if;
   if p_gb is null or p_gr is null then p_gb := null; p_gr := null; end if;
-  insert into idas_estadio (user_id, jogo, categoria, data, casa, competicao, tipo, adversario, golos_b, golos_r, modalidade)
+  insert into idas_estadio (user_id, jogo, categoria, data, casa, competicao, tipo, adversario, golos_b, golos_r, modalidade, estrangeiro)
   values (uid, p_jogo, p_categoria, p_data, p_casa, left(coalesce(p_competicao, ''), 80),
           case when p_tipo in ('liga', 'taca', 'uefa') then p_tipo else 'outra' end,
-          left(coalesce(p_adversario, ''), 80), p_gb, p_gr, left(coalesce(p_modalidade, ''), 40))
+          left(coalesce(p_adversario, ''), 80), p_gb, p_gr, left(coalesce(p_modalidade, ''), 40), coalesce(p_estrangeiro, false))
   on conflict (user_id, jogo) do update set categoria = excluded.categoria, data = excluded.data, casa = excluded.casa, competicao = excluded.competicao,
-    tipo = excluded.tipo, adversario = excluded.adversario, golos_b = excluded.golos_b, golos_r = excluded.golos_r, modalidade = excluded.modalidade;
+    tipo = excluded.tipo, adversario = excluded.adversario, golos_b = excluded.golos_b, golos_r = excluded.golos_r, modalidade = excluded.modalidade,
+    estrangeiro = excluded.estrangeiro;
   return json_build_object('ok', true);
 end $$;
 
@@ -582,7 +599,7 @@ declare uid uuid := auth.uid();
 begin
   if uid is null then return '[]'::json; end if;
   return coalesce((select json_agg(json_build_object('jogo', jogo, 'categoria', categoria, 'data', data, 'casa', casa, 'competicao', competicao, 'tipo', tipo,
-            'adversario', adversario, 'gb', golos_b, 'gr', golos_r, 'modalidade', modalidade) order by data desc, quando desc)
+            'adversario', adversario, 'gb', golos_b, 'gr', golos_r, 'modalidade', modalidade, 'estrangeiro', estrangeiro) order by data desc, quando desc)
           from idas_estadio where user_id = uid), '[]'::json);
 end $$;
 
@@ -608,7 +625,17 @@ begin
         count(*) filter (where i.categoria = 'principal' and i.tipo = 'uefa') uefa,
         count(*) filter (where i.categoria = 'principal' and i.golos_b > i.golos_r) vitorias,
         count(*) filter (where i.categoria = 'principal' and i.golos_b = i.golos_r) empates,
-        count(*) filter (where i.categoria = 'principal' and i.golos_b < i.golos_r) derrotas
+        count(*) filter (where i.categoria = 'principal' and i.golos_b < i.golos_r) derrotas,
+        count(*) filter (where i.categoria = 'principal' and i.estrangeiro) estrangeiro,
+        count(*) filter (where i.categoria = 'principal' and bi_prova(i.competicao) = 'uefa' and i.casa) uefa_casa,
+        count(*) filter (where i.categoria = 'principal' and bi_prova(i.competicao) = 'uefa' and i.casa = false) uefa_fora,
+        count(*) filter (where i.categoria = 'principal' and bi_prova(i.competicao) = 'liga' and i.casa) liga_casa,
+        count(*) filter (where i.categoria = 'principal' and bi_prova(i.competicao) = 'liga' and i.casa = false) liga_fora,
+        count(*) filter (where i.categoria = 'principal' and bi_prova(i.competicao) = 'taca_portugal' and i.casa) tp_casa,
+        count(*) filter (where i.categoria = 'principal' and bi_prova(i.competicao) = 'taca_portugal' and i.casa = false) tp_fora,
+        count(*) filter (where i.categoria = 'principal' and bi_prova(i.competicao) = 'taca_liga' and i.casa) tl_casa,
+        count(*) filter (where i.categoria = 'principal' and bi_prova(i.competicao) = 'taca_liga' and i.casa = false) tl_fora,
+        count(*) filter (where i.categoria = 'principal' and bi_prova(i.competicao) = 'supertaca') supertaca
       from perfis pf join idas_estadio i on i.user_id = pf.user_id
       where pf.participacao and i.data >= de
       group by pf.user_id, pf.nome, pf.alcunha, pf.pais, pf.localidade, pf.mostrar) x), '[]'::json),
@@ -619,7 +646,7 @@ begin
   );
 end $$;
 
-revoke execute on function public.bi_ida_marcar(text, text, date, boolean, text, text, text, int, int, text), public.bi_ida_remover(text),
+revoke execute on function public.bi_ida_marcar(text, text, date, boolean, text, text, text, int, int, text, boolean), public.bi_ida_remover(text),
   public.bi_minhas_idas(), public.bi_admin_idas(text, text) from public;
-grant execute on function public.bi_ida_marcar(text, text, date, boolean, text, text, text, int, int, text), public.bi_ida_remover(text),
+grant execute on function public.bi_ida_marcar(text, text, date, boolean, text, text, text, int, int, text, boolean), public.bi_ida_remover(text),
   public.bi_minhas_idas(), public.bi_admin_idas(text, text) to anon, authenticated;
