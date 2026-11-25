@@ -408,6 +408,11 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
 .aviso-faixa { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 18px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(135deg, rgba(240, 180, 41, .22), rgba(240, 180, 41, .08)); border: 1px solid rgba(240, 180, 41, .4); color: #ffe6a0; }
 .aviso-faixa .ico { margin-top: 2px; }
 
+.agenda-item { display: grid; grid-template-columns: 40px 1fr auto; gap: 8px 12px; align-items: center; padding: 12px 14px; margin-bottom: 8px; border: 1px solid #333e52; border-radius: 14px; background: linear-gradient(180deg, #232b3b, #1b2230); }
+.agenda-txt { min-width: 0; }
+.agenda-txt b { display: block; font-size: .95rem; overflow-wrap: anywhere; }
+.agenda-acoes { grid-column: 2 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 520px) { .agenda-item { grid-template-columns: 40px 1fr; } .agenda-item .pilula { grid-column: 2; justify-self: start; } .agenda-acoes { grid-column: 1 / -1; } }
 .cal-topo { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; }
 .cal-topo b { flex: 1; text-align: center; font-size: 1.02rem; }
 .cal-grelha { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }

@@ -607,7 +607,7 @@ function ecraSondagens(alvo) {
 const GRUPOS = [
   { chave: 'direto', nome: 'Direto', icone: 'live', ajuda: 'Tudo o que se usa durante o programa' },
   { chave: 'conteudos', nome: 'Conteúdos', icone: 'edit', ajuda: 'Notícias, destaques, fotos e anúncios' },
-  { chave: 'agendado', nome: 'Agendado', icone: 'calendar', ajuda: 'O que vai sair e quando' },
+  { chave: 'agendado', nome: 'Agendado', icone: 'calendar', ajuda: 'Ver e gerir quando cada coisa sai e termina' },
   { chave: 'adeptos', nome: 'Participantes', icone: 'users', ajuda: 'Números, acessos, origem, idades e rankings dos participantes' },
   { chave: 'gestao', nome: 'Gestão', icone: 'gear', ajuda: 'Definições, equipa e números' }
 ];
@@ -1151,6 +1151,7 @@ function ecraConteudo(tipo) {
       ? `<p class="aviso mau" style="margin:0 0 12px">Só há ${totalAdmins()} administrador(es). São precisos ${APROVACOES} para publicar — acrescenta outro em <b>Administradores</b>.</p>` : '';
     alvo.innerHTML = cartao(T.nome,
       `<p class="suave">${T.descricao}</p>
+       <p class="suave">Para ver ou mudar quando sai e quando termina: <button class="botao pequeno fantasma" data-ver-agendado>Agendado ›</button></p>
        <p class="suave">Tudo o que crias, alteras ou apagas só chega à app depois de <b>${APROVACOES} administradores diferentes</b> aprovarem (quem cria já conta como uma aprovação).</p>
        ${poucos}
        <div class="tabela-rolar"><table class="tabela">
@@ -1164,6 +1165,7 @@ function ecraConteudo(tipo) {
       const b = ev.target.closest('button');
       if (!b) return;
       if (b.hasAttribute('data-novo')) editarConteudo(tipo, null);
+      else if (b.hasAttribute('data-ver-agendado')) { ABA_ATIVA.agendado = { notificacoes: 'avisos', destaques: 'destaques', anuncios: 'banner' }[tipo] || 'outros'; irPara('agendado'); }
       else if (b.hasAttribute('data-atualizar')) recarregar([tipo]);
       else if (b.dataset.editar) editarConteudo(tipo, b.dataset.editar);
       else if (b.dataset.apagar) apagarConteudo(tipo, b.dataset.apagar);
@@ -2801,24 +2803,22 @@ async function ecraProgramas(alvo) {
 }
 
 ECRAS = [
-  // 🔴 Direto
+  // 🔴 Direto: o que se usa durante o programa
   { chave: 'direto', nome: 'Painel do direto', grupo: 'direto', desenhar: ecraDireto },
   { chave: 'quadro', nome: 'Quadro tático', grupo: 'direto', desenhar: ecraQuadro },
-  { chave: 'sondagens', nome: 'Sondagens', grupo: 'direto', desenhar: ecraSondagens },
   { chave: 'mvp', nome: 'Homem do jogo (MVP)', grupo: 'direto', desenhar: a => ecraVotacoes(a, 'mvp') },
   { chave: 'perguntas', nome: 'Perguntas ao programa', grupo: 'direto', desenhar: ecraPerguntas },
   { chave: 'prognosticos', nome: 'Prognósticos', grupo: 'direto', desenhar: ecraPrognosticos },
   { chave: 'mensagens', nome: 'Mensagens', grupo: 'direto', desenhar: ecraMensagens },
-  { chave: 'notificacoes', nome: 'Enviar aviso', grupo: 'direto', desenhar: ecraConteudo('notificacoes') },
-  // ✍ Conteúdos
+  // ✍ Conteúdos: é aqui que se CRIA e edita tudo o que vai para a app
   ...['noticias', 'destaques', 'publicacoes'].map(t => ({ chave: t, nome: TIPOS[t].nome, grupo: 'conteudos', desenhar: ecraConteudo(t) })),
+  { chave: 'notificacoes', nome: 'Avisos', grupo: 'conteudos', desenhar: ecraConteudo('notificacoes') },
+  { chave: 'sondagens', nome: 'Sondagens', grupo: 'conteudos', desenhar: ecraSondagens },
   { chave: 'banner', nome: 'Banner de publicidade', grupo: 'conteudos', desenhar: ecraBanner },
   { chave: 'quiz', nome: 'Quiz', grupo: 'conteudos', desenhar: ecraQuiz },
   { chave: 'programas', nome: 'Programas na app', grupo: 'conteudos', desenhar: ecraProgramas },
-  // 📅 Agendado
-  { chave: 'agendado', nome: 'O que vai sair', grupo: 'agendado', desenhar: ecraAgendado },
-  // ⚙ Gestão
-  { chave: 'painel', nome: 'Aprovações e alertas', grupo: 'gestao', desenhar: ecraPainel },
+  // 📅 Agendado: só para ver e gerir quando cada coisa sai e termina
+  { chave: 'agendado', nome: 'Agendamentos', grupo: 'agendado', desenhar: ecraAgendado },
   // 👥 Participantes: números, acessos, origem e idades, rankings
   { chave: 'a_resumo', nome: 'Resumo', grupo: 'adeptos', desenhar: ecraAdeptosResumo },
   { chave: 'a_quando', nome: 'Acessos', grupo: 'adeptos', desenhar: ecraAdeptosQuando },
@@ -2826,6 +2826,7 @@ ECRAS = [
   { chave: 'a_rankings', nome: 'Rankings', grupo: 'adeptos', desenhar: ecraAdeptosRankings },
   { chave: 'estatisticas', nome: 'Uso da app', grupo: 'adeptos', desenhar: ecraEstatisticasApp },
   // ⚙ Gestão
+  { chave: 'painel', nome: 'Aprovações e alertas', grupo: 'gestao', desenhar: ecraPainel },
   { chave: 'monetizacao', nome: 'Monetização', grupo: 'gestao', desenhar: ecraMonetizacao },
   { chave: 'admins', nome: 'Administradores', grupo: 'gestao', desenhar: ecraAdmins },
   { chave: 'versoes', nome: 'Versões da app', grupo: 'gestao', desenhar: ecraVersoes },
@@ -2924,8 +2925,11 @@ function ecraDireto(alvo) {
   }
 }
 
-/* ---------------------------- Agendado: o que vai sair e quando ---------------------------- */
-function quandoDe(v) { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : d; }
+/* ---------------------------- Agendamentos: ver e gerir quando cada coisa sai e termina ---------------------------- */
+/* Aqui NÃO se cria nada: a criação está em Conteúdos. Aqui vês tudo o que lá está com o seu estado e as suas datas,
+   e podes mudar as datas, fechar ou cancelar. */
+function quandoDe(v) { if (!v) return null; const d = new Date(String(v).length === 10 ? v + 'T00:00:00' : v); return isNaN(d) ? null : d; }
+function fimDe(v) { if (!v) return null; const d = new Date(String(v).length === 10 ? v + 'T23:59:59' : v); return isNaN(d) ? null : d; }
 function rotuloDia(d) {
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const dia = new Date(d); dia.setHours(0, 0, 0, 0);
@@ -2934,66 +2938,120 @@ function rotuloDia(d) {
   if (dif === 1) return 'Amanhã';
   return d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
 }
+function quandoTxt(d, soDia) {
+  if (!d) return '';
+  const dia = d.toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
+  return soDia ? dia : `${dia}, ${d.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}`;
+}
 
-/** Reúne tudo o que tem data marcada: avisos, destaques, banner, sondagens, quiz… */
-async function recolherAgendados() {
+/** Tudo o que existe em Conteúdos, com estado e datas: avisos, notícias, destaques, publicações, banner, sondagens e quiz. */
+async function recolherAgendamentos() {
   const agora = new Date(), itens = [];
-  const grupoDe = { notificacoes: 'avisos', destaques: 'destaques', anuncios: 'banner', noticias: 'outros', publicacoes: 'outros' };
-  const nomeTipo = { notificacoes: 'Aviso', noticias: 'Notícia', destaques: 'Destaque', publicacoes: 'Foto e texto', anuncios: 'Banner' };
-  Object.keys(TIPOS).forEach(t => (ler(t) || []).filter(x => x.ativo !== false).forEach(x => {
-    const de = quandoDe(x.de), ate = quandoDe(x.ate), titulo = TIPOS[t].titulo(x) || '(sem título)';
-    const base = { grupo: grupoDe[t] || 'outros', tipo: nomeTipo[t] || t, ecra: t, ico: t === 'notificacoes' ? 'bell' : t === 'anuncios' ? 'euro' : 'star' };
-    if (de && de > agora) itens.push(Object.assign({ quando: de, texto: (t === 'notificacoes' ? 'Sai: ' : 'Começa: ') + titulo }, base));
-    if (ate && ate > agora) itens.push(Object.assign({ quando: ate, texto: 'Termina: ' + titulo }, base));
+  const T = { notificacoes: ['avisos', 'Aviso', 'bell'], destaques: ['destaques', 'Destaque', 'star'], anuncios: ['banner', 'Banner', 'euro'],
+    noticias: ['outros', 'Notícia', 'news'], publicacoes: ['outros', 'Publicação', 'image'] };
+  Object.keys(T).forEach(t => (ler(t) || []).forEach(x => {
+    const [grupo, tipo, ico] = T[t], ini = quandoDe(x.de), fim = fimDe(x.ate);
+    const estado = x.estado !== 'publicado' ? 'pendente' : x.ativo === false ? 'desligado' : ini && ini > agora ? 'agendado' : fim && fim < agora ? 'terminado' : 'decorre';
+    itens.push({ kind: 'conteudo', tipo: t, id: x.id, grupo, tipoNome: tipo, ico, titulo: TIPOS[t].titulo(x) || '(sem título)', ini, fim, estado, ecra: t, comHora: String(x.de || '').includes('T') });
   }));
-  if (CFG.modo !== 'local') {
+  if (CFG.modo !== 'local' && CFG.token) {
     try {
-      (await rpcAdmin('bi_admin_sondagens')).filter(s => s.aprovada_por && !s.fechada && s.fecha && quandoDe(s.fecha) > agora)
-        .forEach(s => itens.push({ grupo: 'sondagens', quando: quandoDe(s.fecha), ico: 'poll', tipo: 'Sondagem', texto: 'Termina: ' + s.pergunta, ecra: 'sondagens' }));
+      (await rpcAdmin('bi_admin_sondagens')).forEach(sd => {
+        const fim = quandoDe(sd.fecha), estado = !sd.aprovada_por ? 'pendente' : (sd.fechada || (fim && fim < agora)) ? 'terminado' : 'decorre';
+        itens.push({ kind: 'sondagem', id: sd.id, grupo: 'sondagens', tipoNome: sd.fotos ? 'Sondagem com fotos' : 'Sondagem', ico: 'poll', titulo: sd.pergunta, ini: quandoDe(sd.criada), fim, estado, ecra: 'sondagens', fotos: !!sd.fotos, comHora: true });
+      });
     } catch (e) { /* sem sondagens */ }
     try {
-      const [quiz, env] = await Promise.all([lerQuizPublico(), lerQuizEnvio()]);
-      Object.entries((env && env.envios) || {}).forEach(([id, quando]) => {
-        const q = (quiz || []).find(x => String(x.id) === String(id)), d = quandoDe(quando);
-        if (q && d && d > agora) itens.push({ grupo: 'quiz', quando: d, ico: 'chat', tipo: 'Quiz', texto: 'Sai: ' + (q.pergunta || 'pergunta do quiz'), ecra: 'quiz' });
+      const [quiz, env] = await Promise.all([lerQuizPublico(), lerQuizEnvio()]), envios = (env && env.envios) || {};
+      (quiz || []).slice(-30).forEach(q => {
+        const quando = quandoDe(envios[q.id]);
+        const estado = !quando ? 'agendado' : quando > agora ? 'agendado' : agora - quando > 21 * 86400e3 ? 'terminado' : 'decorre';
+        itens.push({ kind: 'quiz', id: q.id, grupo: 'quiz', tipoNome: 'Quiz', ico: 'chat', titulo: q.pergunta, ini: quando, fim: null, estado, ecra: 'quiz', semData: !quando, comHora: true, envios: env });
       });
     } catch (e) { /* sem quiz */ }
   }
-  return itens.sort((a, b) => a.quando - b.quando);
+  return itens;
 }
 
-function desenharLinhaTempo(d, itens) {
-  if (!itens.length) return '<p class="suave" style="margin:14px 0 0">Ainda não há nada agendado aqui.</p>';
-  const grupos = {};
-  itens.forEach(i => { (grupos[rotuloDia(i.quando)] = grupos[rotuloDia(i.quando)] || []).push(i); });
-  return Object.keys(grupos).map(dia => `<h3 class="seccao-titulo">${esc(dia)}</h3>
-    <div class="linha-tempo">${grupos[dia].map(i => `<button class="evento" data-ir="${esc(i.ecra)}">
-      <span class="evento-hora">${i.quando.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>
-      <span class="evento-ico">${icone(i.ico)}</span>
-      <span class="evento-txt"><b>${esc(i.texto)}</b><span>${esc(i.tipo)}</span></span></button>`).join('')}</div>`).join('');
+const ESTADOS_AGENDA = {
+  pendente: ['espera', 'À espera de aprovação'], agendado: ['info', 'Agendado'], decorre: ['ok', 'A decorrer'],
+  terminado: ['', 'Terminado'], desligado: ['', 'Desligado']
+};
+
+function linhaAgenda(i) {
+  const [cl, txt] = ESTADOS_AGENDA[i.estado];
+  const datas = [i.ini && (i.estado === 'agendado' ? 'Sai a ' : 'Desde ') + quandoTxt(i.ini, !i.comHora), i.fim && 'Termina a ' + quandoTxt(i.fim, true), i.semData && 'Ainda sem data'].filter(Boolean).join(' · ');
+  const bot = [];
+  if (i.kind === 'conteudo') bot.push(`<button class="botao pequeno" data-ag="datas" data-i="${esc(i.tipo + '|' + i.id)}">${icone('calendar')} Mudar datas</button>`);
+  if (i.kind === 'sondagem' && i.estado === 'decorre') bot.push(`<button class="botao pequeno" data-ag="fechar" data-i="${esc(i.id)}">Fechar agora</button>`);
+  if (i.kind === 'quiz') {
+    bot.push(`<button class="botao pequeno" data-ag="quiz-data" data-i="${esc(i.id)}">${icone('calendar')} ${i.semData ? 'Marcar data' : 'Mudar data'}</button>`);
+    if (i.estado === 'agendado') bot.push(`<button class="botao pequeno" data-ag="quiz-agora" data-i="${esc(i.id)}">Enviar já</button>`);
+    if (!i.semData && i.estado === 'agendado') bot.push(`<button class="botao pequeno perigo" data-ag="quiz-cancelar" data-i="${esc(i.id)}">Cancelar envio</button>`);
+  }
+  bot.push(`<button class="botao pequeno fantasma" data-ag="ver" data-i="${esc(i.kind + '|' + i.ecra + '|' + (i.fotos ? 'fotos' : ''))}">Abrir em Conteúdos ›</button>`);
+  return `<div class="agenda-item">
+    <span class="evento-ico">${icone(i.ico)}</span>
+    <div class="agenda-txt"><b>${esc(String(i.titulo).slice(0, 110))}</b><div class="mini">${esc(i.tipoNome)}${datas ? ' · ' + esc(datas) : ''}</div></div>
+    <span class="pilula ${cl}">${esc(txt)}</span>
+    <div class="agenda-acoes">${bot.join('')}</div></div>`;
 }
 
 async function ecraAgendado(alvo) {
-  alvo.innerHTML = cartao('', '<p class="suave">A procurar o que está agendado…</p>');
-  const itens = await recolherAgendados();
-  const abaDe = (grupo, meta) => d => {
-    const lista = grupo ? itens.filter(i => i.grupo === grupo) : itens;
-    d.innerHTML = cartao(meta.titulo, `<p>${meta.oque}</p>
-      ${meta.botao ? `<button class="botao principal" data-acao>${icone(meta.ico || 'plus')} ${esc(meta.botao)}</button>` : ''}`) +
-      (grupo ? `<h3 class="seccao-titulo">Agendado</h3>` : '') + desenharLinhaTempo(d, lista);
-    $$('[data-ir]', d).forEach(b => b.addEventListener('click', () => irPara(b.dataset.ir)));
-    const bt = $('[data-acao]', d);
-    if (bt) bt.addEventListener('click', meta.acao);
+  alvo.innerHTML = cartao('', '<p class="suave">A procurar o que está em Conteúdos…</p>');
+  const itens = await recolherAgendamentos();
+  const grupo = g => itens.filter(i => !g || i.grupo === g);
+  const abaDe = (g, meta) => d => {
+    const lista = grupo(g);
+    const por = e => lista.filter(i => i.estado === e);
+    const sec = (titulo, arr, ordem, limite) => arr.length ? `<h3 class="seccao-titulo">${esc(titulo)} (${arr.length})</h3>${arr.sort(ordem).slice(0, limite || 99).map(linhaAgenda).join('')}` : '';
+    const mais = (a, b) => (a.ini || 0) - (b.ini || 0), maisFim = (a, b) => (a.fim ? a.fim.getTime() : 9e15) - (b.fim ? b.fim.getTime() : 9e15), recentes = (a, b) => ((b.fim || b.ini || 0) - (a.fim || a.ini || 0));
+    d.innerHTML = cartao(meta.titulo, `<p style="margin:0 0 8px">${meta.oque}</p>
+      <p class="suave" style="margin:0">Aqui só vês e geres as datas. ${meta.criar ? `Para criar, vai a <b>Conteúdos › ${esc(meta.criar[1])}</b>. <button class="botao pequeno" data-criar-em="${esc(meta.criar[0])}">Ir para ${esc(meta.criar[1])} ›</button>` : 'Para criar, usa o menu <b>Conteúdos</b>.'}</p>`) +
+      (lista.length ? sec('À espera de aprovação', por('pendente'), mais) + sec('Agendado: ainda vai sair', por('agendado'), mais) + sec('A decorrer agora', por('decorre'), maisFim) + sec('Desligado', por('desligado'), recentes)
+        + (por('terminado').length ? `<details style="margin-top:6px"><summary class="seccao-titulo" style="cursor:pointer;display:list-item">Terminado (${por('terminado').length})</summary>${por('terminado').sort(recentes).slice(0, 20).map(linhaAgenda).join('')}</details>` : '')
+        : '<p class="suave" style="margin-top:14px">Ainda não há nada aqui.</p>');
+    $$('[data-criar-em]', d).forEach(b => b.addEventListener('click', () => irPara(b.dataset.criarEm)));
+    $$('[data-ag]', d).forEach(b => b.addEventListener('click', () => acaoAgenda(b.dataset.ag, b.dataset.i)));
   };
-  const n = g => itens.filter(i => i.grupo === g).length;
+  const n = g => grupo(g).filter(i => i.estado !== 'terminado').length;
   comAbas(alvo, 'agendado', [
-    { id: 'tudo', nome: 'Tudo', icone: 'list', n: itens.length || '', desenhar: abaDe(null, { titulo: 'Tudo o que vai sair', oque: 'Todos os avisos, destaques, sondagens, quiz e anúncios que têm dia e hora marcados, por ordem. Escolhe uma aba para agendar algo novo.' }) },
-    { id: 'avisos', nome: 'Avisos', icone: 'bell', n: n('avisos') || '', desenhar: abaDe('avisos', { titulo: 'Avisos agendados', oque: 'Uma <b>notificação</b> que chega aos telemóveis no dia e hora que escolheres (por exemplo, "Hoje há jogo às 20h45"). Em "Enviar no dia e hora" do aviso, escolhe quando sai.', botao: 'Agendar um aviso', ico: 'bell', acao: () => { irPara('notificacoes'); editarConteudo('notificacoes', null); } }) },
-    { id: 'destaques', nome: 'Destaques', icone: 'star', n: n('destaques') || '', desenhar: abaDe('destaques', { titulo: 'Destaques do Início', oque: 'O <b>cartão grande no topo do Início</b> da app. Escolhes de que dia a que dia aparece (um evento, uma campanha, uma notícia importante).', botao: 'Novo destaque', ico: 'star', acao: () => { irPara('destaques'); editarConteudo('destaques', null); } }) },
-    { id: 'sondagens', nome: 'Sondagens', icone: 'poll', n: n('sondagens') || '', desenhar: abaDe('sondagens', { titulo: 'Sondagens a terminar', oque: 'As sondagens abertas e o dia e hora em que fecham. Cria uma nova na área Direto › Sondagens.', botao: 'Ir para as sondagens', ico: 'poll', acao: () => irPara('sondagens') }) },
-    { id: 'quiz', nome: 'Quiz', icone: 'chat', n: n('quiz') || '', desenhar: abaDe('quiz', { titulo: 'Quiz agendado', oque: 'As perguntas do quiz já têm dia e hora para sair. Podes mudar a data de cada uma ou enviar já, no ecrã do Quiz.', botao: 'Gerir o quiz', ico: 'chat', acao: () => irPara('quiz') }) },
-    { id: 'banner', nome: 'Banner', icone: 'euro', n: n('banner') || '', desenhar: abaDe('banner', { titulo: 'Banner de publicidade', oque: 'Os anúncios da barra vermelha por cima do menu da app, com as datas em que começam e terminam.', botao: 'Novo anúncio', ico: 'euro', acao: () => { irPara('banner'); editarConteudo('anuncios', null); } }) }
+    { id: 'tudo', nome: 'Tudo', icone: 'list', n: itens.filter(i => i.estado === 'agendado' || i.estado === 'pendente').length || '', desenhar: abaDe(null, { titulo: 'Tudo o que está agendado', oque: 'Todos os conteúdos com o seu estado e as suas datas: o que vai sair, o que está a decorrer e o que já terminou.' }) },
+    { id: 'avisos', nome: 'Avisos', icone: 'bell', n: n('avisos') || '', desenhar: abaDe('avisos', { titulo: 'Avisos', oque: 'As notificações para os telemóveis e o dia e hora em que saem.', criar: ['notificacoes', 'Avisos'] }) },
+    { id: 'destaques', nome: 'Destaques', icone: 'star', n: n('destaques') || '', desenhar: abaDe('destaques', { titulo: 'Destaques do Início', oque: 'O cartão grande no topo do Início e entre que dias aparece.', criar: ['destaques', 'Destaques'] }) },
+    { id: 'sondagens', nome: 'Sondagens', icone: 'poll', n: n('sondagens') || '', desenhar: abaDe('sondagens', { titulo: 'Sondagens', oque: 'As sondagens abertas, as que esperam aprovação e quando fecham. Podes fechar uma já.', criar: ['sondagens', 'Sondagens'] }) },
+    { id: 'quiz', nome: 'Quiz', icone: 'chat', n: n('quiz') || '', desenhar: abaDe('quiz', { titulo: 'Quiz', oque: 'Quando sai cada pergunta do quiz. Podes marcar ou mudar a data, enviar já ou cancelar o envio.', criar: ['quiz', 'Quiz'] }) },
+    { id: 'banner', nome: 'Banner', icone: 'euro', n: n('banner') || '', desenhar: abaDe('banner', { titulo: 'Banner de publicidade', oque: 'Os anúncios da barra por cima do menu da app e as datas em que começam e terminam.', criar: ['banner', 'Banner de publicidade'] }) },
+    { id: 'outros', nome: 'Notícias e publicações', icone: 'news', n: n('outros') || '', desenhar: abaDe('outros', { titulo: 'Notícias e publicações', oque: 'As notícias, fotos e textos que estão na app e, se tiverem, as datas em que aparecem.', criar: ['noticias', 'Notícias'] }) }
   ]);
+}
+
+/** As ações de cada linha: mudar datas, fechar, marcar o quiz… (tudo o que mexe em tempos, nada de criar). */
+async function acaoAgenda(acao, ref) {
+  try {
+    if (acao === 'ver') { const [kind, ecra, fotos] = ref.split('|'); if (kind === 'sondagem') ABA_ATIVA.sond = fotos ? 'fotos' : 'simples'; irPara(ecra); return; }
+    if (acao === 'datas') { const [tipo, id] = ref.split('|'); await editarConteudo(tipo, id); return redesenhar(); }
+    if (acao === 'fechar') {
+      if (!await perguntar('Fechar a sondagem?', '<p>A votação fecha já. Os resultados continuam visíveis na app durante uns dias.</p>', 'Sim, fechar', 'Cancelar')) return;
+      carregar(true); await rpcAdmin('bi_admin_sondagem_fechar', { p_id: Number(ref) }); aviso('Sondagem fechada.'); return redesenhar();
+    }
+    if (acao.startsWith('quiz')) {
+      const env = await lerQuizEnvio(), envios = Object.assign({}, env.envios || {});
+      if (acao === 'quiz-agora') { if (!confirm('Enviar esta pergunta já para os telemóveis?')) return; envios[ref] = agoraISO(); }
+      else if (acao === 'quiz-cancelar') delete envios[ref];
+      else {
+        const atual = envios[ref];
+        const v = await formulario('Quando sai esta pergunta?', [{ nome: 'quando', etiqueta: 'Dia e hora', tipo: 'datetime-local' }],
+          { quando: atual ? paraCampoData(new Date(atual).getTime()) : paraCampoData(Date.now() + 3600 * 1000) },
+          { textoGuardar: 'Guardar', nota: 'Nesse dia e hora a pergunta aparece no Início (e é enviada a notificação).' });
+        if (!v || !v.quando) return;
+        envios[ref] = new Date(v.quando).toISOString();
+      }
+      carregar(true);
+      if (await guardarQuizEnvio({ envios }, 'Plataforma: agendamento do quiz')) { aviso('Guardado.'); }
+      return redesenhar();
+    }
+  } catch (e) { aviso(e.message, true); } finally { carregar(false); }
 }
 
 async function lerSeguro(nome) {
