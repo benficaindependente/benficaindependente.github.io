@@ -1,0 +1,102 @@
+[
+ {
+  "foto": "https://benficaindependente.github.io/fotos/trofeu-campeoes.jpg",
+  "seccao": "palmares",
+  "legenda": "Liga dos Campeões: as Taças dos Campeões Europeus de 1961 e 1962",
+  "autor": "Threeohsix",
+  "licenca": "CC BY-SA 4.0",
+  "origem": "https://commons.wikimedia.org/wiki/File:Ta%C3%A7as_dos_Clubes_Campe%C3%B5es_Europeus_1962_e_1961_no_Museu_Cosme_Dami%C3%A3o.jpg",
+  "largura": 900,
+  "altura": 1200
+ },
+ {
+  "foto": "https://benficaindependente.github.io/fotos/trofeu-liga.jpg",
+  "seccao": "palmares",
+  "legenda": "Primeira Liga: os troféus de campeão nacional",
+  "autor": "Threeohsix",
+  "licenca": "CC BY-SA 4.0",
+  "origem": "https://commons.wikimedia.org/wiki/File:Primeira_Liga_trophies_in_Museu_Cosme_Dami%C3%A3o.JPG",
+  "largura": 1200,
+  "altura": 900
+ },
+ {
+  "foto": "https://benficaindependente.github.io/fotos/trofeu-taca.jpg",
+  "seccao": "palmares",
+  "legenda": "Taça de Portugal: as taças no Museu Cosme Damião",
+  "autor": "Threeohsix",
+  "licenca": "CC BY-SA 4.0",
+  "origem": "https://commons.wikimedia.org/wiki/File:Panorama_das_Ta%C3%A7as_de_Portugal_no_Museu_Cosme_Dami%C3%A3o.jpg",
+  "largura": 1200,
+  "altura": 900
+ },
+ {
+  "foto": "https://benficaindependente.github.io/fotos/historia-ata-1904.jpg",
+  "seccao": "historia",
+  "legenda": "A ata da fundação, 28 de fevereiro de 1904",
+  "autor": "Cosme Damião",
+  "licenca": "Public domain",
+  "origem": "https://commons.wikimedia.org/wiki/File:Acta_Funda%C3%A7%C3%A3o_SLBenfica_1904.jpg",
+  "largura": 510,
+  "altura": 1200
+ },
+ {
+  "foto": "https://benficaindependente.github.io/fotos/historia-1962-antes.jpg",
+  "seccao": "historia",
+  "legenda": "Amesterdão, 1962: antes da final com o Real Madrid",
+  "autor": "Jack de Nijs for Anefo",
+  "licenca": "CC0",
+  "origem": "https://commons.wikimedia.org/wiki/File:Beufica_tegen_Real_Madrid_5-3_spelers_van_Beufica,_Bestanddeelnr_913-8531.jpg",
+  "largura": 1189,
+  "altura": 1200
+ },
+ {
+  "foto": "https://benficaindependente.github.io/fotos/historia-1962-taca.jpg",
+  "seccao": "historia",
+  "legenda": "Amesterdão, 1962: a taça depois do 5-3",
+  "autor": "Jack de Nijs for Anefo",
+  "licenca": "CC0",
+  "origem": "https://commons.wikimedia.org/wiki/File:Beufica_tegen_Real_Madrid_5-3_huldiging_met_beker,_Bestanddeelnr_913-8523.jpg",
+  "largura": 1189,
+  "altura": 1200
+ },
+ {
+  "foto": "https://benficaindependente.github.io/fotos/historia-1962-festa.jpg",
+  "seccao": "historia",
+  "legenda": "Amesterdão, 1962: a festa no relvado",
+  "autor": "Joop van Bilsen for Anefo",
+  "licenca": "CC0",
+  "origem": "https://commons.wikimedia.org/wiki/File:Beufica_tegen_Real_Madrid_5-3_(blijdschap_van_de_speler,_Bestanddeelnr_913-8511.jpg",
+  "largura": 1200,
+  "altura": 916
+ },
+ {
+  "foto": "https://benficaindependente.github.io/fotos/historia-estadio-antigo.jpg",
+  "seccao": "historia",
+  "legenda": "Maqueta do antigo Estádio da Luz, no museu do clube",
+  "autor": "Threeohsix",
+  "licenca": "CC BY-SA 4.0",
+  "origem": "https://commons.wikimedia.org/wiki/File:Side_view_of_the_old_Est%C3%A1dio_da_Luz_model.JPG",
+  "largura": 1200,
+  "altura": 768
+ },
+ {
+  "foto": "https://benficaindependente.github.io/fotos/clube-estadio-noite.jpg",
+  "seccao": "clube",
+  "legenda": "Estádio da Luz em noite de jogo",
+  "autor": "4theliberty",
+  "licenca": "CC0",
+  "origem": "https://commons.wikimedia.org/wiki/File:Estadio_Da_Luz_Benfica.jpg",
+  "largura": 900,
+  "altura": 1200
+ },
+ {
+  "foto": "https://benficaindependente.github.io/fotos/clube-estadio-festa.jpg",
+  "seccao": "clube",
+  "legenda": "Estádio da Luz em festa, 2005",
+  "autor": "autor não indicado",
+  "licenca": "CC BY-SA 3.0",
+  "origem": "https://commons.wikimedia.org/wiki/File:Est%C3%A1dio_da_Luz_2005_(3).jpg",
+  "largura": 1024,
+  "altura": 768
+ }
+]
