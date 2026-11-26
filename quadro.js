@@ -455,24 +455,56 @@ const CSS_BANCA = `
  .qb.palco .qb-trilho .qb-ferr{font-size:12px}
  .qb.palco .qb-momentos{flex-wrap:nowrap;overflow-x:auto}
 }
-/* ---- Telemóvel deitado: tudo cabe na altura; o campo fica com o espaço, os botões à direita ---- */
+/* ---- Em toque, todos os botões têm o nome e a barra de cima passa para a linha seguinte em vez de esconder ---- */
+.qb.palco .qb-topo{flex-wrap:wrap}
+.qb.palco .qb-abre .tx{display:block!important}
+.qb.palco .qb-abre{min-width:52px}
+/* ---- Gaveta do ecrã inteiro: linha do tempo, jogos, jogadas gravadas e momentos ---- */
+.qb-gaveta{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;min-width:0}
+.qb-gav-abas{display:none}
+.qb-gav-linha{display:flex;align-items:center;gap:8px;min-width:0}
+.qb-gav-linha>b{flex:0 0 auto;width:92px;font-size:11px;color:#9aa4b2;text-transform:uppercase;letter-spacing:.04em;line-height:1.2}
+.qb-gav-linha>.qb-minutos{flex:1;min-width:0;margin:0}
+.qb-gav-rolar{flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+.qb-gav-rolar>*{flex:0 0 auto}
+.qb-gav-rolar .qb-jogo-btn{min-height:40px;white-space:nowrap;font-size:12.5px}
+.qb-gav-rolar .qb-mom-btn,.qb-gav-rolar .qb-jog-btn{min-height:40px;font-size:13px;white-space:nowrap}
+.qb-jog-btn.gravar{border-color:#e21227;background:#3a0d14;color:#ffd5d9}
+.qb.palco .qb-gaveta .qb-min-evs{display:flex;flex-wrap:nowrap;overflow-x:auto;max-height:none;gap:6px;padding-bottom:2px}
+.qb.palco .qb-gaveta .qb-ev{flex:0 0 auto;white-space:nowrap}
+/* ---- Telemóvel deitado: tudo à vista e compacto; o campo fica com o espaço que sobra ---- */
 @media (orientation:landscape) and (max-height:560px){
- .qb.palco,.qb.palco.fs{grid-template-columns:minmax(0,1fr) 150px;grid-template-rows:minmax(0,1fr);gap:6px}
+ .qb.palco,.qb.palco.fs{grid-template-columns:minmax(0,1fr) 132px;grid-template-rows:minmax(0,1fr);gap:5px}
  .qb.palco:not(.fs){height:calc(100dvh - 12px)!important;min-height:0}
- .qb.palco.fs{padding:4px 6px}
- .qb.palco .qb-campo-col{gap:4px}
- .qb.palco .qb-topo{flex-wrap:nowrap;overflow-x:auto;gap:4px;scrollbar-width:none}
- .qb.palco .qb-topo .botao{min-height:38px;padding:0 9px;font-size:.8rem}
- .qb.palco .qb-abre .tx{display:none}
- .qb.palco .qb-titulo{display:none}
- .qb.palco .qb-pill{display:none}
- .qb.palco .qb-minutos{display:none}
- .qb.palco .qb-momentos{flex-wrap:nowrap;overflow-x:auto;padding:0}
- .qb.palco .qb-momentos .qb-mom-btn,.qb.palco .qb-momentos .qb-jog-btn{min-height:34px;font-size:12.5px}
- .qb.palco .qb-trilho{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:5px;overflow-y:auto}
- .qb.palco .qb-trilho .qb-ferr{font-size:10.5px;border-radius:10px}
- .qb.palco .qb-trilho .qb-ferr .qb-ic{font-size:18px}
+ .qb.palco.fs{padding:3px 5px}
+ .qb.palco .qb-campo-col{gap:3px}
+ .qb.palco .qb-topo{gap:3px}
+ .qb.palco .qb-topo .botao{min-height:32px;padding:0 5px;font-size:.7rem}
+ .qb.palco .qb-abre{min-width:41px;font-size:8.5px!important}
+ .qb.palco .qb-abre .qb-ic{font-size:13px}
+ .qb.palco .qb-titulo{flex:1 1 60px;min-width:60px;padding:3px 6px;font-size:12px;min-height:32px}
+ .qb.palco .qb-pill{display:inline-flex;align-items:center;padding:2px 6px;font-size:9.5px}
+ .qb.palco .qb-gaveta{gap:2px}
+ .qb.palco .qb-gav-abas{display:flex;gap:4px}
+ .qb.palco .qb-gav-aba{flex:1;min-height:26px;border-radius:8px;border:1px solid #2b333d;background:#1d232b;color:#c8d0da;font:inherit;font-size:11px;font-weight:800;cursor:pointer}
+ .qb.palco .qb-gav-aba.ativa{background:#e21227;border-color:#ff6070;color:#fff}
+ .qb.palco .qb-gav-linha{display:none;height:38px}
+ .qb.palco .qb-gav-linha.ativa{display:flex}
+ .qb.palco .qb-gav-linha>b{display:none}
+ .qb.palco .qb-gav-linha .qb-minutos{display:flex;flex-direction:row;align-items:center;gap:6px;padding:0 6px;overflow:hidden}
+ .qb.palco .qb-gav-linha .qb-min-linha{flex:0 0 42%;min-width:0}
+ .qb.palco .qb-gav-linha .qb-min-linha>b{display:none}
+ .qb.palco .qb-gav-linha .qb-min-linha .botao{min-height:28px;padding:0 6px}
+ .qb.palco .qb-gaveta .qb-min-evs{flex:1;min-width:0}
+ .qb.palco .qb-gaveta .qb-ev{min-height:30px;font-size:11px}
+ .qb.palco .qb-gav-rolar .qb-jogo-btn,.qb.palco .qb-gav-rolar .qb-mom-btn,.qb.palco .qb-gav-rolar .qb-jog-btn{min-height:32px;font-size:11.5px}
+ .qb.palco .qb-trilho{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:4px;overflow-y:auto}
+ .qb.palco .qb-trilho .qb-ferr{font-size:10px;border-radius:10px}
+ .qb.palco .qb-trilho .qb-ferr .qb-ic{font-size:17px}
 }
+/* os minutos dentro da janela veem-se por inteiro */
+.qb-folha .qb-min-evs{display:flex;flex-wrap:wrap;gap:6px}
+.qb-folha .qb-ev{min-height:40px}
 /* ---- Telemóvel: janelas em ecrã inteiro, com botões grandes e poucas colunas ---- */
 @media (max-width:700px),(max-height:560px){
  .qb-fundo{padding:6px}
@@ -970,6 +1002,11 @@ function desenharEditorQuadro(alvo) {
       <div class="qb-sec"><b>Últimos jogos</b><div class="qb-jogos2">${jogosGrelha}</div></div>`],
     guardar: ['💾 Guardar', tabGuardar],
     jogadas: ['🎬 Jogadas', tabJogadas],
+    minutos: ['⏱ Minutos e substituições', barraMinutos],
+    limpar: ['🧹 Limpar e repor', `<div class="qb-sec"><div class="qb-grelha dois">
+      <button class="botao pequeno" data-limpar="linhas">Tirar riscos e setas</button>
+      <button class="botao pequeno perigo" data-limpar="tudo">🧹 Limpar o campo</button></div></div>
+      <p class="suave qb-ajuda">Encarnados <b>${conta('v')}/11</b> · Brancos <b>${conta('b')}/11</b>. O guarda-redes aparece sempre a amarelo.</p>`],
     app: ['📡 App', tabApp]
   };
   const folhaHtml = folha && folhas[folha] ? `<div class="qb-fundo" data-folha-fundo><div class="qb-folha">
@@ -980,6 +1017,19 @@ function desenharEditorQuadro(alvo) {
       ${tile('linha', '／ Risco')}${tile('seta', '➚ Seta')}${tile('cor', '🎨 Cor')}${tile('apagar', '🗑 Tirar')}
       ${ferramenta === 'cor' ? `<div class="qb-cores trilho">${Object.keys(CORES_Q).map(c => `<button class="qb-cor ${alvo.dataset.cor === c ? 'ativa' : ''}" data-cor="${c}" style="background:${CORES_Q[c]}"></button>`).join('')}<button class="qb-cor padrao ${alvo.dataset.cor === 'padrao' ? 'ativa' : ''}" data-cor="padrao">↺</button></div>` : ''}
     </aside>`;
+  const gav = alvo.dataset.gaveta || 'tempo';
+  const gavAba = (id, t) => `<button class="qb-gav-aba ${gav === id ? 'ativa' : ''}" data-gaveta="${id}">${t}</button>`;
+  const linhaGav = (id, t, conteudo) => `<div class="qb-gav-linha ${gav === id ? 'ativa' : ''}" data-sec="${id}"><b>${t}</b>${conteudo}</div>`;
+  const gravarBotao = QUADRO_GRAV
+    ? `<button class="qb-jog-btn gravar" data-grav-parar>⏹ Parar e guardar (${QUADRO_GRAV.amostras.length})</button>`
+    : '<button class="qb-jog-btn gravar" data-grav-ini>⏺ Gravar</button>';
+  const gaveta = `<div class="qb-gaveta">
+      <nav class="qb-gav-abas">${gavAba('tempo', '⏱ Linha do tempo')}${gavAba('jogos', '⚽ Jogos')}${gavAba('jogadas', `🎬 Jogadas (${jogadas.length})`)}${gavAba('momentos', `💾 Momentos (${momentos.length})`)}</nav>
+      ${linhaGav('tempo', '⏱ Linha do tempo', barraMinutos)}
+      ${linhaGav('jogos', '⚽ Jogos', `<div class="qb-gav-rolar">${jogosGrelha}</div>`)}
+      ${linhaGav('jogadas', '🎬 Jogadas', `<div class="qb-gav-rolar">${gravarBotao}${botoesJog || '<span class="qb-mom-vazio">Ainda sem jogadas gravadas neste jogo.</span>'}${QUADRO_PLAY ? '<button class="qb-jog-btn" data-jog-parar>⏹ Parar</button>' : ''}</div>`)}
+      ${linhaGav('momentos', '💾 Momentos', `<div class="qb-gav-rolar">${botoesMom}</div>`)}
+    </div>`;
   const htmlPalco = `
     ${CFG.modo === 'local' ? '<p class="aviso mau" style="margin:0 0 6px"><b>Modo de teste:</b> nada aparece na app.</p>' : ''}
     <div class="qb palco ${cheio ? 'fs' : ''}">
@@ -990,14 +1040,12 @@ function desenharEditorQuadro(alvo) {
           <input class="qb-titulo" data-titulo maxlength="80" value="${esc(q.titulo)}" placeholder="Título (opcional)">
           <button class="botao" data-desfazer ${QUADRO_HIST.length ? '' : 'disabled'} title="Desfazer">↶</button>
           <button class="botao" data-refazer ${QUADRO_REFAZER.length ? '' : 'disabled'} title="Refazer">↷</button>
-          ${abrirF('taticas', '🎯 Táticas')}${abrirF('jogo', '⚽ Jogo')}${abrirF('guardar', '💾 Guardar')}${abrirF('jogadas', '🎬 Jogadas')}
+          ${abrirF('taticas', '🎯 Táticas')}${abrirF('jogo', '⚽ Jogo')}${abrirF('guardar', '💾 Guardar')}${abrirF('jogadas', '🎬 Jogadas')}${abrirF('minutos', '⏱ Minutos')}${abrirF('limpar', '🧹 Limpar')}${abrirF('app', '📡 App')}
           <button class="botao ${q.visivel ? 'perigo' : 'principal'}" data-visivel="${q.visivel ? 0 : 1}">${q.visivel ? 'Tirar da app' : '📡 Pôr na app'}</button>
           ${cheio ? '' : '<button class="botao" data-fs-entrar title="Ecrã inteiro">⛶</button>'}
         </div>
         <div class="q-campo">${quadroSvg(q.estado)}</div>
-        ${barraMinutos}
-        <div class="qb-momentos"><b>Momentos</b>${botoesMom}</div>
-        ${jogadas.length ? `<div class="qb-momentos"><b>Jogadas</b>${botoesJog}${QUADRO_PLAY ? '<button class="qb-jog-btn" data-jog-parar>⏹ Parar</button>' : ''}</div>` : ''}
+        ${gaveta}
       </section>
       ${trilho}
     </div>
@@ -1070,71 +1118,13 @@ function desenharEditorQuadro(alvo) {
     alvo.dataset.ferramenta = 'cor';
     desenharEditorQuadro(alvo);
   }));
-  const slider = $('[data-slider-min]', alvo);
-  if (slider) {
-    slider.addEventListener('input', () => { const v = $('[data-min-val]', alvo); if (v) v.textContent = slider.value + "'"; });
+  $$('[data-slider-min]', alvo).forEach(slider => {
+    slider.addEventListener('input', () => { const v = $('[data-min-val]', slider.parentElement); if (v) v.textContent = slider.value + "'"; });
     slider.addEventListener('change', () => {
       const min = Number(slider.value);
       mudar(() => { q.estado.pontos = aplicarTempo(q.estado, min === 0 ? null : min); q.estado.momento = min === 0 ? null : min; });
     });
-  }
-  $$('[data-folha]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.folha = alvo.dataset.folha === b.dataset.folha ? '' : b.dataset.folha; desenharEditorQuadro(alvo); }));
-  $$('[data-folha-x]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.folha = ''; desenharEditorQuadro(alvo); }));
-  const fundoFolha = $('[data-folha-fundo]', alvo);
-  if (fundoFolha) fundoFolha.addEventListener('click', ev => { if (ev.target === fundoFolha) { alvo.dataset.folha = ''; desenharEditorQuadro(alvo); } });
-  const bFsE = $('[data-fs-entrar]', alvo);
-  if (bFsE) bFsE.addEventListener('click', () => {
-    QUADRO_FS = true;
-    try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { /* sem ecrã inteiro do navegador */ }
-    desenharEditorQuadro(alvo);
   });
-  const bFsS = $('[data-fs-sair]', alvo);
-  if (bFsS) bFsS.addEventListener('click', () => {
-    QUADRO_FS = false;
-    try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* ignora */ }
-    desenharEditorQuadro(alvo);
-  });
-  $$('[data-palco-toggle]', alvo).forEach(b => b.addEventListener('click', () => { const atual = QUADRO_PALCO == null ? ecraDeToque() : QUADRO_PALCO; QUADRO_PALCO = !atual; QUADRO_FS = QUADRO_PALCO ? QUADRO_FS : false; alvo.dataset.folha = ''; desenharEditorQuadro(alvo); }));
-  $$('[data-menu-toggle]', alvo).forEach(b => b.addEventListener('click', () => { QUADRO_SEM_PAINEL = !QUADRO_SEM_PAINEL; desenharEditorQuadro(alvo); }));
-  $$('[data-aba]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.aba = b.dataset.aba; desenharEditorQuadro(alvo); }));
-  const bCheio = $('[data-cheio]', alvo);
-  if (bCheio) bCheio.addEventListener('click', () => {
-    try {
-      if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen();
-    } catch (e) { /* navegador sem ecrã inteiro */ }
-    setTimeout(() => desenharEditorQuadro(alvo), 300);
-  });
-  const bTempo = $('[data-tempo-toggle]', alvo);
-  if (bTempo) bTempo.addEventListener('click', () => {
-    const caixa = $('.q-tempo', alvo);
-    QUADRO_TEMPO = !(caixa && caixa.classList.contains('aberto'));
-    desenharEditorQuadro(alvo);
-  });
-  const bFechar = $('[data-tempo-fechar]', alvo);
-  if (bFechar) bFechar.addEventListener('click', () => { QUADRO_TEMPO = false; desenharEditorQuadro(alvo); });
-  const bTat = $('[data-menu-taticas]', alvo);
-  if (bTat) bTat.addEventListener('click', () => { PAINEL_QUADRO = 'taticas'; desenharEditorQuadro(alvo); });
-  const bTatX = $('[data-painel-x]', alvo);
-  if (bTatX) bTatX.addEventListener('click', () => { PAINEL_QUADRO = null; desenharEditorQuadro(alvo); });
-  // Tocar fora da lista também a fecha.
-  if (FORA_TEMPO) { document.removeEventListener('pointerdown', FORA_TEMPO, true); FORA_TEMPO = null; }
-  if (QUADRO_TEMPO === true) {
-    FORA_TEMPO = (e) => {
-      if (e.target && e.target.closest && e.target.closest('.q-tempo')) return;
-      QUADRO_TEMPO = false;
-      desenharEditorQuadro(alvo);
-    };
-    setTimeout(() => document.addEventListener('pointerdown', FORA_TEMPO, true), 0);
-  }
-  const bOnze = $('[data-onze-novo]', alvo);
-  if (bOnze) bOnze.addEventListener('click', () => {
-    const d = QUADRO_SUGERIDO;
-    if (!d) return;
-    QUADRO_SUGERIDO = null;
-    aplicarJogo(d);
-    aviso('Atualizado para o último onze: ' + d.jogo.nome + '.');
-  });
-  // Linha do tempo: carregar num momento põe o campo como estava nesse minuto (as duas equipas).
   $$('[data-min]', alvo).forEach(b => b.addEventListener('click', () => {
     const min = Number(b.dataset.min);
     mudar(() => {
@@ -1242,17 +1232,16 @@ function desenharEditorQuadro(alvo) {
     guardarMomentos();
     desenharEditorQuadro(alvo);
   }));
-  const bGravIni = $('[data-grav-ini]', alvo);
-  if (bGravIni) bGravIni.addEventListener('click', () => {
+  $$('[data-grav-ini]', alvo).forEach(bGravIni => bGravIni.addEventListener('click', () => {
     pararJogada();
     QUADRO_GRAV = { base: { pontos: JSON.parse(JSON.stringify(q.estado.pontos || [])), linhas: JSON.parse(JSON.stringify(q.estado.linhas || [])), bola: q.estado.bola ? JSON.parse(JSON.stringify(q.estado.bola)) : null }, amostras: [], t0: null, nome: '' };
     aviso('A gravar: arrasta os jogadores e a bola. Quando acabares, carrega em Parar e guardar.');
     desenharEditorQuadro(alvo);
-  });
+  }));
+  $$('[data-gaveta]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.gaveta = b.dataset.gaveta; desenharEditorQuadro(alvo); }));
   const nomeGrav = $('[data-grav-nome]', alvo);
   if (nomeGrav) nomeGrav.addEventListener('input', () => { if (QUADRO_GRAV) QUADRO_GRAV.nome = nomeGrav.value; });
-  const bGravParar = $('[data-grav-parar]', alvo);
-  if (bGravParar) bGravParar.addEventListener('click', () => {
+  $$('[data-grav-parar]', alvo).forEach(bGravParar => bGravParar.addEventListener('click', () => {
     const g = QUADRO_GRAV; QUADRO_GRAV = null;
     if (!g || !g.amostras.length) { aviso('Não gravaste nenhum movimento.', true); desenharEditorQuadro(alvo); return; }
     const k = chaveMomentos(jogoPrep);
@@ -1267,7 +1256,7 @@ function desenharEditorQuadro(alvo) {
     guardarQuadroEmBreve();
     aviso('Jogada "' + nome + '" guardada.');
     desenharEditorQuadro(alvo);
-  });
+  }));
   const bPrep = $('[data-prep]', alvo);
   if (bPrep) bPrep.addEventListener('change', () => { q.estado.prep_jogo = bPrep.value.trim(); guardarQuadroEmBreve(); desenharEditorQuadro(alvo); });
   if (QUADRO_TECLA) document.removeEventListener('keydown', QUADRO_TECLA);
