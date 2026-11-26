@@ -102,6 +102,28 @@ function haSobrepostos(pontos, minimo) {
 }
 
 let QUADRO_IDS = 0;
+/* ---------- A bola "colada": fica com um jogador até a levarem para outro sítio ou para outro jogador ---------- */
+const ALCANCE_BOLA = 5;   // metros: largada a menos disto de um jogador, fica com ele
+const distM = (a, b) => Math.hypot((a.x - b.x) * RL, (a.y - b.y) * RW);
+const donoDaBola = e => (e.pontos || []).find(p => p.comBola) || null;
+const bolaNoPe = p => ({ x: Math.round((p.x + (p.c === 'b' ? -3.4 : 3.4) / RL) * 1000) / 1000, y: Math.round((p.y + 2.8 / RW) * 1000) / 1000 });
+/** Depois de qualquer mexida: a bola acompanha quem a tem. */
+function colarBola(e) {
+  const dono = donoDaBola(e);
+  if (!dono) return;
+  if (!e.bola) { delete dono.comBola; return; }
+  e.bola = bolaNoPe(dono);
+}
+function soltarBola(e) { (e.pontos || []).forEach(p => { delete p.comBola; }); }
+/** A bola acabou de ser largada: fica com o jogador mais próximo, se houver um ao alcance. */
+function agarrarBola(e) {
+  soltarBola(e);
+  if (!e.bola) return;
+  let melhor = null, d = ALCANCE_BOLA;
+  (e.pontos || []).forEach(p => { const x = distM(p, e.bola); if (x <= d) { d = x; melhor = p; } });
+  if (melhor) { melhor.comBola = true; colarBola(e); }
+}
+
 function quadroSvg(estado, extra) {
   const e = estado || { pontos: [], linhas: [] };
   const n = ++QUADRO_IDS;
@@ -418,6 +440,45 @@ const CSS_BANCA = `
  .qb-aba{padding:13px 2px;font-size:13px}
  .qb-mom-btn,.qb-jog-btn{min-height:50px;font-size:15px}
  .qb-titulo,.qb-input{font-size:16px}
+}
+/* ---- Tablet ao alto e telemóvel ao alto: campo em cima, ferramentas em baixo, nada apinhado ---- */
+@media (orientation:portrait) and (max-width:1100px){
+ .qb.palco,.qb.palco.fs{display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden}
+ .qb.palco:not(.fs){height:auto!important;min-height:0}
+ .qb.palco .qb-campo-col{flex:0 0 auto}
+ .qb.palco .qb-topo{flex-wrap:wrap;gap:6px}
+ .qb.palco .qb-titulo{order:20;flex:1 1 100%}
+ .qb.palco .qb-abre .tx{display:block}
+ .qb.palco .qb-abre{padding:0 10px;flex:1 1 70px;min-height:50px}
+ .qb.palco .q-campo{flex:0 0 auto;width:100%;aspect-ratio:105/68}
+ .qb.palco .qb-trilho{flex:0 0 auto;grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:62px}
+ .qb.palco .qb-trilho .qb-ferr{font-size:12px}
+ .qb.palco .qb-momentos{flex-wrap:nowrap;overflow-x:auto}
+}
+/* ---- Telemóvel deitado: tudo cabe na altura; o campo fica com o espaço, os botões à direita ---- */
+@media (orientation:landscape) and (max-height:560px){
+ .qb.palco,.qb.palco.fs{grid-template-columns:minmax(0,1fr) 150px;grid-template-rows:minmax(0,1fr);gap:6px}
+ .qb.palco:not(.fs){height:calc(100dvh - 12px)!important;min-height:0}
+ .qb.palco.fs{padding:4px 6px}
+ .qb.palco .qb-campo-col{gap:4px}
+ .qb.palco .qb-topo{flex-wrap:nowrap;overflow-x:auto;gap:4px;scrollbar-width:none}
+ .qb.palco .qb-topo .botao{min-height:38px;padding:0 9px;font-size:.8rem}
+ .qb.palco .qb-abre .tx{display:none}
+ .qb.palco .qb-titulo{display:none}
+ .qb.palco .qb-pill{display:none}
+ .qb.palco .qb-minutos{display:none}
+ .qb.palco .qb-momentos{flex-wrap:nowrap;overflow-x:auto;padding:0}
+ .qb.palco .qb-momentos .qb-mom-btn,.qb.palco .qb-momentos .qb-jog-btn{min-height:34px;font-size:12.5px}
+ .qb.palco .qb-trilho{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:5px;overflow-y:auto}
+ .qb.palco .qb-trilho .qb-ferr{font-size:10.5px;border-radius:10px}
+ .qb.palco .qb-trilho .qb-ferr .qb-ic{font-size:18px}
+}
+/* ---- Telemóvel: janelas em ecrã inteiro, com botões grandes e poucas colunas ---- */
+@media (max-width:700px),(max-height:560px){
+ .qb-fundo{padding:6px}
+ .qb-folha{max-height:calc(100dvh - 12px)}
+ .qb-folha .qb-grelha,.qb-folha .qb-grelha.q4,.qb-folha .qb-grelha.q3{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .qb-jogos2{grid-template-columns:1fr}
 }`;
 
 const CSS_FOCO = `
@@ -589,6 +650,9 @@ let QUADRO_HIST = [];       // para desfazer
 let QUADRO_TIMER = null;
 let QUADRO_SUGERIDO = null; // onze mais recente, quando o quadro está com um jogo anterior
 let QUADRO_CHEIO = false;   // editor em ecrã inteiro (melhor no tablet)
+
+/** Telemóvel ou tablet: toque, ou um ecrã pequeno (alguns aparelhos não se anunciam como de toque). */
+function ecraDeToque() { return !!(window.matchMedia && matchMedia('(pointer: coarse), (max-width: 1100px) and (orientation: portrait), (max-width: 900px), (max-height: 560px)').matches); }
 
 function ecraQuadro(alvo) {
   QUADRO_CHEIO = false;   // abre sempre no modo normal; o ecrã inteiro é escolha do utilizador
@@ -891,8 +955,8 @@ function desenharEditorQuadro(alvo) {
     </div>`;
 
   // ------------------------------------------------ modo tablet ("palco"): campo grande, ferramentas em botões, o resto em janelas
-  const palco = QUADRO_PALCO == null ? !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) : QUADRO_PALCO;
-  const cheio = palco && (QUADRO_FS == null ? !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) : QUADRO_FS);
+  const palco = QUADRO_PALCO == null ? ecraDeToque() : QUADRO_PALCO;
+  const cheio = palco && (QUADRO_FS == null ? ecraDeToque() : QUADRO_FS);
   const folha = palco ? (alvo.dataset.folha || '') : '';
   const tile = (f, t) => botaoF(f, t);
   const abrirF = (id, t) => { const [ic, tx] = partir(t); return `<button class="botao qb-abre ${folha === id ? 'ativo' : ''}" data-folha="${id}" title="${tx}"><span class="qb-ic">${ic}</span><span class="tx">${tx}</span></button>`; };
@@ -953,6 +1017,7 @@ function desenharEditorQuadro(alvo) {
   const mudar = (alterar, semHistorico) => {
     if (!semHistorico) { QUADRO_HIST.push(JSON.stringify(q.estado)); if (QUADRO_HIST.length > 60) QUADRO_HIST.shift(); QUADRO_REFAZER.length = 0; }
     alterar();
+    colarBola(q.estado);
     guardarQuadroEmBreve();
     desenharEditorQuadro(alvo);
   };
@@ -1029,7 +1094,7 @@ function desenharEditorQuadro(alvo) {
     try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* ignora */ }
     desenharEditorQuadro(alvo);
   });
-  $$('[data-palco-toggle]', alvo).forEach(b => b.addEventListener('click', () => { const atual = QUADRO_PALCO == null ? !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) : QUADRO_PALCO; QUADRO_PALCO = !atual; QUADRO_FS = QUADRO_PALCO ? QUADRO_FS : false; alvo.dataset.folha = ''; desenharEditorQuadro(alvo); }));
+  $$('[data-palco-toggle]', alvo).forEach(b => b.addEventListener('click', () => { const atual = QUADRO_PALCO == null ? ecraDeToque() : QUADRO_PALCO; QUADRO_PALCO = !atual; QUADRO_FS = QUADRO_PALCO ? QUADRO_FS : false; alvo.dataset.folha = ''; desenharEditorQuadro(alvo); }));
   $$('[data-menu-toggle]', alvo).forEach(b => b.addEventListener('click', () => { QUADRO_SEM_PAINEL = !QUADRO_SEM_PAINEL; desenharEditorQuadro(alvo); }));
   $$('[data-aba]', alvo).forEach(b => b.addEventListener('click', () => { alvo.dataset.aba = b.dataset.aba; desenharEditorQuadro(alvo); }));
   const bCheio = $('[data-cheio]', alvo);
@@ -1278,13 +1343,19 @@ function desenharEditorQuadro(alvo) {
   };
   let arrastar = null;   // { i } ponto a mover | { nova: {t,x1,y1,x2,y2} } risco a desenhar
   svg.addEventListener('pointerdown', ev => {
-    const g = ev.target.closest('[data-ponto]'), l = ev.target.closest('[data-linha]'), bo = ev.target.closest('[data-bola]');
+    let g = ev.target.closest('[data-ponto]'), bo = ev.target.closest('[data-bola]');
+    const l = ev.target.closest('[data-linha]');
     const p = ponto(ev);
+    const dono = donoDaBola(q.estado);
+    if (bo && dono && ferramenta === 'mover' && distM(p, dono) < distM(p, q.estado.bola)) {
+      bo = null;
+      g = { dataset: { ponto: String(q.estado.pontos.indexOf(dono)) } };
+    }
     if (QUADRO_PLAY) pararJogada();
     if (ferramenta === 'bola') {
-      if (bo) { QUADRO_HIST.push(JSON.stringify(q.estado)); arrastar = { bola: true }; svg.setPointerCapture(ev.pointerId); amostra(-1, q.estado.bola.x, q.estado.bola.y); return; }
+      if (bo) { QUADRO_HIST.push(JSON.stringify(q.estado)); soltarBola(q.estado); arrastar = { bola: true }; svg.setPointerCapture(ev.pointerId); amostra(-1, q.estado.bola.x, q.estado.bola.y); return; }
       // Depois de pôr a bola, passa logo a ✋ Mover: o próximo gesto é arrastar um jogador.
-      mudar(() => { q.estado.bola = { x: r3(p.x), y: r3(p.y) }; alvo.dataset.ferramenta = 'mover'; });
+      mudar(() => { q.estado.bola = { x: r3(p.x), y: r3(p.y) }; agarrarBola(q.estado); alvo.dataset.ferramenta = 'mover'; });
       return;
     }
     if (ferramenta === 'cor') {
@@ -1344,6 +1415,7 @@ function desenharEditorQuadro(alvo) {
     }
     if (bo) {
       QUADRO_HIST.push(JSON.stringify(q.estado));
+      soltarBola(q.estado);
       arrastar = { bola: true };
       svg.setPointerCapture(ev.pointerId);
       amostra(-1, q.estado.bola.x, q.estado.bola.y);
@@ -1355,6 +1427,7 @@ function desenharEditorQuadro(alvo) {
       svg.setPointerCapture(ev.pointerId);
       const pt0 = q.estado.pontos[arrastar.i];
       if (pt0) amostra(arrastar.i, pt0.x, pt0.y);
+      if (pt0 && pt0.comBola && q.estado.bola) amostra(-1, q.estado.bola.x, q.estado.bola.y);
     }
   });
   svg.addEventListener('pointermove', ev => {
@@ -1362,7 +1435,10 @@ function desenharEditorQuadro(alvo) {
     const p = ponto(ev);
     if (arrastar.nova) { arrastar.nova.x2 = r3(p.x); arrastar.nova.y2 = r3(p.y); }
     else if (arrastar.bola) { q.estado.bola = { x: r3(p.x), y: r3(p.y) }; amostra(-1, r3(p.x), r3(p.y)); }
-    else { const pt = q.estado.pontos[arrastar.i]; pt.x = r3(p.x); pt.y = r3(p.y); amostra(arrastar.i, pt.x, pt.y); }
+    else {
+      const pt = q.estado.pontos[arrastar.i]; pt.x = r3(p.x); pt.y = r3(p.y); amostra(arrastar.i, pt.x, pt.y);
+      if (pt.comBola) { colarBola(q.estado); if (q.estado.bola) amostra(-1, q.estado.bola.x, q.estado.bola.y); }
+    }
     // Redesenha dentro do mesmo svg (assim continua a seguir o rato/dedo).
     const tmp = document.createElement('div');
     tmp.innerHTML = quadroSvg(q.estado);
@@ -1373,6 +1449,10 @@ function desenharEditorQuadro(alvo) {
     if (!arrastar) return;
     const n = arrastar.nova;
     if (n && Math.hypot((n.x2 - n.x1) * RL, (n.y2 - n.y1) * RW) < 1.5) { q.estado.linhas.pop(); QUADRO_HIST.pop(); }
+    if (arrastar.bola) {
+      agarrarBola(q.estado);
+      if (q.estado.bola) amostra(-1, q.estado.bola.x, q.estado.bola.y);   // a jogada gravada acaba onde a bola ficou
+    }
     arrastar = null;
     guardarQuadroEmBreve();
     desenharEditorQuadro(alvo);
