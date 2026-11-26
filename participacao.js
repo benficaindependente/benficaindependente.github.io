@@ -2,7 +2,7 @@
    Plataforma · Participação dos adeptos
    - Prognósticos (resultado + nome + comentário):
      quantas pessoas acertaram e quem foi (nomes e comentários só para administradores).
-     Os dados dos adeptos desaparecem sozinhos ao fim de 5 dias.
+     Os prognósticos desaparecem 5 dias depois de o jogo ser contado (30 dias se ninguém o fechar).
    - Perguntas ao programa: ler, marcar as escolhidas e apagar.
    - Quiz: as perguntas criadas pelo agente e quando cada uma sai
      (enviar agora, planear uma data, ou envio automático X vezes por semana).
@@ -199,14 +199,17 @@ function ecraParticipacao(alvo, quais) {
       }
     }
 
-    let html = quais !== 'prognosticos' ? '' : cartao('Prognósticos', `<p class="suave">Os adeptos escrevem só o nome (a app não tem contas). Quando sai o onze inicial recebem uma notificação para dar o prognóstico. Quando o jogo acaba, o resultado oficial entra <b>automaticamente</b> (vem do robô) e aqui aparece logo quantos acertaram e quem foi. Tudo desaparece ao fim de 5 dias. Durante o jogo não há convites.</p>
+    if (quais === 'prognosticos') PROGS_ATRASADOS = jogos.filter(porFecharHaMuito).length;
+    let html = quais !== 'prognosticos' ? '' : (PROGS_ATRASADOS
+      ? `<p class="aviso mau" style="margin:0 0 12px">${PROGS_ATRASADOS} jogo(s) com prognósticos por fechar há mais de 24 horas: confirma o resultado e usa "Fechar à mão".</p>` : '') + cartao('Prognósticos', `<p class="suave">Os adeptos escrevem o nome (com conta, o resultado conta também para o ranking). Quando sai o onze inicial recebem uma notificação para dar o prognóstico. Quando o jogo acaba, o resultado oficial entra <b>automaticamente</b> (vem do robô) e aqui aparece logo quantos acertaram e quem foi. Os prognósticos fecham à hora do apito e desaparecem 5 dias depois de o jogo ser contado (30 dias se ninguém o fechar).</p>
       ${jogos.length ? jogos.map((j, i) => `<div class="sondagem">
         <div class="linha-acoes" style="justify-content:space-between"><b>${esc(j.titulo || j.jogo)}</b>
           ${j.resultado ? `<span class="pilula ok">Fechado · ${j.resultado.golos_b}-${j.resultado.golos_r}</span>` : '<span class="pilula espera">Aberto</span>'}</div>
-        ${j.resultado ? '' : '<div class="mini">O resultado oficial entra sozinho assim que o jogo acaba (até meia hora depois).</div>'}
+        ${j.resultado ? '' : '<div class="mini">O resultado oficial costuma entrar sozinho depois de o jogo acabar, mas pode demorar algumas horas. Se passar um dia, fecha o jogo à mão.</div>'}
         <div class="mini">${numero(j.progs)} prognósticos · último ${esc(dataCurta(j.ultimo))}</div>
         <div class="linha-acoes">
           <button class="botao pequeno" data-prog="${i}">📊 Ver prognósticos</button>
+          ${j.resultado ? '' : `<button class="botao pequeno" data-fechar-jogo="${i}">🏁 Fechar à mão</button>`}
         </div></div>`).join('') : '<p class="suave">Ainda não há participações (ou já desapareceram).</p>'}`);
 
     const novas = perguntas.filter(p => p.estado === 'nova').length;
@@ -277,6 +280,7 @@ function ecraParticipacao(alvo, quais) {
     }));
 
     $$('[data-prog]', alvo).forEach(b => b.addEventListener('click', () => verPrognosticos(jogos[b.dataset.prog])));
+    $$('[data-fechar-jogo]', alvo).forEach(b => b.addEventListener('click', () => fecharJogoAMao(jogos[b.dataset.fecharJogo])));
     $$('[data-pe]', alvo).forEach(b => b.addEventListener('click', async () => {
       const [id, estado] = b.dataset.pe.split('|');
       if (estado === 'apagar' && !confirm('Apagar esta pergunta?')) return;
@@ -285,6 +289,28 @@ function ecraParticipacao(alvo, quais) {
       redesenhar();
     }));
   })();
+}
+
+/* Jogos com prognósticos sem resultado há mais de um dia (contado desde o último prognóstico). */
+let PROGS_ATRASADOS = 0;
+const porFecharHaMuito = j => !j.resultado && Date.now() - new Date(j.ultimo).getTime() > 24 * 3600e3;
+
+async function fecharJogoAMao(j) {
+  const v = await formulario('Fechar o jogo à mão', [
+    { nome: 'gb', etiqueta: 'Golos do Benfica (no fim do jogo)', tipo: 'text' },
+    { nome: 'gr', etiqueta: 'Golos do adversário', tipo: 'text' }
+  ], {}, {
+    textoGuardar: 'Fechar o jogo',
+    nota: 'Só depois de o jogo ter acabado. Os pontos do ranking são contados com este resultado.',
+    validar: x => [x.gb, x.gr].some(n => !/^\s*([0-9]|1[0-9]|20)\s*$/.test(String(n))) ? 'Escreve os dois resultados (só números).' : ''
+  });
+  if (!v || !confirm(`Fechar "${j.titulo || j.jogo}" com Benfica ${Number(v.gb)} - ${Number(v.gr)} adversário?`)) return;
+  try {
+    carregar(true);
+    await rpcAdmin('bi_admin_jogo_fechar', { p_jogo: j.jogo, p_titulo: j.titulo || '', p_gb: Number(v.gb), p_gr: Number(v.gr), p_onze: [] });
+    aviso('Jogo fechado.');
+  } catch (e) { aviso(e.message, true); } finally { carregar(false); }
+  redesenhar();
 }
 
 /* Três ecrãs separados: cada um mostra só o que lhe diz respeito. */

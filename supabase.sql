@@ -1,6 +1,17 @@
+-- #####################################################################
+-- JÁ INCLUÍDO — não voltar a correr.
+-- Este ficheiro fica só como registo. A versão em vigor das correções está em
+-- supabase-correcoes-2026-11-26.sql (esse pode correr-se as vezes que for preciso).
+-- O bloco abaixo trava este ficheiro se as correções já tiverem sido aplicadas.
+-- #####################################################################
+do $$ begin
+  if to_regclass('public.casas_oficiais') is not null then
+    raise exception 'Este ficheiro é antigo: não voltar a correr. Nada foi alterado.';
+  end if;
+end $$;
+
 -- =====================================================================
 -- Benfica Independente — chat e formulário de contacto (Supabase)
--- Pode correr-se mais do que uma vez (não apaga mensagens).
 --
 -- Segurança:
 --  * As tabelas estão fechadas (RLS ligado e sem regras): ninguém lê nem
@@ -123,40 +134,8 @@ end $$;
 
 -- ------------------------------------------------------- plataforma (gestores)
 
--- Confirma no GitHub quem é o dono da chave e se é administrador da plataforma.
-create or replace function public.bi_quem(p_gh text) returns text
-language plpgsql security definer set search_path = public, extensions as $$
-declare
-  k text := encode(extensions.digest(coalesce(p_gh, ''), 'sha256'), 'hex');
-  l text; r extensions.http_response; a json;
-begin
-  if coalesce(length(p_gh), 0) < 20 then raise exception 'sem acesso'; end if;
-  select login into l from sessoes_admin where chave = k and ate > now();
-  if l is not null then return l; end if;
-  r := extensions.http((
-    'GET', 'https://api.github.com/user',
-    array[extensions.http_header('Authorization', 'Bearer ' || p_gh), extensions.http_header('User-Agent', 'benfica-independente-plataforma')],
-    null, null)::extensions.http_request);
-  if r.status <> 200 then raise exception 'sem acesso'; end if;
-  l := (r.content::json) ->> 'login';
-  r := extensions.http_get('https://raw.githubusercontent.com/JoaoRebola/benfica-independente-dados/main/data/admins.json');
-  if r.status = 404 then
-    a := '{"donos": ["JoaoRebola"], "admins": []}'::json;  -- ainda sem lista: só o dono do repositório
-  elsif r.status <> 200 then
-    raise exception 'sem acesso';
-  else
-    a := r.content::json;
-  end if;
-  if not exists (
-    select 1 from json_array_elements_text(coalesce(a -> 'donos', '[]'::json)) x where lower(x) = lower(l)
-    union all
-    select 1 from json_array_elements_text(coalesce(a -> 'admins', '[]'::json)) x where lower(x) = lower(l)
-  ) then raise exception 'sem acesso'; end if;
-  delete from sessoes_admin where ate < now();
-  insert into sessoes_admin values (k, l, now() + interval '15 minutes')
-  on conflict (chave) do update set login = excluded.login, ate = excluded.ate;
-  return l;
-end $$;
+-- bi_quem (quem é administrador) saiu deste ficheiro para não repor uma versão antiga:
+-- está em supabase-correcoes-2026-11-26.sql.
 
 create or replace function public.bi_admin_conversas(p_gh text) returns json
 language plpgsql security definer set search_path = public as $$
@@ -230,8 +209,7 @@ begin
   return json_build_object('ok', true);
 end $$;
 
--- Só estas funções ficam abertas à chave pública.
-revoke execute on all functions in schema public from public, anon, authenticated;
+-- Permissões das funções deste ficheiro (nunca tirar permissões às funções dos outros ficheiros).
 grant execute on function public.bi_ping(), public.bi_gestores(),
   public.bi_abrir(text, text, text, text, text, text[]), public.bi_enviar(uuid, uuid, text, text),
   public.bi_para(uuid, uuid, text[]), public.bi_ler(uuid, uuid),

@@ -4,10 +4,16 @@
 // Responde:
 //   * aos adeptos no chat da app   → { modo: "adepto", id, token }
 //   * aos gestores na plataforma   → { modo: "gestor", gh, mensagens: [{ eu: true|false, texto }] }
+//     Entrada por email/Google: a plataforma manda também "Authorization: Bearer <sessão>", que a função
+//     reencaminha ao Supabase. Entrada de emergência do dono: "gh" é a chave do GitHub (sem cabeçalho).
+//
+// Publicar: Supabase → Edge Functions → bi-assistente → Code → colar este ficheiro → "Deploy updates"
+// (manter "Verify JWT" desligado). Ver Plataforma/LEIA-ME.md.
 //
 // Usa o Gemini grátis. A chave fica nos segredos do Supabase com o nome
 // GEMINI_API_KEY (Edge Functions → Secrets). Nunca está na app nem na plataforma.
 // Limites diários e verificação de quem pede: Plataforma/supabase-assistente.sql
+// Gravar como "assistente": bi_ia_responder, em Plataforma/supabase-correcoes-2026-11-26.sql.
 //
 // REGRA DO BI: nunca falar dos adversários (Sporting, FC Porto e nomes
 // associados). Isto é travado aqui em código, antes e depois do Gemini.
@@ -28,7 +34,8 @@ const CORS = {
 
 const RIVAIS = new RegExp(
   [
-    "sporting(?!\\s+(?:clube\\s+)?(?:de\\s+braga|da\\s+covilh))", "\\bscp\\b", "sportinguist", "lagart", "alvalade",
+    // "Sporting" é sempre bloqueado, menos quando é o nome de outro clube (Farense, Espinho, Pombal, Braga, Covilhã).
+    "sporting(?!\\s+(?:clube\\s+(?:(?:de|da|do|das|dos)\\s+(?!portugal(?![a-zà-ÿ]))[a-zà-ÿ]|[a-zà-ÿ]+ense(?![a-zà-ÿ]))|(?:(?:de|da|do)\\s+)?(?:braga|covilh|espinho|pombal|farense|olhanense)))", "\\bscp\\b", "sportinguist", "lagart", "alvalade",
     "le[õo]es\\s+de\\s+alvalade", "\\bverde[\\s-]e[\\s-]branc", "varandas",
     "f\\.?\\s?c\\.?\\s?porto", "\\bfcp\\b", "futebol\\s+clube\\s+do\\s+porto", "portist", "drag[ãa]o", "drag[õo]es",
     "tripeir", "\\bazul[\\s-]e[\\s-]branc", "pinto\\s+da\\s+costa", "villas[\\s-]?boas", "estádio\\s+do\\s+drag",
@@ -55,16 +62,18 @@ A APP BENFICA INDEPENDENTE (Android, grátis):
 - Menu ⋮ (canto de cima): Alertas e toques (escolher que notificações receber, horário de silêncio, esconder texto no ecrã bloqueado), Quem somos, Site, Redes sociais, Falar connosco (este chat), Contacto (formulário).
 - Android Auto: no carro aparece a pasta "Vídeos" com o Direto em primeiro lugar, e os programas.
 - Barra por cima do menu: alterna entre o Patreon e anúncios de parceiros.
-- Problemas comuns: se o som parar com o ecrã desligado, tirar a app da poupança de bateria nas definições do Android; para notificações, ver "Alertas e toques" e permitir notificações à app. Atualizações: quando há versão nova aparece um cartão "Há uma versão nova" no Início.
+- Problemas comuns: se o som parar com o ecrã desligado, tirar a app da poupança de bateria nas definições do Android; para notificações, ver "Alertas e toques" e permitir notificações à app.
 - Novidades: lupa no topo para pesquisar tudo de uma vez (episódios, vídeos, programas, artigos); carregar sem largar num episódio para o partilhar (WhatsApp, etc.); no ecrã do vídeo/episódio há "Velocidade" e "Temporizador" para adormecer; sondagens do BI e "Homem do jogo" aparecem no topo do Início enquanto estão abertas (um voto por telemóvel); o resultado fica 48 horas por baixo do "Feito por benfiquistas"; depois as sondagens vão para "Histórico de sondagens" no menu ⋮ e o Homem do jogo fica na ficha do jogo (o Homem do jogo abre no fim do jogo e fica 24 horas a votação, com percentagens e número de votantes à vista); puxar para baixo em qualquer separador atualiza; festejo no ecrã quando o Benfica marca com a app aberta.
 - Apoiar o BI: Patreon ${"https://www.patreon.com/c/slbindependente/home"}. Site: https://www.benficaindependente.com. YouTube: https://www.youtube.com/@slbindependente. Email: info@benficaindependente.com.
 `;
 
-const PLATAFORMA = `
+const plataforma = (aprovacoes: number) => `
 A PLATAFORMA DE GESTÃO (https://benficaindependente.github.io) — para os gestores do BI:
-- Entrada: com a conta GitHub de cada pessoa (botão "Entrar com GitHub" e uma chave de acesso do GitHub). Só entra quem está em Administradores. Instala-se no telemóvel com "Adicionar ao ecrã principal".
-- REGRA DAS 2 APROVAÇÕES: tudo o que se cria, altera ou apaga (notícias, destaques, anúncios, publicações, avisos) só chega à app depois de 2 administradores diferentes aprovarem. Quem cria já conta como 1. Uma alteração a algo publicado só muda na app quando for aprovada; até lá a app mostra a versão antiga. Para aprovar: abrir o item e carregar em "Aprovar" (aparece uma pré-visualização e pede confirmação).
-- Painel e alertas: o que espera pela tua aprovação, mensagens por responder, alertas (robô parado há mais de 12 horas, robô com erros, agente do robô sem chave, menos de 2 administradores, campanhas pagas que chegaram ao máximo).
+- Entrada: com a conta Google (botão "Entrar com a conta Google") ou com email e palavra-passe. Na primeira vez carrega-se em "Primeiro acesso" e confirma-se o email; há "Esqueci-me da palavra-passe". Só entra quem um dono acrescentou em Administradores. Não é preciso conta GitHub (a chave do GitHub é só um acesso de emergência do dono). Instala-se no telemóvel com "Adicionar ao ecrã principal".
+${aprovacoes < 2
+  ? "- APROVAÇÕES: a plataforma está em FASE DE TESTES e basta 1 administrador: o que se cria, altera ou apaga (e as sondagens) é publicado logo, sem ninguém rever. Confirmar bem antes de gravar. Em produção voltam a ser precisas 2 aprovações."
+  : '- REGRA DAS 2 APROVAÇÕES: tudo o que se cria, altera ou apaga (notícias, destaques, anúncios, publicações, avisos) só chega à app depois de 2 administradores diferentes aprovarem. Quem cria já conta como 1. Uma alteração a algo publicado só muda na app quando for aprovada; até lá a app mostra a versão antiga. Para aprovar: abrir o item e carregar em "Aprovar".'}
+- Painel e alertas: o que espera pela tua aprovação, mensagens por responder, alertas (robô parado há mais de 12 horas, robô com erros, agente do robô sem chave, jogos com prognósticos por fechar há mais de 24 horas, campanhas pagas que chegaram ao máximo).
 - Notícias: título, resumo, texto completo, foto opcional (é reduzida automaticamente), ligação, assinatura. Aparecem no topo de Artigos.
 - Destaques: substituem o "Quem somos" no topo do Início entre as datas escolhidas (campos "Começa em" e "Termina em"); foto opcional (sem foto ficam as fotos do estádio) e botão com ligação.
 - Anúncios: texto curto, logótipo quadrado, ligação e frequência de 1 a 5 (2 = aparece o dobro). Aparecem na barra por cima do menu da app, a alternar com o Patreon.
@@ -76,15 +85,15 @@ A PLATAFORMA DE GESTÃO (https://benficaindependente.github.io) — para os gest
 - Mensagens: conversas do chat e do formulário da app. Responder aparece na app do adepto com notificação. Estados: nova, respondida, fechada; pode-se apagar.
 - Gestores (contacto): as pessoas que o adepto pode escolher no chat e no formulário (nome, função, email, ativo, ordem).
 - Programas dos vídeos: corrigir em que programa fica cada vídeo.
-- Administradores: donos e administradores (nomes de utilizador do GitHub). Cada novo administrador também tem de ser convidado como colaborador do repositório "benfica-independente-dados" no GitHub (Settings → Collaborators).
-- Versões da app: número da versão, notas, ligação para descarregar o APK e se é obrigatória. A app mostra "Há uma versão nova".
+- Administradores: um dono acrescenta o nome e o email de cada pessoa; só um dono muda a lista. Depois a pessoa entra com Google (o mesmo email) ou faz "Primeiro acesso".
+- Versões da app: número da versão, notas, ligação para descarregar o APK e se é obrigatória. Não prometas que a app avisa sozinha de uma versão nova: convém avisar as pessoas diretamente.
 - Definições: repositório, ramo, modo de teste. Não mexer sem certeza.
 - "O que queres fazer?": ecrã de entrada com botões grandes para as tarefas habituais e "Modelos prontos" (jantar de adeptos, novo episódio, hoje há direto, parceiro novo, Patreon, comunicado).
 - Avisos agendados: no aviso, preencher "Enviar no dia e hora" para a notificação sair nessa altura.
-- Sondagens e Homem do jogo: criar sondagem (pergunta, 2 a 6 respostas, data e hora de fim obrigatória); precisa da aprovação de outro administrador; aparece no topo do Início da app até à data de fim; o resultado fica 48 horas e depois vai para o histórico (menu ⋮ da app). O Homem do jogo é automático: abre no fim de cada jogo da equipa principal, 24 horas de votação, e fica na ficha do jogo.
+- Sondagens e Homem do jogo: criar sondagem (pergunta, 2 a 6 respostas, data e hora de fim obrigatória); ${aprovacoes < 2 ? "na fase de testes fica logo publicada" : "precisa da aprovação de outro administrador"}; aparece no topo do Início da app até à data de fim; o resultado fica 48 horas e depois vai para o histórico (menu ⋮ da app). O Homem do jogo é automático: abre no fim de cada jogo da equipa principal, 24 horas de votação, e fica na ficha do jogo.
 - Estatísticas da app: aberturas, pessoas por dia, separadores e programas mais ouvidos (anónimo).
 - Registo de atividade: quem criou, aprovou, alterou ou apagou o quê e quando.
-- O "robô" corre no GitHub de 30 em 30 minutos e atualiza agenda, resultados e vídeos sozinho. As alterações demoram uns minutos a aparecer na app.
+- O "robô" corre no GitHub e atualiza agenda, resultados e vídeos sozinho. Um "despertador" tenta lançá-lo de 10 em 10 minutos, mas pode haver atrasos (às vezes de horas): nunca prometas quando é que um dado aparece. O que se publica na plataforma demora uns minutos a aparecer na app.
 - Fotos: a plataforma reduz e comprime automaticamente; preferir fotos na horizontal.
 `;
 
@@ -111,12 +120,12 @@ DADOS DE HOJE (agenda e resultados do Benfica, para responder a perguntas sobre 
 ${contexto}`;
 }
 
-const REGRAS_GESTOR = `És o assistente de ajuda dos gestores do Benfica Independente (BI). Ajudas a usar a plataforma de gestão e
+const regrasGestor = (aprovacoes: number) => `És o assistente de ajuda dos gestores do Benfica Independente (BI). Ajudas a usar a plataforma de gestão e
 a perceber a app. Os gestores não são técnicos: explica passo a passo, com os nomes exatos dos botões e ecrãs, em frases curtas.
 Também podes ajudar a escrever textos (notícias, avisos, destaques, anúncios, respostas a adeptos) em bom português de Portugal.
 Se a dúvida for sobre algo que a plataforma não faz, diz isso claramente e sugere falar com quem montou a app.
 ${REGRAS_COMUNS}
-${PLATAFORMA}
+${plataforma(aprovacoes)}
 ${APP}`;
 
 // ------------------------------------------------------------ dados do dia
@@ -169,16 +178,39 @@ ${res.join("\n") || "- (sem dados)"}`;
 
 // ------------------------------------------------------------ Supabase
 
-async function rpc(fn: string, args: unknown) {
+async function rpc(fn: string, args: unknown, cabecalhos: Record<string, string> = {}) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
-    headers: { apikey: CHAVE_PUBLICA, "Content-Type": "application/json" },
+    headers: { apikey: CHAVE_PUBLICA, "Content-Type": "application/json", ...cabecalhos },
     body: JSON.stringify(args),
   });
   const t = await r.text();
   const j = t ? JSON.parse(t) : null;
   if (!r.ok) throw new Error((j && j.message) || `Supabase ${r.status}`);
   return j;
+}
+
+/**
+ * Grava a resposta da IA na conversa. Usa a chave de serviço, que o Supabase dá sozinho às Edge Functions
+ * (SUPABASE_SERVICE_ROLE_KEY): não é preciso criar nem colar segredo nenhum. Se o SQL novo ainda não tiver
+ * sido corrido, grava como antes.
+ */
+async function gravarResposta(id: string, token: string, texto: string) {
+  const servico = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (servico) {
+    try {
+      await rpc("bi_ia_responder", { p_id: id, p_token: token, p_texto: texto }, { apikey: servico, Authorization: `Bearer ${servico}` });
+      return;
+    } catch (e) {
+      console.log("bi_ia_responder:", e instanceof Error ? e.message : "erro");
+    }
+  }
+  await rpc("bi_enviar", { p_id: id, p_token: token, p_texto: texto, p_autor: "assistente" });
+}
+
+/** Fase de testes (1 aprovação) ou produção (2): o valor em vigor está no Supabase. */
+async function aprovacoesEmVigor(): Promise<number> {
+  try { return (await rpc("bi_modo_teste", {})) === false ? 2 : 1; } catch { return 1; }
 }
 
 // ------------------------------------------------------------ Gemini
@@ -188,9 +220,8 @@ let modelos: string[] | null = null;
 let tentativas: string[] = [];
 
 /**
- * Escolhe sozinho os modelos (os nomes mudam com o tempo). Primeiro os "flash-lite":
- * no plano grátis respondem em 1 a 5 segundos, enquanto os "flash" normais chegam a
- * demorar quase um minuto. Os "flash" ficam só de reserva.
+ * Escolhe sozinho os modelos (os nomes mudam com o tempo). Só "flash-lite" (regra do BI):
+ * no plano grátis respondem em 1 a 5 segundos.
  */
 async function escolherModelos(): Promise<string[]> {
   if (modelos) return modelos;
@@ -203,10 +234,9 @@ async function escolherModelos(): Promise<string[]> {
     const versao = (n: string) => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) ?? [])[1] ?? "0");
     const ordem = (lista: string[]) => lista.sort((a, b) => versao(b) - versao(a) || Number(a.includes("preview")) - Number(b.includes("preview")));
     const lite = ordem(nomes.filter((n) => n.includes("lite") && !n.includes("latest")));
-    const flash = ordem(nomes.filter((n) => !n.includes("lite") && !n.includes("latest")));
     const lista = [
       ...(nomes.includes("gemini-flash-lite-latest") ? ["gemini-flash-lite-latest"] : []),
-      ...lite.slice(0, 2), ...flash.slice(0, 1),
+      ...lite.slice(0, 3),
     ];
     if (lista.length) modelos = lista;
   } catch { /* usa os de reserva */ }
@@ -229,7 +259,7 @@ async function perguntar(sistema: string, turnos: Turno[]): Promise<string | nul
           system_instruction: { parts: [{ text: sistema }] }, contents: turnos,
           generationConfig: { temperature: 0.4, maxOutputTokens: 700 },
         }),
-        signal: AbortSignal.timeout(Math.min(modelo.includes("lite") ? 20_000 : 55_000, resta)),
+        signal: AbortSignal.timeout(Math.min(20_000, resta)),
       });
       tentativas.push(`${modelo}: ${r.status}`);
       if (!r.ok) continue;                                   // 429 sem pedidos grátis / 503 ocupado: modelo seguinte
@@ -279,19 +309,20 @@ async function adepto(id: string, token: string) {
     if (texto && falaDeRivais(texto)) { texto = SEM_RIVAIS; rival = true; }
   }
   if (!texto) { console.log("sem resposta:", tentativas.join(" | ")); return resposta({ erro: "sem resposta" }, 503); }
-  await rpc("bi_enviar", { p_id: id, p_token: token, p_texto: texto, p_autor: "assistente" });
+  await gravarResposta(id, token, texto);
   return resposta({ texto, rival });
 }
 
-async function gestor(gh: string, mensagens: { eu: boolean; texto: string }[]) {
-  const g = await rpc("bi_ia_gestor", { p_gh: gh });
+async function gestor(gh: string, mensagens: { eu: boolean; texto: string }[], sessao: string) {
+  // Com sessão (email/Google), o Supabase sabe quem é pelo cabeçalho; sem ela, confirma a chave GitHub em "gh".
+  const g = await rpc("bi_ia_gestor", { p_gh: gh }, sessao ? { Authorization: sessao } : {});
   if (g.limite) return resposta({ limite: true });
   const lista = (mensagens ?? []).slice(-16).map((m) => ({ eu: !!m.eu, texto: String(m.texto ?? "").slice(0, 4000) }));
   const ultima = [...lista].reverse().find((m) => m.eu)?.texto ?? "";
   if (falaDeRivais(ultima)) return resposta({ texto: SEM_RIVAIS, rival: true });
   const turnos = arrumar(lista.filter((m) => !falaDeRivais(m.texto))
     .map((m) => ({ role: m.eu ? "user" : "model", parts: [{ text: m.texto }] } as Turno)));
-  let texto = await perguntar(REGRAS_GESTOR, turnos);
+  let texto = await perguntar(regrasGestor(await aprovacoesEmVigor()), turnos);
   if (!texto) { console.log("sem resposta:", tentativas.join(" | ")); return resposta({ erro: "sem resposta" }, 503); }
   if (falaDeRivais(texto)) texto = SEM_RIVAIS;
   return resposta({ texto });
@@ -304,10 +335,15 @@ Deno.serve(async (req) => {
   try {
     const b = await req.json();
     if (b.modo === "adepto" && b.id && b.token) return await adepto(String(b.id), String(b.token));
-    if (b.modo === "gestor" && b.gh) return await gestor(String(b.gh), b.mensagens);
+    if (b.modo === "gestor" && b.gh) {
+      // Só reencaminha sessões de utilizador (começam por "eyJ"); a chave pública não é uma sessão.
+      const a = req.headers.get("authorization") ?? "";
+      return await gestor(String(b.gh), b.mensagens, /^Bearer eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(a) ? a : "");
+    }
     return resposta({ erro: "pedido inválido" }, 400);
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
+    if (/jwt/i.test(m)) return resposta({ erro: "sessão expirada" }, 401);
     return resposta({ erro: m === "sem acesso" ? "sem acesso" : m }, m === "sem acesso" || m.includes("não encontrada") ? 403 : 500);
   }
 });

@@ -868,7 +868,7 @@ function desenharEditorQuadro(alvo) {
     <p class="suave qb-ajuda" data-guardado>${q.guardadoTxt || ''}</p>`;
   const corpoAba = aba === 'jogo' ? tabJogo : aba === 'guardar' ? tabGuardar : aba === 'jogadas' ? tabJogadas : aba === 'app' ? tabApp : tabCampo;
   const htmlNormal = `
-    ${CFG.modo === 'local' ? '<p class="aviso mau" style="margin:0 0 8px"><b>Modo de teste:</b> podes experimentar, mas nada aparece na app. Para usar a sério entra com a conta GitHub.</p>' : ''}
+    ${CFG.modo === 'local' ? '<p class="aviso mau" style="margin:0 0 8px"><b>Modo de teste:</b> podes experimentar, mas nada aparece na app. Para usar a sério entra com a tua conta.</p>' : ''}
     <div class="qb ${QUADRO_SEM_PAINEL ? 'sem-painel' : ''}">
       <section class="qb-campo-col">
         <div class="qb-topo">
@@ -1477,7 +1477,7 @@ async function novaSondagemFotos() {
   });
   if (!v) return;
   if (CFG.modo === 'local' || !CFG.token) {
-    aviso('Modo de teste: a sondagem NÃO foi enviada. Para a publicar, sai e entra com a conta GitHub.', true);
+    aviso('Modo de teste: a sondagem NÃO foi enviada. Para a publicar, sai e entra com a tua conta.', true);
     return;
   }
   try {

@@ -1,3 +1,15 @@
+-- #####################################################################
+-- JÁ INCLUÍDO — não voltar a correr.
+-- Este ficheiro fica só como registo. A versão em vigor das correções está em
+-- supabase-correcoes-2026-11-26.sql (esse pode correr-se as vezes que for preciso).
+-- O bloco abaixo trava este ficheiro se as correções já tiverem sido aplicadas.
+-- #####################################################################
+do $$ begin
+  if to_regclass('public.casas_oficiais') is not null then
+    raise exception 'Este ficheiro é antigo: não voltar a correr. Nada foi alterado.';
+  end if;
+end $$;
+
 -- =====================================================================
 -- Benfica Independente — entrada na plataforma com EMAIL e palavra-passe (sem GitHub).
 -- Corre depois de supabase-novidades.sql. Pode correr-se mais de uma vez.
@@ -26,47 +38,8 @@ create table if not exists public.segredos (chave text primary key, valor text n
 alter table public.segredos enable row level security;
 
 -- ------------------------- Quem é? (agora também por email) -------------------------
-create or replace function public.bi_quem(p_gh text) returns text
-language plpgsql security definer set search_path = public, extensions as $$
-declare
-  em text := lower(coalesce(auth.jwt() ->> 'email', ''));
-  k text := encode(extensions.digest(coalesce(p_gh, ''), 'sha256'), 'hex');
-  l text; r extensions.http_response; a json;
-begin
-  -- Entrada por email: o Supabase já confirmou o email; só falta ver se está na lista.
-  if em <> '' then
-    select nome into l from admins_email where email = em;
-    if l is null then raise exception 'sem acesso'; end if;
-    return l;
-  end if;
-  -- Entrada por chave do GitHub (mantém-se para o dono, em caso de emergência).
-  if coalesce(length(p_gh), 0) < 20 then raise exception 'sem acesso'; end if;
-  select login into l from sessoes_admin where chave = k and ate > now();
-  if l is not null then return l; end if;
-  r := extensions.http((
-    'GET', 'https://api.github.com/user',
-    array[extensions.http_header('Authorization', 'Bearer ' || p_gh), extensions.http_header('User-Agent', 'benfica-independente-plataforma')],
-    null, null)::extensions.http_request);
-  if r.status <> 200 then raise exception 'sem acesso'; end if;
-  l := (r.content::json) ->> 'login';
-  r := extensions.http_get('https://raw.githubusercontent.com/benficaindependente/benfica-independente-dados/main/data/admins.json');
-  if r.status = 404 then
-    a := '{"donos": ["JoaoRebola"], "admins": []}'::json;
-  elsif r.status <> 200 then
-    raise exception 'sem acesso';
-  else
-    a := r.content::json;
-  end if;
-  if not exists (
-    select 1 from json_array_elements_text(coalesce(a -> 'donos', '[]'::json)) x where lower(x) = lower(l)
-    union all
-    select 1 from json_array_elements_text(coalesce(a -> 'admins', '[]'::json)) x where lower(x) = lower(l)
-  ) then raise exception 'sem acesso'; end if;
-  delete from sessoes_admin where ate < now();
-  insert into sessoes_admin values (k, l, now() + interval '15 minutes')
-  on conflict (chave) do update set login = excluded.login, ate = excluded.ate;
-  return l;
-end $$;
+-- bi_quem (quem é administrador) saiu deste ficheiro para não repor uma versão antiga:
+-- está em supabase-correcoes-2026-11-26.sql.
 
 -- Quem sou eu (nome, email e se sou dono).
 create or replace function public.bi_admin_eu(p_gh text) returns json

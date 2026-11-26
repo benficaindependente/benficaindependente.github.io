@@ -4,13 +4,14 @@
 
    Onde fica cada coisa:
    - benfica-independente-dados (público): o que a app lê — destaques, anúncios,
-     publicações, notícias, avisos, versão e a lista de administradores (só nomes
-     de utilizador do GitHub, nada de emails).
+     publicações, notícias, avisos, versão e admins.json (nomes de utilizador do
+     GitHub, usados só na entrada de emergência do dono; nada de emails).
+   - Supabase: quem entra com email ou Google está na tabela admins_email.
    - benfica-independente-gestao (privado, opcional): o que não pode ser público —
      contactos e valores dos anunciantes e números da monetização.
 
-   Regra das duas aprovações: tudo o que se cria, altera ou apaga fica pendente
-   até dois administradores diferentes aprovarem. A app só mostra o que está
+   Aprovações (ver APROVACOES): na fase de testes basta 1 administrador; em
+   produção são 2 diferentes. A app só mostra o que está
    "publicado"; uma alteração pendente a algo já publicado não muda a app.
    ========================================================================= */
 'use strict';
@@ -337,9 +338,9 @@ async function primeiroAcesso() {
   const email = v.email.trim().toLowerCase();
   carregar(true);
   try {
-    if (!(await rpc('bi_convite_existe', { p_email: email }))) throw new Error('Este email ainda não foi convidado. Pede ao dono para o acrescentar em Administradores.');
     await authPedido('/signup?redirect_to=' + encodeURIComponent(urlDeRetorno()), { email, password: v.palavra });
     await perguntar('Confirma o teu email', `<p>Enviámos uma mensagem para <b>${esc(email)}</b>. Abre-a e carrega na ligação para confirmar.</p>
+      <p class="suave">Só consegues entrar se o dono tiver acrescentado este email em Administradores.</p>
       <p class="suave">Se já tinhas criado a palavra-passe, não chega mensagem nenhuma: entra normalmente ou usa "Esqueci-me da palavra-passe". Vê também a pasta de spam.</p>`, 'Percebi', 'Fechar');
   } catch (e) { mostraErroEntrada(e.message); } finally { carregar(false); }
 }
@@ -669,7 +670,7 @@ function desenharEcra() {
   try {
     if (!souAdmin() && ecra.chave !== 'definicoes') {
       alvo.innerHTML = cartao('Sem acesso',
-        `<p>A tua conta GitHub <b>${esc(CFG.login)}</b> ainda não está na lista de administradores.</p>
+        `<p><b>${esc(CFG.login)}</b> ainda não está na lista de administradores.</p>
          <p class="suave">Pede ao dono (${esc(CFG.owner)}) para te acrescentar em <b>Administradores</b>.</p>`);
       return;
     }
@@ -1176,7 +1177,7 @@ function ecraConteudo(tipo) {
     alvo.innerHTML = cartao(T.nome,
       `<p class="suave">${T.descricao}</p>
        <p class="suave">Para ver ou mudar quando sai e quando termina: <button class="botao pequeno fantasma" data-ver-agendado>Agendado ›</button></p>
-       <p class="suave">Tudo o que crias, alteras ou apagas só chega à app depois de <b>${APROVACOES} administradores diferentes</b> aprovarem (quem cria já conta como uma aprovação).</p>
+       <p class="suave">${TESTE ? 'Fase de testes: o que crias, alteras ou apagas <b>chega logo à app</b>. Confirma bem antes de gravar.' : `Tudo o que crias, alteras ou apagas só chega à app depois de <b>${APROVACOES} administradores diferentes</b> aprovarem (quem cria já conta como uma aprovação).`}</p>
        ${poucos}
        <div class="tabela-rolar"><table class="tabela">
         <tr><th></th><th>${esc(T.singular[0].toUpperCase() + T.singular.slice(1))}</th><th>Estado</th><th class="direita">Ações</th></tr>
@@ -1460,6 +1461,7 @@ function alertas() {
       else if (falhas.length >= 3) lista.push({ mau: true, texto: `O robô falhou ${falhas.length} das últimas ${RUNS.length} vezes.`, link: falhas[0].html_url });
     }
     // Verificações de coerência dos resultados e da agenda (feitas pelo robô em cada execução)
+    ((status.robo && status.robo.alertas) || []).forEach(a => lista.push(a));
     const semRes = (status.robo && status.robo.sem_resultados) || [];
     if (semRes.length) lista.push({ mau: false, texto: `Há jogos na agenda de modalidades sem resultados disponíveis na origem: ${semRes.join(', ')}.` });
     if (status.robo && status.robo.resultados_incoerentes > 0) lista.push({ mau: true, texto: `O robô retirou ${status.robo.resultados_incoerentes} resultado(s) com o género trocado (por exemplo, masculinos numa lista feminina).` });
@@ -1467,6 +1469,7 @@ function alertas() {
     if (totalAdmins() < APROVACOES) lista.push({ mau: true, texto: `Só há ${totalAdmins()} administrador(es): são precisos ${APROVACOES} para publicar.` });
   }
   if (MSG_NOVAS) lista.push({ mau: true, texto: `${MSG_NOVAS} mensagem(ns) de adeptos por responder.`, ecra: 'mensagens' });
+  if (typeof PROGS_ATRASADOS !== 'undefined' && PROGS_ATRASADOS) lista.push({ mau: true, texto: `${PROGS_ATRASADOS} jogo(s) com prognósticos por fechar há mais de 24 horas (abre Prognósticos).` });
   TIPOS_PUB.concat(['noticias']).forEach(t => (ler(t) || []).forEach(x => {
     if (x.estado !== 'publicado' || x.ativo === false) return;
     const d = diasAte(x.ate);
@@ -1476,6 +1479,20 @@ function alertas() {
   return lista;
 }
 let ALERTAS_DINHEIRO = [];
+
+/** Painel de saúde: usa só o status.json e as execuções já lidas (sem pedidos novos). */
+function cartaoSaude(status) {
+  const idade = iso => {
+    const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    return min < 60 ? `há ${min} min` : min < 48 * 60 ? `há ${Math.round(min / 60)} h` : `há ${Math.round(min / 1440)} dias`;
+  };
+  const horas = status.atualizado ? (Date.now() - new Date(status.atualizado).getTime()) / 3600e3 : null;
+  const [classe, texto] = horas == null ? ['espera', 'sem informação'] : horas <= 1 ? ['ok', 'em dia'] : horas <= 12 ? ['espera', 'atrasado'] : ['mau', 'parado'];
+  return cartao('Saúde do robô', `<p style="margin:0"><span class="pilula ${classe}">${texto}</span>
+    ${status.atualizado ? ` Dados atualizados <b>${idade(status.atualizado)}</b> (${esc(dataCurta(status.atualizado))}).` : ''}
+    ${RUNS && RUNS.length ? ` Última execução ${RUNS[0].conclusion === 'success' ? 'correu bem' : 'não correu bem'}, ${idade(RUNS[0].created_at)}.` : ''}</p>
+    <p class="mini" style="margin:6px 0 0">O robô devia correr de 10 em 10 minutos. Se estiver atrasado mais de 1 hora, o despertador pode não estar a funcionar.</p>`);
+}
 
 function ecraPainel(alvo) {
   const pendMim = Object.keys(TIPOS).reduce((n, t) => n + porAprovarPorMim(t), 0);
@@ -1509,6 +1526,8 @@ function ecraPainel(alvo) {
     <button class="botao" data-criar="anuncios">💰 Novo anúncio</button>
     <button class="botao" data-criar="noticias">📰 Nova notícia</button>
     ${ir('mensagens', '✉ Mensagens')} ${ir('monetizacao', '📊 Monetização')}</div>`);
+
+  if (CFG.modo !== 'local') html += cartaoSaude(ler('status') || {});
 
   html += cartao('Alertas', al.length
     ? `<ul style="margin:0;padding-left:1.1em">${al.map(a => `<li style="margin-bottom:6px;${a.mau ? 'color:#ff8b8b' : ''}">${esc(a.texto)}
@@ -1820,7 +1839,7 @@ function ecraAdmins(alvo) {
       ${souDono() ? `<button class="botao pequeno perigo" data-remover="${esc(tipo)}|${esc(e)}" style="padding:0 5px;margin-left:5px">×</button>` : ''}</span>`).join('') : '<span class="suave">Ninguém.</span>'}
     ${souDono() ? `<button class="botao pequeno" data-adicionar="${esc(tipo)}">+ Adicionar</button>` : ''}</td></tr>`;
   alvo.innerHTML = cartao('Quem pode gerir a app',
-    `<p class="suave">Cada pessoa entra com a sua conta GitHub (nome de utilizador, sem emails). Para poder gravar, tem também de ser convidada como colaboradora do repositório <b>${esc(CFG.repo)}</b> no GitHub (Settings → Collaborators).</p>
+    `<p class="suave">Esta lista só serve para a <b>entrada de emergência</b> com chave GitHub (a chave também precisa de acesso ao repositório <b>${esc(CFG.repo)}</b>). Quem entra com email ou Google gere-se neste ecrã depois de entrar dessa forma.</p>
      <table class="tabela">
       ${grupo('Donos', a.donos, 'donos', 'Gerem tudo, incluindo quem é administrador. Também aprovam conteúdos.')}
       ${grupo('Administradores', a.admins, 'admins', 'Criam e aprovam conteúdos.')}
@@ -1894,7 +1913,7 @@ function ecraDefinicoes(alvo) {
     </table>`, '<button class="botao pequeno perigo" data-sair>Sair</button>');
   alvo.insertAdjacentHTML('beforeend', cartao('Repositórios',
     `<div class="formulario linha-dupla">
-      <label>Dono (conta GitHub)<input id="cfg-owner" value="${esc(CFG.owner)}"></label>
+      <label>Dono do repositório no GitHub<input id="cfg-owner" value="${esc(CFG.owner)}"></label>
       <label>Ramo<input id="cfg-branch" value="${esc(CFG.branch)}"></label>
       <label>Repositório público (a app lê)<input id="cfg-repo" value="${esc(CFG.repo)}"></label>
     </div>
@@ -1916,9 +1935,9 @@ function ecraDefinicoes(alvo) {
 }
 
 /* ============================ Mensagens (Supabase) ============================ */
-// Chat e formulário de contacto da app. Os dados ficam no Supabase do BI; a
-// plataforma entra com a chave GitHub de cada gestor (o Supabase confirma no
-// GitHub quem é e se está na lista de administradores). Ver supabase.sql.
+// Chat e formulário de contacto da app. Os dados ficam no Supabase do BI.
+// Quem entra com email/Google envia a sessão (Authorization); a entrada de emergência
+// do dono envia a chave GitHub em p_gh. É o Supabase (bi_quem) que decide quem entra.
 const SUPABASE_URL = 'https://rpqqucqxgjkisoimstfh.supabase.co';
 const SUPABASE_CHAVE = 'sb_publishable_InvgB931-Wc8vFs65WWXxw_KVpMLGhH';
 let MSG_NOVAS = 0;
@@ -1939,8 +1958,8 @@ async function rpc(fn, args) {
   if (!r.ok) {
     const m = (j && j.message) || ('Supabase ' + r.status);
     if (m === 'sem acesso') throw new Error(CFG.modo === 'local' || !CFG.token
-      ? 'Estás no modo de teste: nada é enviado para a app. Para publicar a sério, sai (Definições › Sair) e entra com a conta GitHub.'
-      : CFG.modo === 'email' ? 'O teu email não está na lista de administradores.' : 'A tua conta GitHub não está na lista de administradores.');
+      ? 'Estás no modo de teste: nada é enviado para a app. Para publicar a sério, sai (Definições › Sair) e entra com a tua conta.'
+      : CFG.modo === 'email' ? 'O teu email não está na lista de administradores.' : 'Esta chave não é de um administrador.');
     throw new Error(m);
   }
   return j;
@@ -1964,7 +1983,7 @@ const ESTADOS_MSG = { nova: ['Por responder', 'espera'], respondida: ['Respondid
 
 function ecraMensagens(alvo) {
   if (CFG.modo === 'local') {
-    alvo.innerHTML = cartao('Mensagens', '<p class="suave">As mensagens só aparecem quando se entra com a conta GitHub (não no modo de teste).</p>');
+    alvo.innerHTML = cartao('Mensagens', '<p class="suave">As mensagens só aparecem quando se entra com a tua conta (não no modo de teste).</p>');
     return;
   }
   if (CONVERSA_ABERTA) { ecraConversa(alvo, CONVERSA_ABERTA); return; }
@@ -2071,7 +2090,7 @@ function ecraConversa(alvo, c) {
 /* Gestores que os adeptos podem escolher no chat e no formulário (com o email de cada um). */
 function ecraGestores(alvo) {
   if (CFG.modo === 'local') {
-    alvo.innerHTML = cartao('Gestores', '<p class="suave">Só funciona quando se entra com a conta GitHub (não no modo de teste).</p>');
+    alvo.innerHTML = cartao('Gestores', '<p class="suave">Só funciona quando se entra com a tua conta (não no modo de teste).</p>');
     return;
   }
   alvo.innerHTML = cartao('Gestores', '<p class="suave">A carregar…</p>');
@@ -2142,14 +2161,14 @@ const AJUDA = [];   // conversa desta sessão: { eu: true|false, texto }
 let AJUDA_OCUPADO = false;
 const AJUDA_SUGESTOES = [
   'Como publico um destaque para um evento?',
-  'Como funcionam as duas aprovações?',
+  TESTE ? 'Como funciona a publicação na fase de testes?' : 'Como funcionam as duas aprovações?',
   'Como ponho um anúncio pago e vejo quanto rendeu?',
   'Escreve-me um aviso para um jantar de adeptos'
 ];
 
 function ecraAjuda(alvo) {
   if (CFG.modo === 'local' || !CFG.token) {
-    alvo.innerHTML = cartao('Ajuda (IA)', '<p class="suave">O assistente só funciona quando se entra com a conta GitHub (não no modo de teste).</p>');
+    alvo.innerHTML = cartao('Ajuda (IA)', '<p class="suave">O assistente só funciona quando se entra com a tua conta (não no modo de teste).</p>');
     return;
   }
   const bolhas = AJUDA.map(m => `
@@ -2183,15 +2202,18 @@ async function perguntarAjuda(alvo, texto) {
   AJUDA_OCUPADO = true;
   ecraAjuda(alvo);
   try {
+    const cab = { 'apikey': SUPABASE_CHAVE, 'Content-Type': 'application/json' };
+    if (CFG.modo === 'email') { await renovarSessao(); cab['Authorization'] = 'Bearer ' + CFG.token; }
     const r = await fetch(URL_ASSISTENTE, {
       method: 'POST',
-      headers: { 'apikey': SUPABASE_CHAVE, 'Content-Type': 'application/json' },
+      headers: cab,
       body: JSON.stringify({ modo: 'gestor', gh: CFG.token, mensagens: AJUDA })
     });
     const j = await r.json().catch(() => ({}));
     if (j.limite) AJUDA.push({ eu: false, texto: 'Hoje já se fizeram muitas perguntas (o limite grátis do dia acabou). Tenta amanhã.' });
     else if (j.texto) AJUDA.push({ eu: false, texto: j.texto });
-    else if (r.status === 403) AJUDA.push({ eu: false, texto: 'A tua conta GitHub não está na lista de administradores.' });
+    else if (r.status === 401) AJUDA.push({ eu: false, texto: 'A tua sessão expirou. Sai e volta a entrar.' });
+    else if (r.status === 403) AJUDA.push({ eu: false, texto: CFG.modo === 'email' ? 'O assistente não confirmou o teu acesso. Sai e volta a entrar; se continuar, avisa o dono.' : 'Esta chave não é de um administrador.' });
     else AJUDA.push({ eu: false, texto: 'O assistente não está disponível agora. Tenta daqui a pouco.' + (j.erro ? ` (${j.erro})` : '') });
   } catch (e) {
     AJUDA.push({ eu: false, texto: 'Sem ligação ao assistente. Confirma a internet e tenta outra vez.' });
@@ -2345,7 +2367,7 @@ async function novaSondagem() {
              <p class="suave">Confirma nas imagens abaixo se está tudo bem.${CFG.modo === 'local' ? ' <b>Modo de teste:</b> nada vai ser enviado.' : ''}</p>`,
       sim: 'Sim, enviar'
     }),
-    nota: (CFG.modo === 'local' ? '<b>Modo de teste:</b> podes experimentar e pré-visualizar, mas a sondagem não é enviada. Para publicar a sério entra com a conta GitHub.<br><br>' : '') + 'Só aparece na app depois de outro administrador aprovar. Enquanto está aberta fica no topo do Início, no lugar da foto do BI; quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois vai para o "Histórico de sondagens" no menu ⋮. Cada telemóvel vota uma vez.',
+    nota: (CFG.modo === 'local' ? '<b>Modo de teste:</b> podes experimentar e pré-visualizar, mas a sondagem não é enviada. Para publicar a sério entra com a tua conta.<br><br>' : '') + (TESTE ? 'Fase de testes: a sondagem fica logo publicada.' : 'Só aparece na app depois de outro administrador aprovar.') + ' Enquanto está aberta fica no topo do Início, no lugar da foto do BI; quando termina, o resultado fica 48 horas por baixo do "Feito por benfiquistas" e depois vai para o "Histórico de sondagens" no menu ⋮. Cada telemóvel vota uma vez.',
     validar: x => {
       const o = String(x.opcoes || '').split('\n').map(t => t.trim()).filter(Boolean);
       if (!x.pergunta || x.pergunta.trim().length < 3) return 'Escreve a pergunta.';
@@ -2357,7 +2379,7 @@ async function novaSondagem() {
   if (!v) return;
   const opcoes = opcoesSondagem(v.opcoes);
   if (CFG.modo === 'local' || !CFG.token) {
-    aviso('Modo de teste: a sondagem NÃO foi enviada. Para a publicar, sai e entra com a conta GitHub.', true);
+    aviso('Modo de teste: a sondagem NÃO foi enviada. Para a publicar, sai e entra com a tua conta.', true);
     return;
   }
   try {
@@ -2375,7 +2397,7 @@ function ecraVotacoes(alvo, modo) {
   }
   if (CFG.modo === 'local') {
     alvo.innerHTML = cartao('Sondagens', `<p class="aviso mau">Estás no <b>modo de teste</b>: as sondagens não são enviadas para a app.
-      Para publicar a sério, sai (Definições › Sair) e entra com a conta GitHub.</p>
+      Para publicar a sério, sai (Definições › Sair) e entra com a tua conta.</p>
       <p class="suave">Podes na mesma experimentar o formulário e ver como a sondagem fica na app.</p>`,
       modo === 'fotos' ? '<button class="botao pequeno principal" data-nova-fotos>📸 Experimentar com fotos</button>'
         : '<button class="botao pequeno principal" data-nova>＋ Experimentar uma sondagem</button>');
@@ -2474,7 +2496,7 @@ function ecraVotacoes(alvo, modo) {
 let USO_DIAS = 30;
 function ecraEstatisticasApp(alvo) {
   if (CFG.modo === 'local') {
-    alvo.innerHTML = cartao('Estatísticas da app', '<p class="suave">Só funciona ao entrar com a conta GitHub (não no modo de teste).</p>');
+    alvo.innerHTML = cartao('Estatísticas da app', '<p class="suave">Só funciona ao entrar com a tua conta (não no modo de teste).</p>');
     return;
   }
   alvo.innerHTML = cartao('Estatísticas da app', '<p class="suave">A carregar…</p>');
@@ -2517,7 +2539,7 @@ function ecraEstatisticasApp(alvo) {
 /* --------------------------- Registo de atividade --------------------------- */
 function ecraAtividade(alvo) {
   if (CFG.modo === 'local') {
-    alvo.innerHTML = cartao('Registo de atividade', '<p class="suave">Só funciona ao entrar com a conta GitHub (não no modo de teste).</p>');
+    alvo.innerHTML = cartao('Registo de atividade', '<p class="suave">Só funciona ao entrar com a tua conta (não no modo de teste).</p>');
     return;
   }
   alvo.innerHTML = cartao('Registo de atividade', '<p class="suave">A carregar…</p>');
@@ -3141,7 +3163,8 @@ async function abrirApp() {
   await carregarDados();
   $('#ecra-entrar').classList.add('escondido');
   $('#app').classList.remove('escondido');
-  $('#barra-modo').textContent = CFG.modo === 'local' ? 'teste' : CFG.modo === 'email' ? 'email' : 'github';
+  $('#barra-modo').textContent = CFG.modo === 'local' ? 'teste' : CFG.modo === 'email' ? 'email' : 'emergência';
+  $('#fase-testes').classList.toggle('escondido', !TESTE);
   $('#barra-modo').classList.toggle('local', CFG.modo === 'local');
   $('#quem').textContent = CFG.nome || CFG.login;
   ECRAS_ATIVO = 'direto';
@@ -3157,6 +3180,9 @@ function pronto() {
   $('#entrar-esqueci').addEventListener('click', esqueciPalavra);
   $('#entrar-palavra').addEventListener('keydown', e => { if (e.key === 'Enter') entrarComEmail(); });
   $('#entrar-local').addEventListener('click', entrarLocal);
+  $('#entrar-emergencia').addEventListener('click', () => {
+    if (!$('#caixa-emergencia').classList.toggle('escondido')) $('#entrar-token').focus();
+  });
   $('#sair').addEventListener('click', sair);
   $('#sair-m').addEventListener('click', sair);
   $('#aprovacoes').addEventListener('click', () => irPara('painel'));

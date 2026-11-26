@@ -1,62 +1,57 @@
-# Benfica Independente — o que mudou (17/11/2026)
+# BI Estúdio — plataforma de gestão
 
-Trabalho começado no TRAE e terminado/corrigido no Claude. A pasta `TRAE` ficou intacta, só como registo.
-Antes de juntar tudo, o projeto anterior foi guardado em `Backups/BenficaIndependente_antes_TRAE_2026-11-17_2252.zip`.
+Publicada em https://benficaindependente.github.io (repositório `benficaindependente/benficaindependente.github.io`, ramo `main`).
+HTML/JS simples, alojado no GitHub Pages. Instala-se no telemóvel com "Adicionar ao ecrã principal".
 
-## App Android (pasta `BenficaIndependente`)
+## Onde estão os ficheiros
 
-Feito pelo TRAE e verificado:
-- **Podcasts:** abrem o vídeo do YouTube correspondente. Os episódios sem vídeo ficam escondidos e a visualização conta.
-- **Barra Patreon / publicidade:** por cima do menu, em todos os ecrãs, alterna de 5 em 5 segundos. O ecrã do Patreon abre ao tocar.
-- **Contacto e chat:**
-  - O formulário de contacto deixa escolher os gestores e abre o email já preenchido.
-  - O mini chat responde automaticamente e pergunta "com quem gostava de falar?".
-- **Notificações:** horário de silêncio e opção de esconder o texto no ecrã bloqueado.
-- **Vídeos:** barra de avanço e retoma no ponto onde se parou, mesmo depois de fechar a app.
-- **Aviso dos anúncios do YouTube:** um cartão explicativo, mostrado só uma vez. Não há salto automático de anúncios.
-- **Android Auto:** a pasta "Vídeos" aparece primeiro e tem o Direto à frente.
-- **Jogos:** a pílula "Classificação" saiu deste ecrã e continua no separador Benfica.
+| No computador | No repositório publicado |
+|---|---|
+| `Plataforma\novo\` | raiz (a plataforma atual) |
+| ficheiros soltos de `Plataforma\` (versão antiga) | `antigo/` |
+| `Plataforma\assistente\index.ts` | `assistente/index.ts` |
+| `Plataforma\*.sql` e este LEIA-ME | raiz |
 
-Corrigido / acabado agora:
-- Dois erros que impediam a compilação: barra de avanço no carro e botão das publicações.
-- A barra de avanço já não aparece no direto. Na lista de vídeos só aparece no vídeo que está a tocar.
-- **A app passou a ler o que se publica na plataforma:**
-  - destaque no Início (substitui o "Quem somos" entre datas);
-  - anúncios pagos na barra, com logótipo e frequência;
-  - publicações nos separadores Início, Artigos, Podcasts, Vídeos, Benfica e Agenda;
-  - notícias do BI no topo de Artigos;
-  - avisos, que chegam como notificação e como cartão no Início;
-  - cartão "Há uma versão nova".
-- **Cartão do Patreon no Início.**
-- **Novo tipo de alerta "Avisos do Benfica Independente"** em Alertas e toques.
+`/novo` no site só redireciona para a raiz.
 
-Ainda por preencher (conteúdo, não código):
-- Emails próprios de cada gestor em `ui/screens/ContactScreens.kt` → `Managers`. Hoje vão todos para o email geral.
-- Imagem do anúncio do Patreon em `AdsConfig.PATREON_IMAGE_URL`.
+## Publicar a plataforma
 
-## Plataforma de gestão (pasta `Plataforma`)
+1. Alterar os ficheiros em `Plataforma\novo\` e copiar para um clone do repositório do site.
+2. Subir o `?v=` dos ficheiros alterados em `index.html` e o número da cache em `servico.js` (`bi-estudio-vNN`).
+3. Commit e push em `main`.
 
-HTML/JS simples, sem servidor. Instala-se no telemóvel como app ("Adicionar ao ecrã principal").
-Grava no GitHub, no repositório `benfica-independente-dados`, que é o mesmo que a app lê.
+## Entrada
 
-Corrigido em relação à versão do TRAE:
-- **Entrada:** era um email escrito à mão, que qualquer pessoa podia inventar. Passou a ser a conta GitHub verdadeira de cada pessoa.
-- **Duas aprovações para tudo:** notícias, destaques, anúncios, publicações e avisos. Isto vale para criar, alterar e apagar.
-  - O botão "Publicar" que saltava a aprovação foi tirado.
-  - Uma alteração a algo já publicado não mexe na app até ser aprovada.
-- **Dados privados fora do repositório público:** os contactos e valores dos anunciantes, as notas internas e a monetização passam para um repositório privado à parte, `benfica-independente-gestao`. Esse repositório tem de ser criado no GitHub.
-- **Ecrã de Chat retirado:** a app não consegue escrever no GitHub sem um servidor, por isso nunca chegaria lá nenhuma mensagem. O chat da app continua a funcionar por email.
-- **Ecrãs da app possíveis para publicações:** agora correspondem aos da app. Antes havia "Loja", "Sócios", etc., que não existem.
-- **Painel com alertas:**
-  - o robô sem atualizar há mais de 12 horas;
-  - execuções do robô falhadas no GitHub Actions;
-  - o agente de IA inativo;
-  - menos de 2 administradores.
-- **Gravações em conflito:** quando duas pessoas gravam ao mesmo tempo, já não se apaga o trabalho de ninguém.
-- **Instalação:** passa a apanhar logo as versões novas da plataforma. Antes ficava presa na versão antiga.
-- **Robô:** já não falha quando a plataforma grava ao mesmo tempo que ele.
+- Normal: **conta Google** ou **email e palavra-passe** ("Primeiro acesso" na primeira vez). Só entra quem está na tabela `admins_email` (um dono acrescenta em **Administradores**).
+- Emergência (só o dono): ligação pequena **"Acesso de emergência (dono)"**, com uma chave GitHub. Esta entrada usa a lista `data/admins.json` do repositório de dados.
+- Chave de emergência: GitHub → Settings → Developer settings → Fine-grained tokens; *Resource owner* `benficaindependente`; repositório `benfica-independente-dados` (e `benfica-independente-gestao`, se existir); *Contents: Read and write* e *Actions: Read-only*.
 
-## O que ainda não existe
-- **Agente de IA no chat da app.** Precisa de um pequeno servidor para não pôr a chave do Gemini dentro da app.
-- **Versão iPhone / App Store.** Precisa de Mac, conta Apple Developer e reescrever a app.
-- **Responder ao chat a partir da plataforma.** Precisa de servidor.
+## Aprovações
+
+- **Fase de testes (agora): basta 1 administrador.** A plataforma mostra o aviso amarelo.
+- Para produção (2 aprovações): em `app.js`, `APROVACOES = 2`; no Supabase, SQL Editor:
+  `create or replace function public.bi_modo_teste() returns boolean language sql immutable as $$ select false $$;`
+  O assistente de IA lê este valor sozinho.
+
+## Base de dados (Supabase)
+
+- Correr no SQL Editor **`supabase-correcoes-2026-11-26.sql`**. Pode correr-se mais do que uma vez. No fim, cada linha deve dizer "tudo certo".
+- Os outros ficheiros `supabase*.sql` estão **já incluídos: não voltar a correr** (têm um bloqueio no topo depois das correções).
+- Montar uma base nova de raiz: correr primeiro os antigos pela ordem `supabase`, `assistente`, `estatisticas`, `sondagens`, `quadro-e-fotos`, `novidades`, `acesso`, `mvp`, `contas-e-participantes`, e só no fim as correções.
+- Casas do Benfica: só se aceitam as da tabela `casas_oficiais`. Se o `casas.json` ganhar casas novas, é preciso acrescentá-las a essa tabela.
+- Prognósticos: o servidor pergunta ao ESPN a hora do apito e recusa depois disso (tabela `jogos_apito`).
+
+## Assistente de IA (função `bi-assistente`)
+
+Não é publicada automaticamente. Depois de alterar `assistente\index.ts`:
+
+1. Supabase → projeto → **Edge Functions** → `bi-assistente` → separador **Code**.
+2. Substituir o conteúdo de `index.ts` por todo o ficheiro novo e carregar em **Deploy updates**.
+3. Confirmar que **Verify JWT** continua desligado.
+
+A chave `GEMINI_API_KEY` está nos Secrets do Supabase. Para gravar respostas, a função usa a chave de serviço que o Supabase lhe dá sozinho (`SUPABASE_SERVICE_ROLE_KEY`): não é preciso criar nada.
+Regras: só modelos flash-lite; nunca falar do Sporting nem do FC Porto. A lista de palavras está na função e em `data/Chat.kt` na app (têm de ser iguais).
+
+## Robô
+
+Corre no GitHub Actions (`benfica-independente-dados`) e é lançado por um "despertador" (Cloudflare) de 10 em 10 minutos. Pode atrasar-se; o painel da plataforma mostra a idade dos dados.

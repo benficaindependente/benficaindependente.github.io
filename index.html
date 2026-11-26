@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" href="icone-192.png">
 <link rel="apple-touch-icon" href="icone-512.png">
 <link rel="preload" href="fontes/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="estilos.css?v=9">
+<link rel="stylesheet" href="estilos.css?v=10">
 </head>
 <body>
 
@@ -35,24 +35,16 @@
     </p>
     <button id="entrar-local" class="botao largo fantasma">Experimentar sem internet (nada chega à app)</button>
 
-    <details class="ajuda">
-      <summary>Entrar com a chave do GitHub (só para o dono, em caso de emergência)</summary>
+    <p class="entrar-rodape">
+      <a href="privacidade.html">Privacidade</a>
+      <button type="button" id="entrar-emergencia" class="ligacao">Acesso de emergência (dono)</button>
+    </p>
+    <div id="caixa-emergencia" class="escondido">
       <label>Chave de acesso (GitHub)
         <input id="entrar-token" type="password" placeholder="github_pat_..." autocomplete="off">
       </label>
       <button id="entrar-botao" class="botao largo">Entrar com a chave</button>
-      <p class="suave">Como obter a chave:</p>
-      <ol>
-        <li>Cria uma conta gratuita em <b>github.com</b> (se ainda não tiveres) e diz o teu nome de utilizador ao dono.</li>
-        <li>O dono convida-te como colaborador do repositório <b>benfica-independente-dados</b>
-            (Settings → Collaborators) e acrescenta-te em <b>Administradores</b> aqui na plataforma.</li>
-        <li>No GitHub: a tua foto → Settings → Developer settings → Personal access tokens → <b>Fine-grained tokens</b> → Generate new token.</li>
-        <li>Em <i>Resource owner</i> escolhe <b>benficaindependente</b>; em <i>Repository access</i> escolhe <b>benfica-independente-dados</b>
-            (e <b>benfica-independente-gestao</b>, se existir).</li>
-        <li>Em <i>Permissions</i>: <b>Contents →  Read and write</b> e <b>Actions →  Read-only</b> (para os alertas do robô).</li>
-        <li>Copia a chave e cola-a aqui. Fica guardada só neste dispositivo. Nunca a envies a ninguém.</li>
-      </ol>
-    </details>
+    </div>
 
     <p id="entrar-erro" class="erro"></p>
   </div>
@@ -65,7 +57,7 @@
       <img src="icone-192.png" alt="" class="barra-logo">
       <div>
         <strong>BI Estúdio</strong>
-        <span id="barra-modo" class="etiqueta">github</span>
+        <span id="barra-modo" class="etiqueta"></span>
       </div>
     </div>
     <nav id="menu" class="menu"></nav>
@@ -82,6 +74,7 @@
       <button id="aprovacoes" class="aviso-aprovacoes escondido"></button>
       <button id="sair-m" class="botao pequeno fantasma so-telemovel">Sair</button>
     </header>
+    <div id="fase-testes" class="fase-testes escondido" role="status">⚠ Fase de testes: basta 1 aprovação. O que gravares fica logo publicado, sem ninguém rever.</div>
     <nav id="subnav" class="subnav escondido"></nav>
     <div id="aviso" class="aviso escondido"></div>
     <div id="ecra" class="ecra"></div>
@@ -93,10 +86,10 @@
 
 <div id="carregando" class="carregando escondido"><div class="roda"></div></div>
 
-<script src="quadro.js?v=19"></script>
-<script src="participacao.js?v=5"></script>
-<script src="participantes.js?v=6"></script>
-<script src="app.js?v=11"></script>
+<script src="quadro.js?v=20"></script>
+<script src="participacao.js?v=6"></script>
+<script src="participantes.js?v=7"></script>
+<script src="app.js?v=12"></script>
 <script src="estilo.js?v=1"></script>
 </body>
 </html>

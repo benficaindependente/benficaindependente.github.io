@@ -1,3 +1,15 @@
+-- #####################################################################
+-- JÁ INCLUÍDO — não voltar a correr.
+-- Este ficheiro fica só como registo. A versão em vigor das correções está em
+-- supabase-correcoes-2026-11-26.sql (esse pode correr-se as vezes que for preciso).
+-- O bloco abaixo trava este ficheiro se as correções já tiverem sido aplicadas.
+-- #####################################################################
+do $$ begin
+  if to_regclass('public.casas_oficiais') is not null then
+    raise exception 'Este ficheiro é antigo: não voltar a correr. Nada foi alterado.';
+  end if;
+end $$;
+
 -- =====================================================================
 -- Benfica Independente — "Homem do jogo" (MVP): terminar a votação a qualquer momento.
 -- Corre depois de supabase-sondagens.sql e supabase-acesso.sql. Pode correr-se mais de uma vez.

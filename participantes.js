@@ -279,7 +279,7 @@ async function abaIdades(alvo) {
         || '<tr><td colspan="7"><p class="suave">Ainda ninguém escreveu a data de nascimento.</p></td></tr>'}
     </table></div>`) +
     cartao('Aniversários', `${hoje.length ? `<p style="margin:0 0 12px">🎂 <b>Faz anos hoje:</b> ${hoje.map(a => `${esc(a.nome)} (${a.idade} anos)`).join(', ')}.</p>` : ''}
-      <p class="suave">Quem tem conta e escreveu a data recebe sozinho, <b>às 00h01 do dia de anos</b>, uma mensagem de parabéns da equipa do Benfica Independente (sem som, para não acordar ninguém). Aqui vês quem faz anos nos próximos 30 dias, se quiseres juntar uma publicação ou um aviso.</p>
+      <p class="suave">Quem tem conta e escreveu a data recebe sozinho, <b>às 00h01 do dia de anos</b>, uma mensagem de parabéns da equipa do Benfica Independente (sempre sem som, para não acordar ninguém). Aqui vês quem faz anos nos próximos 30 dias, se quiseres juntar uma publicação ou um aviso.</p>
       <div class="tabela-rolar"><table class="tabela"><tr><th>Dia</th><th>Aparece como</th><th class="direita">Idade que faz</th><th class="direita">Faltam</th></tr>
       ${(d.aniversarios || []).map(a => `<tr><td>${esc(dataDia(a.dia))}</td><td><b>${esc(a.nome)}</b></td><td class="direita">${numero(a.idade)}</td><td class="direita">${a.dias_ate === 0 ? '<span class="pilula ok">Hoje 🎂</span>' : a.dias_ate + (a.dias_ate === 1 ? ' dia' : ' dias')}</td></tr>`).join('')
         || '<tr><td colspan="4"><p class="suave">Ninguém faz anos nos próximos 30 dias.</p></td></tr>'}</table></div>`) +
